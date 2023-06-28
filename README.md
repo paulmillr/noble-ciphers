@@ -149,9 +149,9 @@ const key = randomBytes(32);
 const data = utf8ToBytes('hello, noble'); // strings must be converted to Uint8Array
 
 const nonce = randomBytes(24);
-const stream_x = xsalsa20_poly1305(key, nonce);
-const ciphertext = stream_x.encrypt(data);
-const plaintext = stream_x.decrypt(ciphertext); // === data
+const stream_x = xsalsa20_poly1305(key, nonce); // === secretbox(key, nonce)
+const ciphertext = stream_x.encrypt(data);      // === secretbox.seal(data)
+const plaintext = stream_x.decrypt(ciphertext); // === secretbox.open(ciphertext)
 
 // We provide sodium secretbox alias, which is just xsalsa20_poly1305
 const box = secretbox(key, nonce);
