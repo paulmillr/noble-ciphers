@@ -247,16 +247,28 @@ using chacha-poly or xsalsa-poly.
 ### AES
 
 ```js
+import {
+  aes_128_gcm, aes_128_ctr, aes_128_cbc,
+  aes_256_gcm, aes_256_ctr, aes_256_cbc
+} from '@noble/ciphers/webcrypto/aes';
+
+for (let cipher of [aes_256_gcm, aes_256_ctr, aes_256_cbc]) {
+  const stream_new = cipher(key, nonce);
+  const ciphertext_new = await stream_new.encrypt(plaintext);
+  const plaintext_new = await stream_new.decrypt(ciphertext);
+}
+
 import { aes_256_gcm_siv } from '@noble/ciphers/webcrypto/siv';
-const stream = aes_256_gcm_siv(key, nonce)
-stream.encrypt(plaintext, AAD);
+const stream_siv = aes_256_gcm_siv(key, nonce)
+await stream_siv.encrypt(plaintext, AAD);
 ```
 
 AES ([wiki](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard))
 is a variant of Rijndael block cipher, standardized by NIST.
 
 We don't implement AES in pure JS for now: instead, we wrap WebCrypto built-in
-and provide an improved, simple API.
+and provide an improved, simple API. There is a simple reason for this:
+webcrypto API is terrible: different block modes require different params.
 
 Optional [AES-GCM-SIV](https://en.wikipedia.org/wiki/AES-GCM-SIV)
 (synthetic initialization vector) nonce-misuse-resistant mode is also provided.
