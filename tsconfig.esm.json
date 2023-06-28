@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "strict": true,
+        "outDir": "esm",
+        "target": "es2020",
+        "module": "es6",
+        "moduleResolution": "node",
+        "sourceMap": true,
+        "inlineSources": false,
+        "noUnusedLocals": true,
+        "baseUrl": ".",
+        "paths": {
+            "@noble/ciphers/webcrypto/crypto": [ "src/webcrypto/crypto" ]
+        },
+    },
+    "include": ["src"],
+    "exclude": [
+        "node_modules",
+        "lib",
+    ],
+}

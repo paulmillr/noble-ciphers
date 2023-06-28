@@ -1,0 +1,8 @@
+{
+  "files.exclude": {
+    "*.{js,d.ts,js.map,d.ts.map}": true,
+    "esm/*.{js,d.ts,js.map,d.ts.map}": true,
+    "webcrypto": true,
+    "esm/webcrypto": true
+  }
+}

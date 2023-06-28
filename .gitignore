@@ -1,0 +1,13 @@
+node_modules
+/build/
+/*.js
+/*.d.ts
+/*.js.map
+/*.d.ts.map
+/esm/*.js
+/esm/*.d.ts
+/esm/*.js.map
+/esm/*.d.ts.map
+/lib
+/webcrypto/
+/esm/webcrypto/

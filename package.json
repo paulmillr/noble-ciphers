@@ -1,0 +1,123 @@
+{
+  "name": "@noble/ciphers",
+  "version": "0.1.0",
+  "description": "Auditable & minimal JS implementation of AES SIV, Salsa20 and ChaCha20 ciphers",
+  "files": [
+    "esm",
+    "src",
+    "*.js",
+    "*.js.map",
+    "*.d.ts",
+    "*.d.ts.map"
+  ],
+  "scripts": {
+    "bench": "node benchmark/index.js noble",
+    "bench:all": "node benchmark/index.js",
+    "bench:install": "cd benchmark && npm install && cd ../../",
+    "build": "npm run build:clean; tsc && tsc -p tsconfig.esm.json",
+    "build:release": "cd build; npm i; npm run build",
+    "build:clean": "rm *.{js,d.ts,js.map} esm/*.{js,js.map} webcrypto esm/webcrypto 2> /dev/null",
+    "lint": "prettier --check 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
+    "format": "prettier --write 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
+    "test": "node test/index.js"
+  },
+  "author": "Paul Miller (https://paulmillr.com)",
+  "homepage": "https://paulmillr.com/noble/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/paulmillr/noble-curves.git"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@scure/base": "^1.1.1",
+    "fast-check": "3.0.0",
+    "micro-bmark": "0.3.1",
+    "micro-should": "0.4.0",
+    "prettier": "2.8.4",
+    "typescript": "5.0.2"
+  },
+  "main": "index.js",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./esm/index.js",
+      "default": "./index.js"
+    },
+    "./webcrypto/crypto": {
+      "types": "./webcrypto/crypto.d.ts",
+      "node": {
+        "import": "./esm/webcrypto/cryptoNode.js",
+        "default": "./webcrypto/cryptoNode.js"
+      },
+      "import": "./esm/webcrypto/crypto.js",
+      "default": "./webcrypto/crypto.js"
+    },
+    "./_slow": {
+      "types": "./_slow.d.ts",
+      "import": "./esm/_slow.js",
+      "default": "./_slow.js"
+    },
+    "./chacha": {
+      "types": "./chacha.d.ts",
+      "import": "./esm/chacha.js",
+      "default": "./chacha.js"
+    },
+    "./salsa": {
+      "types": "./salsa.d.ts",
+      "import": "./esm/salsa.js",
+      "default": "./salsa.js"
+    },
+    "./utils": {
+      "types": "./utils.d.ts",
+      "import": "./esm/utils.js",
+      "default": "./utils.js"
+    },
+    "./index": {
+      "types": "./index.d.ts",
+      "import": "./esm/index.js",
+      "default": "./index.js"
+    },
+    "./webcrypto/aes": {
+      "types": "./webcrypto/aes.d.ts",
+      "import": "./esm/webcrypto/aes.js",
+      "default": "./webcrypto/aes.js"
+    },
+    "./webcrypto/siv": {
+      "types": "./webcrypto/siv.d.ts",
+      "import": "./esm/webcrypto/siv.js",
+      "default": "./webcrypto/siv.js"
+    },
+    "./webcrypto/ff1": {
+      "types": "./webcrypto/ff1.d.ts",
+      "import": "./esm/webcrypto/ff1.js",
+      "default": "./webcrypto/ff1.js"
+    },
+    "./webcrypto/utils": {
+      "types": "./webcrypto/utils.d.ts",
+      "import": "./esm/webcrypto/utils.js",
+      "default": "./webcrypto/utils.js"
+    }
+  },
+  "browser": {
+    "node:crypto": false,
+    "./webcrypto/crypto": "./webcrypto/crypto.js"
+  },
+  "keywords": [
+    "cryptography",
+    "crypto",
+    "noble",
+    "cipher",
+    "ciphers",
+    "aes",
+    "gcm",
+    "siv",
+    "salsa20",
+    "chacha20",
+    "xsalsa20",
+    "xchacha20",
+    "poly1305",
+    "secretbox",
+    "rijndael"
+  ],
+  "funding": "https://paulmillr.com/funding/"
+}
