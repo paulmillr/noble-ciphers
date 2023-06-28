@@ -1,10 +1,11 @@
 {
   "name": "@noble/ciphers",
   "version": "0.1.0",
-  "description": "Auditable & minimal JS implementation of AES SIV, Salsa20 and ChaCha20 ciphers",
+  "description": "Auditable & minimal JS implementation of AES SIV, Salsa20 and ChaCha20",
   "files": [
     "esm",
     "src",
+    "webcrypto",
     "*.js",
     "*.js.map",
     "*.d.ts",
@@ -29,7 +30,7 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@scure/base": "^1.1.1",
+    "@scure/base": "1.1.1",
     "fast-check": "3.0.0",
     "micro-bmark": "0.3.1",
     "micro-should": "0.4.0",
@@ -56,6 +57,11 @@
       "types": "./_slow.d.ts",
       "import": "./esm/_slow.js",
       "default": "./_slow.js"
+    },
+    "./_poly1305": {
+      "types": "./_poly1305.d.ts",
+      "import": "./esm/_poly1305.js",
+      "default": "./_poly1305.js"
     },
     "./chacha": {
       "types": "./chacha.d.ts",
