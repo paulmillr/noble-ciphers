@@ -1,13 +1,13 @@
 # noble-ciphers
 
-Auditable & minimal JS implementation of AES SIV, Salsa20 and ChaCha20.
+Auditable & minimal JS implementation of Salsa20, ChaCha, Poly1305 & AES-SIV
 
 - 🔒 Auditable
 - 🔻 Tree-shaking-friendly: use only what's necessary, other code won't be included
 - 🏎 [Ultra-fast](#speed), hand-optimized for caveats of JS engines
 - 🔍 Unique tests ensure correctness: property-based, cross-library and Wycheproof vectors
 - 💼 AES: GCM (Galois Counter Mode), SIV (Nonce Misuse-Resistant encryption)
-- 💃 Salsa20, ChaCha20, XSalsa20, XChaCha20, Poly1305, ChaCha8, ChaCha12
+- 💃 Salsa20, ChaCha, XSalsa20, XChaCha, Poly1305, ChaCha8, ChaCha12
 - ✍️ FF1 format-preserving encryption
 - 🧂 Compatible with NaCl / libsodium secretbox
 - 🪶 Just 500 lines / 4KB gzipped for Salsa + ChaCha + Poly build
@@ -115,7 +115,7 @@ ChaCha20 and AES-GCM use 96-bit / 12-byte nonces, which implies
 higher chance of collision. In the example above,
 `random()` can collide and produce repeating nonce.
 
-To safely use random nonces, utilize XSalsa20 or XChaCha20:
+To safely use random nonces, utilize XSalsa20 or XChaCha:
 they increased nonce length to 192-bit, minimizing a chance of collision.
 AES-SIV is also fine. In situations where you can't use eXtended-nonce
 algorithms, key rotation is advised. hkdf would work great for this case.
