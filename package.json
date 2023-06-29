@@ -1,6 +1,6 @@
 {
   "name": "@noble/ciphers",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Auditable & minimal JS implementation of Salsa20, ChaCha, Poly1305 & AES-SIV",
   "files": [
     "esm",
