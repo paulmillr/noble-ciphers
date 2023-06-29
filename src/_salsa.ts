@@ -84,6 +84,8 @@ export const salsaBasic = (opts: SalsaOpts) => {
   assert.number(blockLen);
   assert.bool(counterRight);
   assert.bool(allow128bitKeys);
+  const blockLen32 = blockLen / 4;
+  if (blockLen % 4 !== 0) throw new Error('Salsa/ChaCha: blockLen should be aligned to 4 bytes');
   return (
     key: Uint8Array,
     nonce: Uint8Array,
@@ -144,12 +146,24 @@ export const salsaBasic = (opts: SalsaOpts) => {
     const b32 = u32(block);
     const k32 = u32(k);
     const n32 = u32(nonce);
+    const d32 = u32(data);
+    const o32 = u32(output);
     toClean.push(b32);
-    for (let i = 0, ctr = counter; i < data.length; i += blockLen, ctr++) {
+    const len = data.length;
+    for (let pos = 0, ctr = counter; pos < len; ctr++) {
       core(sigma, k32, n32, b32, ctr, rounds);
-      // TODO: case output to u32 && try to xor full blocks via u32?
-      for (let j = i; j < i + blockLen && j < data.length; j++) output[j] = data[j] ^ block[j - i];
       if (ctr >= 2 ** 32 - 1) throw new Error('Salsa/ChaCha: counter overflow');
+      const take = Math.min(blockLen, len - pos);
+      // Fast path: we have at least one block in input
+      if (take === blockLen) {
+        const pos32 = pos / 4;
+        if (pos % 4 !== 0) throw new Error('Salsa/ChaCha: wrong block position');
+        for (let j = 0; j < blockLen32; j++) o32[pos32 + j] = d32[pos32 + j] ^ b32[j];
+        pos += blockLen;
+        continue;
+      }
+      for (let j = 0; j < take; j++) output[pos + j] = data[pos + j] ^ block[j];
+      pos += take;
     }
     for (let i = 0; i < toClean.length; i++) toClean[i].fill(0);
     return output;
