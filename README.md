@@ -356,19 +356,19 @@ encrypt (8KB)
 └─xchacha20poly1305 x 17,208 ops/sec @ 58μs/op
 
 encrypt (1MB)
-├─salsa x 249 ops/sec @ 4ms/op
-├─chacha x 250 ops/sec @ 3ms/op
-├─xsalsa x 249 ops/sec @ 4ms/op
-├─xchacha x 250 ops/sec @ 3ms/op
-├─xsalsa20_poly1305 x 142 ops/sec @ 7ms/op
-├─chacha20_poly1305 x 143 ops/sec @ 6ms/op
-└─xchacha20poly1305 x 143 ops/sec @ 6ms/op
+├─salsa x 439 ops/sec @ 2ms/op
+├─chacha x 462 ops/sec @ 2ms/op
+├─xsalsa x 446 ops/sec @ 2ms/op
+├─xchacha x 455 ops/sec @ 2ms/op
+├─xsalsa20_poly1305 x 178 ops/sec @ 5ms/op
+├─chacha20_poly1305 x 184 ops/sec @ 5ms/op
+└─xchacha20poly1305 x 185 ops/sec @ 5ms/op
 ```
 
 How does this compare to other implementations?
 
-- node.js native code is 3-10x faster than noble-ciphers
-- tweetnacl is 25% slower than noble-ciphers on 1KB+ inputs
+- node.js native code is 3-7x faster than noble-ciphers
+- tweetnacl is 25-50% slower than noble-ciphers on 1KB+ inputs
 - noble-slow "slow, but more readable" version of noble-ciphers is 3-8x slower
   (check out `_slow.ts`)
 
