@@ -320,69 +320,65 @@ Benchmark results on Apple M2 with node v20:
 
 ```
 encrypt (32B)
-├─salsa x 1,562,500 ops/sec @ 640ns/op
-├─chacha x 1,968,503 ops/sec @ 508ns/op
-├─xsalsa x 969,932 ops/sec @ 1μs/op
-├─xchacha x 959,692 ops/sec @ 1μs/op
-├─xsalsa20_poly1305 x 554,631 ops/sec @ 1μs/op
-├─chacha20_poly1305 x 542,888 ops/sec @ 1μs/op
-└─xchacha20poly1305 x 346,140 ops/sec @ 2μs/op
+├─salsa x 1,210,653 ops/sec @ 826ns/op
+├─chacha x 1,440,922 ops/sec @ 694ns/op
+├─xsalsa x 846,023 ops/sec @ 1μs/op
+├─xchacha x 842,459 ops/sec @ 1μs/op
+├─xsalsa20_poly1305 x 562,746 ops/sec @ 1μs/op
+├─chacha20_poly1305 x 468,603 ops/sec @ 2μs/op
+└─xchacha20poly1305 x 311,623 ops/sec @ 3μs/op
 
 encrypt (64B)
-├─salsa x 1,392,757 ops/sec @ 718ns/op
-├─chacha x 1,709,401 ops/sec @ 585ns/op
-├─xsalsa x 892,857 ops/sec @ 1μs/op
-├─xchacha x 888,099 ops/sec @ 1μs/op
-├─xsalsa20_poly1305 x 476,871 ops/sec @ 2μs/op
-├─chacha20_poly1305 x 488,997 ops/sec @ 2μs/op
-└─xchacha20poly1305 x 326,157 ops/sec @ 3μs/op
+├─salsa x 1,310,615 ops/sec @ 763ns/op
+├─chacha x 1,577,287 ops/sec @ 634ns/op
+├─xsalsa x 864,304 ops/sec @ 1μs/op
+├─xchacha x 862,068 ops/sec @ 1μs/op
+├─xsalsa20_poly1305 x 481,000 ops/sec @ 2μs/op
+├─chacha20_poly1305 x 446,627 ops/sec @ 2μs/op
+└─xchacha20poly1305 x 302,480 ops/sec @ 3μs/op
 
 encrypt (1KB)
-├─salsa x 219,780 ops/sec @ 4μs/op
-├─chacha x 227,634 ops/sec @ 4μs/op
-├─xsalsa x 204,290 ops/sec @ 4μs/op
-├─xchacha x 203,873 ops/sec @ 4μs/op
-├─xsalsa20_poly1305 x 116,049 ops/sec @ 8μs/op
-├─chacha20_poly1305 x 116,522 ops/sec @ 8μs/op
-└─xchacha20poly1305 x 103,487 ops/sec @ 9μs/op
+├─salsa x 356,506 ops/sec @ 2μs/op
+├─chacha x 380,952 ops/sec @ 2μs/op
+├─xsalsa x 312,891 ops/sec @ 3μs/op
+├─xchacha x 318,674 ops/sec @ 3μs/op
+├─xsalsa20_poly1305 x 143,864 ops/sec @ 6μs/op
+├─chacha20_poly1305 x 141,703 ops/sec @ 7μs/op
+└─xchacha20poly1305 x 122,895 ops/sec @ 8μs/op
 
 encrypt (8KB)
-├─salsa x 30,695 ops/sec @ 32μs/op
-├─chacha x 30,817 ops/sec @ 32μs/op
-├─xsalsa x 30,193 ops/sec @ 33μs/op
-├─xchacha x 30,255 ops/sec @ 33μs/op
-├─xsalsa20_poly1305 x 17,402 ops/sec @ 57μs/op
-├─chacha20_poly1305 x 17,513 ops/sec @ 57μs/op
-└─xchacha20poly1305 x 17,208 ops/sec @ 58μs/op
+├─salsa x 56,170 ops/sec @ 17μs/op
+├─chacha x 57,997 ops/sec @ 17μs/op
+├─xsalsa x 54,758 ops/sec @ 18μs/op
+├─xchacha x 56,085 ops/sec @ 17μs/op
+├─xsalsa20_poly1305 x 23,203 ops/sec @ 43μs/op
+├─chacha20_poly1305 x 23,482 ops/sec @ 42μs/op
+└─xchacha20poly1305 x 22,900 ops/sec @ 43μs/op
 
 encrypt (1MB)
-├─salsa x 439 ops/sec @ 2ms/op
-├─chacha x 462 ops/sec @ 2ms/op
-├─xsalsa x 446 ops/sec @ 2ms/op
-├─xchacha x 455 ops/sec @ 2ms/op
-├─xsalsa20_poly1305 x 178 ops/sec @ 5ms/op
-├─chacha20_poly1305 x 184 ops/sec @ 5ms/op
-└─xchacha20poly1305 x 185 ops/sec @ 5ms/op
+├─salsa x 462 ops/sec @ 2ms/op
+├─chacha x 473 ops/sec @ 2ms/op
+├─xsalsa x 463 ops/sec @ 2ms/op
+├─xchacha x 474 ops/sec @ 2ms/op
+├─xsalsa20_poly1305 x 190 ops/sec @ 5ms/op
+├─chacha20_poly1305 x 193 ops/sec @ 5ms/op
+└─xchacha20poly1305 x 192 ops/sec @ 5ms/op
+
 ```
 
-How does this compare to other implementations?
-
-- node.js native code is 3-7x faster than noble-ciphers
-- tweetnacl is 25-50% slower than noble-ciphers on 1KB+ inputs
-- noble-slow "slow, but more readable" version of noble-ciphers is 3-8x slower
-  (check out `_slow.ts`)
+Compare to other implementations (slow is `_slow.ts`):
 
 ```
 xsalsa20_poly1305 (encrypt, 1MB)
-├─tweetnacl x 112 ops/sec @ 8ms/op
-├─noble x 142 ops/sec @ 7ms/op
-└─noble-slow x 20 ops/sec @ 47ms/op
+├─tweetnacl x 108 ops/sec @ 9ms/op
+├─noble x 190 ops/sec @ 5ms/op
+└─slow x 21 ops/sec @ 47ms/op
 
 chacha20_poly1305 (encrypt, 1MB)
-├─node x 1,369 ops/sec @ 729μs/op
-├─stablelib x 120 ops/sec @ 8ms/op
-├─noble x 142 ops/sec @ 7ms/op
-└─noble-slow x 19 ops/sec @ 51ms/op
+├─node x 1,360 ops/sec @ 735μs/op
+├─stablelib x 117 ops/sec @ 8ms/op
+├─noble x 193 ops/sec @ 5ms/op
+└─slow x 19 ops/sec @ 50ms/op
 ```
 
 ## Contributing & testing
