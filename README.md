@@ -12,9 +12,6 @@ Auditable & minimal JS implementation of Salsa20, ChaCha, Poly1305 & AES-SIV
 - 🧂 Compatible with NaCl / libsodium secretbox
 - 🪶 Just 500 lines / 4KB gzipped for Salsa + ChaCha + Poly build
 
-`_micro` file contains minimal, readable implementation of algorithms.
-Other files contain unrolled loops, which are fast, but less auditable.
-
 ### This library belongs to _noble_ crypto
 
 > **noble-crypto** — high-security, easily auditable set of contained cryptographic libraries and tools.
@@ -75,7 +72,8 @@ const plaintext_aes = await stream_a.decrypt(ciphertext_aes); // === data
 import { aes_256_gcm_siv } from '@noble/ciphers/webcrypto/siv';
 import { FF1, BinaryFF1 } from '@noble/ciphers/webcrypto/ff1';
 
-// All algoritms, written in minimal, auditable way
+// All algoritms, written in minimal, auditable way.
+// Other files contain unrolled loops, which are 5x faster, but less auditable.
 import * as ciphers from '@noble/ciphers/_micro';
 ```
 
