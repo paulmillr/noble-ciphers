@@ -1,4 +1,4 @@
-import * as utils from './utils.js';
+import { Cipher, createView, ensureBytes, equalBytes, setBigUint64, u32 } from './utils.js';
 import { poly1305 } from './_poly1305.js';
 import { salsaBasic } from './_salsa.js';
 
@@ -75,9 +75,9 @@ function chachaCore(c: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32A
 }
 // prettier-ignore
 export function hchacha(c: Uint32Array, key: Uint8Array, src: Uint8Array, dst: Uint8Array): Uint8Array {
-  const k32 = utils.u32(key);
-  const i32 = utils.u32(src);
-  const o32 = utils.u32(dst);
+  const k32 = u32(key);
+  const i32 = u32(src);
+  const o32 = u32(dst);
   let x00 = c[0],   x01 = c[1],   x02 = c[2],   x03 = c[3];
   let x04 = k32[0], x05 = k32[1], x06 = k32[2], x07 = k32[3];
   let x08 = k32[4], x09 = k32[5], x10 = k32[6], x11 = k32[7]
@@ -186,9 +186,9 @@ const computeTag = (
   if (AAD) updatePadded(h, AAD);
   updatePadded(h, data);
   const num = new Uint8Array(16);
-  const view = utils.createView(num);
-  utils.setBigUint64(view, 0, BigInt(AAD ? AAD.length : 0), true);
-  utils.setBigUint64(view, 8, BigInt(data.length), true);
+  const view = createView(num);
+  setBigUint64(view, 0, BigInt(AAD ? AAD.length : 0), true);
+  setBigUint64(view, 8, BigInt(data.length), true);
   h.update(num);
   const res = h.digest();
   authKey.fill(0);
@@ -204,10 +204,10 @@ const computeTag = (
 // Algo from RFC 7539.
 export const _poly1305_aead =
   (fn: typeof chacha20) =>
-  (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): utils.Cipher => {
+  (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher => {
     const tagLength = 16;
-    utils.ensureBytes(key, 32);
-    utils.ensureBytes(nonce);
+    ensureBytes(key, 32);
+    ensureBytes(nonce);
     return {
       tagLength,
       encrypt: (plaintext: Uint8Array) => {
@@ -223,7 +223,7 @@ export const _poly1305_aead =
         const realTag = ciphertext.subarray(-tagLength);
         const data = ciphertext.subarray(0, -tagLength);
         const tag = computeTag(fn, key, nonce, data, AAD);
-        if (!utils.equalBytes(realTag, tag)) throw new Error('Wrong tag');
+        if (!equalBytes(realTag, tag)) throw new Error('Wrong tag');
         return fn(key, nonce, data, undefined, 1);
       },
     };

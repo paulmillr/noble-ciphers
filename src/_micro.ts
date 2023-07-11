@@ -4,7 +4,7 @@
 // Implements the same algorithms that are present in other files,
 // but without unrolled loops (https://en.wikipedia.org/wiki/Loop_unrolling).
 
-import * as utils from './utils.js';
+import * as u from './utils.js';
 import { salsaBasic } from './_salsa.js';
 // Utils
 function hexToNumber(hex: string): bigint {
@@ -13,10 +13,10 @@ function hexToNumber(hex: string): bigint {
   return BigInt(hex === '' ? '0' : `0x${hex}`);
 }
 function bytesToNumberLE(bytes: Uint8Array): bigint {
-  return hexToNumber(utils.bytesToHex(Uint8Array.from(bytes).reverse()));
+  return hexToNumber(u.bytesToHex(Uint8Array.from(bytes).reverse()));
 }
 function numberToBytesLE(n: number | bigint, len: number): Uint8Array {
-  return utils.hexToBytes(n.toString(16).padStart(len * 2, '0')).reverse();
+  return u.hexToBytes(n.toString(16).padStart(len * 2, '0')).reverse();
 }
 
 const rotl = (a: number, b: number) => (a << b) | (a >>> (32 - b));
@@ -83,8 +83,8 @@ function salsaCore(
 }
 
 export function hsalsa(c: Uint32Array, key: Uint8Array, nonce: Uint8Array): Uint8Array {
-  const k = utils.u32(key);
-  const i = utils.u32(nonce);
+  const k = u.u32(key);
+  const i = u.u32(nonce);
   // prettier-ignore
   const x = new Uint32Array([
     c[0], k[0], k[1], k[2],
@@ -93,7 +93,7 @@ export function hsalsa(c: Uint32Array, key: Uint8Array, nonce: Uint8Array): Uint
     k[5], k[6], k[7], c[3]
   ]);
   salsaRound(x);
-  return utils.u8(new Uint32Array([x[0], x[5], x[10], x[15], x[6], x[7], x[8], x[9]]));
+  return u.u8(new Uint32Array([x[0], x[5], x[10], x[15], x[6], x[7], x[8], x[9]]));
 }
 
 function chachaCore(
@@ -117,8 +117,8 @@ function chachaCore(
 }
 
 export function hchacha(c: Uint32Array, key: Uint8Array, nonce: Uint8Array): Uint8Array {
-  const k = utils.u32(key);
-  const i = utils.u32(nonce);
+  const k = u.u32(key);
+  const i = u.u32(nonce);
   // prettier-ignore
   const x = new Uint32Array([
     c[0], c[1], c[2], c[3],
@@ -127,7 +127,7 @@ export function hchacha(c: Uint32Array, key: Uint8Array, nonce: Uint8Array): Uin
     i[0], i[1], i[2], i[3],
   ]);
   chachaRound(x);
-  return utils.u8(new Uint32Array([x[0], x[1], x[2], x[3], x[12], x[13], x[14], x[15]]));
+  return u.u8(new Uint32Array([x[0], x[1], x[2], x[3], x[12], x[13], x[14], x[15]]));
 }
 
 // Specific implementations
@@ -174,8 +174,8 @@ const POW_2_130_5 = 2n ** 130n - 5n;
 const POW_2_128_1 = 2n ** (16n * 8n) - 1n;
 // Can be speed-up using BigUint64Array, but use take more code
 export function poly1305(msg: Uint8Array, key: Uint8Array): Uint8Array {
-  utils.ensureBytes(msg);
-  utils.ensureBytes(key);
+  u.ensureBytes(msg);
+  u.ensureBytes(key);
   let acc = 0n;
   const r = bytesToNumberLE(key.subarray(0, 16)) & 0x0ffffffc0ffffffc0ffffffc0fffffffn;
   const s = bytesToNumberLE(key.subarray(16));
@@ -207,35 +207,35 @@ function computeTag(
   if (leftover > 0) res.push(new Uint8Array(16 - leftover));
   // Lengths
   const num = new Uint8Array(16);
-  const view = utils.createView(num);
-  utils.setBigUint64(view, 0, BigInt(AAD ? AAD.length : 0), true);
-  utils.setBigUint64(view, 8, BigInt(ciphertext.length), true);
+  const view = u.createView(num);
+  u.setBigUint64(view, 0, BigInt(AAD ? AAD.length : 0), true);
+  u.setBigUint64(view, 8, BigInt(ciphertext.length), true);
   res.push(num);
   const authKey = fn(key, nonce, new Uint8Array(32));
-  return poly1305(utils.concatBytes(...res), authKey);
+  return poly1305(u.concatBytes(...res), authKey);
 }
 
 // Also known as 'tweetnacl secretbox'
 export function xsalsa20_poly1305(key: Uint8Array, nonce: Uint8Array) {
-  utils.ensureBytes(key);
-  utils.ensureBytes(nonce);
+  u.ensureBytes(key);
+  u.ensureBytes(nonce);
   return {
     encrypt: (plaintext: Uint8Array) => {
-      utils.ensureBytes(plaintext);
-      const m = utils.concatBytes(new Uint8Array(32), plaintext);
+      u.ensureBytes(plaintext);
+      const m = u.concatBytes(new Uint8Array(32), plaintext);
       const c = xsalsa20(key, nonce, m);
       const authKey = c.subarray(0, 32);
       const data = c.subarray(32);
       const tag = poly1305(data, authKey);
-      return utils.concatBytes(tag, data);
+      return u.concatBytes(tag, data);
     },
     decrypt: (ciphertext: Uint8Array) => {
-      utils.ensureBytes(ciphertext);
+      u.ensureBytes(ciphertext);
       if (ciphertext.length < 16) throw new Error('Encrypted data should be at least 16 bytes');
-      const c = utils.concatBytes(new Uint8Array(16), ciphertext);
+      const c = u.concatBytes(new Uint8Array(16), ciphertext);
       const authKey = xsalsa20(key, nonce, new Uint8Array(32));
       const tag = poly1305(c.subarray(32), authKey);
-      if (!utils.equalBytes(c.subarray(16, 32), tag)) throw new Error('Wrong tag');
+      if (!u.equalBytes(c.subarray(16, 32), tag)) throw new Error('Wrong tag');
       return xsalsa20(key, nonce, c).subarray(32);
     },
   };
@@ -243,27 +243,27 @@ export function xsalsa20_poly1305(key: Uint8Array, nonce: Uint8Array) {
 
 export const _poly1305_aead =
   (fn: typeof chacha20) =>
-  (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): utils.Cipher => {
+  (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): u.Cipher => {
     const tagLength = 16;
     const keyLength = 32;
-    utils.ensureBytes(key, keyLength);
-    utils.ensureBytes(nonce);
+    u.ensureBytes(key, keyLength);
+    u.ensureBytes(nonce);
     return {
       tagLength,
       encrypt: (plaintext: Uint8Array) => {
-        utils.ensureBytes(plaintext);
+        u.ensureBytes(plaintext);
         const res = fn(key, nonce, plaintext, undefined, 1);
         const tag = computeTag(fn, key, nonce, res, AAD);
-        return utils.concatBytes(res, tag);
+        return u.concatBytes(res, tag);
       },
       decrypt: (ciphertext: Uint8Array) => {
-        utils.ensureBytes(ciphertext);
+        u.ensureBytes(ciphertext);
         if (ciphertext.length < tagLength)
           throw new Error(`Encrypted data should be at least ${tagLength}`);
         const realTag = ciphertext.subarray(-tagLength);
         const data = ciphertext.subarray(0, -tagLength);
         const tag = computeTag(fn, key, nonce, data, AAD);
-        if (!utils.equalBytes(realTag, tag)) throw new Error('Wrong tag');
+        if (!u.equalBytes(realTag, tag)) throw new Error('Wrong tag');
         return fn(key, nonce, data, undefined, 1);
       },
     };

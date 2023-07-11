@@ -1,4 +1,4 @@
-import * as utils from '../utils.js';
+import { AsyncCipher, createView, setBigUint64 } from '../utils.js';
 import { polyval } from '../_polyval.js';
 import { getWebcryptoSubtle } from './utils.js';
 /**
@@ -45,7 +45,7 @@ async function ctr(key: Uint8Array, tag: Uint8Array, input: Uint8Array) {
   // The initial counter block is the tag with the most significant bit of the last byte set to one.
   let block = tag.slice();
   block[15] |= 0x80;
-  let view = utils.createView(block);
+  let view = createView(block);
   let output = new Uint8Array(input.length);
   for (let pos = 0; pos < input.length; ) {
     const encryptedBlock = await encryptBlock(block, key);
@@ -65,7 +65,7 @@ export async function deriveKeys(key: Uint8Array, nonce: Uint8Array) {
   let counter = 0;
   const deriveBlock = new Uint8Array(nonce.length + 4);
   deriveBlock.set(nonce, 4);
-  const view = utils.createView(deriveBlock);
+  const view = createView(deriveBlock);
   for (const derivedKey of [authKey, encKey]) {
     for (let i = 0; i < derivedKey.length; i += 8) {
       view.setUint32(0, counter++, true);
@@ -80,17 +80,17 @@ export async function aes_256_gcm_siv(
   key: Uint8Array,
   nonce: Uint8Array,
   AAD: Uint8Array
-): Promise<utils.AsyncCipher> {
+): Promise<AsyncCipher> {
   const { encKey, authKey } = await deriveKeys(key, nonce);
   const computeTag = async (data: Uint8Array, AAD: Uint8Array) => {
     const dataPos = wrapPos(AAD.length, 16);
     const lenPos = wrapPos(dataPos + data.length, 16);
     const block = new Uint8Array(lenPos + 16);
-    const view = utils.createView(block);
+    const view = createView(block);
     block.set(AAD);
     block.set(data, dataPos);
-    utils.setBigUint64(view, lenPos, BigInt(AAD.length * 8), true);
-    utils.setBigUint64(view, lenPos + 8, BigInt(data.length * 8), true);
+    setBigUint64(view, lenPos, BigInt(AAD.length * 8), true);
+    setBigUint64(view, lenPos + 8, BigInt(data.length * 8), true);
     // Compute the expected tag by XORing S_s and the nonce, clearing the
     // most significant bit of the last byte and encrypting with the
     // message-encryption key.
