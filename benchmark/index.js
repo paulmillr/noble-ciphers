@@ -7,7 +7,7 @@ import * as utils from '../esm/utils.js';
 import { salsa20, xsalsa20, xsalsa20_poly1305 } from '../esm/salsa.js';
 import { chacha20, xchacha20, xchacha20_poly1305, chacha20_poly1305 } from '../esm/chacha.js';
 import { poly1305 } from '../esm/_poly1305.js';
-import * as slow from '../esm/_slow.js';
+import * as slow from '../esm/_micro.js';
 // StableLib
 import * as stableSalsa from '@stablelib/salsa20';
 import * as stableXSalsa from '@stablelib/xsalsa20';
@@ -56,7 +56,7 @@ export const CIPHERS = {
       stableSalsa.streamXOR(opts.key, opts.nonce, buf, new Uint8Array(buf.length))
     ),
     noble: cipherSame((buf, opts) => salsa20(opts.key, opts.nonce, buf)),
-    slow: cipherSame((buf, opts) => slow.salsa20(opts.key, opts.nonce, buf)),
+    micro: cipherSame((buf, opts) => slow.salsa20(opts.key, opts.nonce, buf)),
   },
   chacha: {
     opts: { key: buf(32), nonce: buf(12), nonce16: utils.concatBytes(new Uint8Array(4), buf(12)) },
@@ -78,7 +78,7 @@ export const CIPHERS = {
       stableChacha.streamXOR(opts.key, opts.nonce, buf, new Uint8Array(buf.length))
     ),
     noble: cipherSame((buf, opts) => chacha20(opts.key, opts.nonce, buf)),
-    slow: cipherSame((buf, opts) => slow.chacha20(opts.key, opts.nonce, buf)),
+    micro: cipherSame((buf, opts) => slow.chacha20(opts.key, opts.nonce, buf)),
   },
   xsalsa: {
     opts: { key: buf(32), nonce: buf(24) },
@@ -86,7 +86,7 @@ export const CIPHERS = {
       stableXSalsa.streamXOR(opts.key, opts.nonce, buf, new Uint8Array(buf.length))
     ),
     noble: cipherSame((buf, opts) => xsalsa20(opts.key, opts.nonce, buf)),
-    slow: cipherSame((buf, opts) => slow.xsalsa20(opts.key, opts.nonce, buf)),
+    micro: cipherSame((buf, opts) => slow.xsalsa20(opts.key, opts.nonce, buf)),
   },
   xchacha: {
     opts: { key: buf(32), nonce: buf(24) },
@@ -94,7 +94,7 @@ export const CIPHERS = {
       stableXchacha.streamXOR(opts.key, opts.nonce, buf, new Uint8Array(buf.length))
     ),
     noble: cipherSame((buf, opts) => xchacha20(opts.key, opts.nonce, buf)),
-    slow: cipherSame((buf, opts) => slow.xchacha20(opts.key, opts.nonce, buf)),
+    micro: cipherSame((buf, opts) => slow.xchacha20(opts.key, opts.nonce, buf)),
   },
   xsalsa20_poly1305: {
     opts: { key: buf(32), nonce: buf(24) },
@@ -106,7 +106,7 @@ export const CIPHERS = {
       encrypt: (buf, opts) => xsalsa20_poly1305(opts.key, opts.nonce).encrypt(buf),
       decrypt: (buf, opts) => xsalsa20_poly1305(opts.key, opts.nonce).decrypt(buf),
     },
-    slow: {
+    micro: {
       encrypt: (buf, opts) => slow.xsalsa20_poly1305(opts.key, opts.nonce).encrypt(buf),
       decrypt: (buf, opts) => slow.xsalsa20_poly1305(opts.key, opts.nonce).decrypt(buf),
     },
@@ -140,7 +140,7 @@ export const CIPHERS = {
       encrypt: (buf, opts) => chacha20_poly1305(opts.key, opts.nonce).encrypt(buf),
       decrypt: (buf, opts) => chacha20_poly1305(opts.key, opts.nonce).decrypt(buf),
     },
-    slow: {
+    micro: {
       encrypt: (buf, opts) => slow.chacha20_poly1305(opts.key, opts.nonce).encrypt(buf),
       decrypt: (buf, opts) => slow.chacha20_poly1305(opts.key, opts.nonce).decrypt(buf),
     },
@@ -155,7 +155,7 @@ export const CIPHERS = {
       encrypt: (buf, opts) => xchacha20_poly1305(opts.key, opts.nonce).encrypt(buf),
       decrypt: (buf, opts) => xchacha20_poly1305(opts.key, opts.nonce).decrypt(buf),
     },
-    slow: {
+    micro: {
       encrypt: (buf, opts) => slow.xchacha20_poly1305(opts.key, opts.nonce).encrypt(buf),
       decrypt: (buf, opts) => slow.xchacha20_poly1305(opts.key, opts.nonce).decrypt(buf),
     },
@@ -197,7 +197,7 @@ const HASHES = {
       return res;
     },
     noble: (buf, opts) => poly1305(buf, opts.key),
-    slow: (buf, opts) => slow.poly1305(buf, opts.key),
+    micro: (buf, opts) => slow.poly1305(buf, opts.key),
   },
 };
 

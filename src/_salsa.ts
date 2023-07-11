@@ -1,5 +1,5 @@
 // Basic utils for salsa-like ciphers
-// Check out _slow.ts for descriptive documentation.
+// Check out _micro.ts for descriptive documentation.
 import assert from './_assert.js';
 import { u32, utf8ToBytes, checkOpts } from './utils.js';
 

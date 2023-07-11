@@ -12,7 +12,7 @@ Auditable & minimal JS implementation of Salsa20, ChaCha, Poly1305 & AES-SIV
 - 🧂 Compatible with NaCl / libsodium secretbox
 - 🪶 Just 500 lines / 4KB gzipped for Salsa + ChaCha + Poly build
 
-`_slow` file contains minimal, readable implementation of algorithms.
+`_micro` file contains minimal, readable implementation of algorithms.
 Other files contain unrolled loops, which are fast, but less auditable.
 
 ### This library belongs to _noble_ crypto
@@ -76,7 +76,7 @@ import { aes_256_gcm_siv } from '@noble/ciphers/webcrypto/siv';
 import { FF1, BinaryFF1 } from '@noble/ciphers/webcrypto/ff1';
 
 // All algoritms, written in minimal, auditable way
-import * as ciphers from '@noble/ciphers/_slow';
+import * as ciphers from '@noble/ciphers/_micro';
 ```
 
 ### How to encrypt properly
@@ -366,19 +366,19 @@ encrypt (1MB)
 
 ```
 
-Compare to other implementations (slow is `_slow.ts`):
+Compare to other implementations (slow is `_micro.ts`):
 
 ```
 xsalsa20_poly1305 (encrypt, 1MB)
 ├─tweetnacl x 108 ops/sec @ 9ms/op
 ├─noble x 190 ops/sec @ 5ms/op
-└─slow x 21 ops/sec @ 47ms/op
+└─micro x 21 ops/sec @ 47ms/op
 
 chacha20_poly1305 (encrypt, 1MB)
 ├─node x 1,360 ops/sec @ 735μs/op
 ├─stablelib x 117 ops/sec @ 8ms/op
 ├─noble x 193 ops/sec @ 5ms/op
-└─slow x 19 ops/sec @ 50ms/op
+└─micro x 19 ops/sec @ 50ms/op
 ```
 
 ## Contributing & testing

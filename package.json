@@ -53,10 +53,10 @@
       "import": "./esm/webcrypto/crypto.js",
       "default": "./webcrypto/crypto.js"
     },
-    "./_slow": {
-      "types": "./_slow.d.ts",
-      "import": "./esm/_slow.js",
-      "default": "./_slow.js"
+    "./_micro": {
+      "types": "./_micro.d.ts",
+      "import": "./esm/_micro.js",
+      "default": "./_micro.js"
     },
     "./_poly1305": {
       "types": "./_poly1305.d.ts",

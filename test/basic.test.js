@@ -11,7 +11,7 @@ const {
   xchacha20_poly1305,
 } = require('../chacha.js');
 const { poly1305 } = require('../_poly1305.js');
-const slow = require('../_slow.js');
+const slow = require('../_micro.js');
 const tweetnacl_secretbox = require('./vectors/tweetnacl_secretbox.json');
 // Stablelib tests
 const stable_salsa = require('./vectors/stablelib_salsa20.json');

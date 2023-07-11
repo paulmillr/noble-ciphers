@@ -1,8 +1,8 @@
 /*! noble-ciphers - MIT License (c) 2023 Paul Miller (paulmillr.com) */
 
-// Slower, minimal implementation of salsa / chacha / poly.
-// Same algorithms from other files, but without unrolled loops.
-// Provided for auditability purposes. Up to 5x slower.
+// micro-noble-ciphers: more auditable, but slower version of salsa20, chacha & poly1305.
+// Implements the same algorithms that are present in other files,
+// but without unrolled loops (https://en.wikipedia.org/wiki/Loop_unrolling).
 
 import * as utils from './utils.js';
 import { salsaBasic } from './_salsa.js';
