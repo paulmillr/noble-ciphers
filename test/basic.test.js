@@ -181,6 +181,17 @@ describe('poly1305', () => {
     }
   });
 
+  should.only('handle byte offset', () => {
+    const sample = require('crypto').randomBytes(60); // strings must be converted to Uint8Array
+    //uint8array view that skips first byte
+    const data = new Uint8Array(sample.buffer, 1)
+    const key = require('crypto').randomBytes(32);
+    const nonce12 = require('crypto').randomBytes(12);
+    const stream_c = chacha20_poly1305(key, nonce12);
+    const encrypted_c = stream_c.encrypt(data);
+    stream_c.decrypt(encrypted_c); // === data
+  });
+
   should('multiple updates', () => {
     const key = new Uint8Array(32);
     for (let i = 0; i < key.length; i++) key[i] = i;
