@@ -130,17 +130,28 @@ export function hchacha(c: Uint32Array, key: Uint8Array, nonce: Uint8Array): Uin
   return u.u8(new Uint32Array([x[0], x[1], x[2], x[3], x[12], x[13], x[14], x[15]]));
 }
 
-// Specific implementations
+/**
+ * salsa20, 12-byte nonce.
+ */
 export const salsa20 = salsaBasic({ core: salsaCore, counterRight: true });
+
+/**
+ * xsalsa20, 24-byte nonce.
+ */
 export const xsalsa20 = salsaBasic({
   core: salsaCore,
   counterRight: true,
   extendNonceFn: hsalsa,
   allow128bitKeys: false,
 });
-// Original DJB ChaCha20, 8 bytes nonce, 8 bytes counter
+
+/**
+ * chacha20 non-RFC, original version by djb. 8-byte nonce, 8-byte counter.
+ */
 export const chacha20orig = salsaBasic({ core: chachaCore, counterRight: false, counterLen: 8 });
-// Also known as chacha20-tls (IETF), 12 bytes nonce, 4 bytes counter
+/**
+ * chacha20 RFC 8439 (IETF / TLS). 12-byte nonce, 4-byte counter.
+ */
 export const chacha20 = salsaBasic({
   core: chachaCore,
   counterRight: false,
@@ -148,7 +159,9 @@ export const chacha20 = salsaBasic({
   allow128bitKeys: false,
 });
 
-// xchacha draft RFC https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha
+/**
+ * xchacha20 eXtended-nonce. https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha
+ */
 export const xchacha20 = salsaBasic({
   core: chachaCore,
   counterRight: false,
@@ -156,13 +169,20 @@ export const xchacha20 = salsaBasic({
   extendNonceFn: hchacha,
   allow128bitKeys: false,
 });
-// Reduced-round chacha, described in original paper
+
+/**
+ * 8-round chacha from the original paper.
+ */
 export const chacha8 = salsaBasic({
   core: chachaCore,
   counterRight: false,
   counterLen: 4,
   rounds: 8,
 });
+
+/**
+ * 12-round chacha from the original paper.
+ */
 export const chacha12 = salsaBasic({
   core: chachaCore,
   counterRight: false,
@@ -172,7 +192,7 @@ export const chacha12 = salsaBasic({
 
 const POW_2_130_5 = 2n ** 130n - 5n;
 const POW_2_128_1 = 2n ** (16n * 8n) - 1n;
-// Can be speed-up using BigUint64Array, but use take more code
+// Can be speed-up using BigUint64Array, but would be more complicated
 export function poly1305(msg: Uint8Array, key: Uint8Array): Uint8Array {
   u.ensureBytes(msg);
   u.ensureBytes(key);
@@ -215,7 +235,9 @@ function computeTag(
   return poly1305(u.concatBytes(...res), authKey);
 }
 
-// Also known as 'tweetnacl secretbox'
+/**
+ * xsalsa20-poly1305 eXtended-nonce (24 bytes) salsa.
+ */
 export function xsalsa20_poly1305(key: Uint8Array, nonce: Uint8Array) {
   u.ensureBytes(key);
   u.ensureBytes(nonce);
@@ -239,6 +261,16 @@ export function xsalsa20_poly1305(key: Uint8Array, nonce: Uint8Array) {
       return xsalsa20(key, nonce, c).subarray(32);
     },
   };
+}
+
+/**
+ * Alias to xsalsa20-poly1305
+ */
+export function secretbox(key: Uint8Array, nonce: Uint8Array) {
+  u.ensureBytes(key);
+  u.ensureBytes(nonce);
+  const xs = xsalsa20_poly1305(key, nonce);
+  return { seal: xs.encrypt, open: xs.decrypt };
 }
 
 export const _poly1305_aead =
@@ -269,5 +301,13 @@ export const _poly1305_aead =
     };
   };
 
+/**
+ * chacha20-poly1305 12-byte-nonce chacha.
+ */
 export const chacha20_poly1305 = _poly1305_aead(chacha20);
+
+/**
+ * xchacha20-poly1305 eXtended-nonce (24 bytes) chacha.
+ * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
+ */
 export const xchacha20_poly1305 = _poly1305_aead(xchacha20);

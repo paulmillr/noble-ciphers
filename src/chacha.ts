@@ -9,6 +9,9 @@ import { salsaBasic } from './_salsa.js';
 // Left rotate for uint32
 const rotl = (a: number, b: number) => (a << b) | (a >>> (32 - b));
 
+/**
+ * ChaCha core function.
+ */
 // prettier-ignore
 function chachaCore(c: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32Array, cnt: number, rounds = 20): void {
   let y00 = c[0], y01 = c[1], y02 = c[2], y03 = c[3]; // "expa"   "nd 3"  "2-by"  "te k"
@@ -73,11 +76,17 @@ function chachaCore(c: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32A
   out[oi++] = (y12 + x12) | 0; out[oi++] = (y13 + x13) | 0;
   out[oi++] = (y14 + x14) | 0; out[oi++] = (y15 + x15) | 0;
 }
+/**
+ * hchacha helper method, used primarily in xchacha, to hash
+ * key and nonce into key' and nonce'.
+ * Same as chachaCore, but there doesn't seem to be a way to move the block
+ * out without 25% performance hit.
+ */
 // prettier-ignore
-export function hchacha(c: Uint32Array, key: Uint8Array, src: Uint8Array, dst: Uint8Array): Uint8Array {
+export function hchacha(c: Uint32Array, key: Uint8Array, src: Uint8Array, out: Uint8Array): Uint8Array {
   const k32 = u32(key);
   const i32 = u32(src);
-  const o32 = u32(dst);
+  const o32 = u32(out);
   let x00 = c[0],   x01 = c[1],   x02 = c[2],   x03 = c[3];
   let x04 = k32[0], x05 = k32[1], x06 = k32[2], x07 = k32[3];
   let x08 = k32[4], x09 = k32[5], x10 = k32[6], x11 = k32[7]
@@ -131,11 +140,16 @@ export function hchacha(c: Uint32Array, key: Uint8Array, src: Uint8Array, dst: U
   o32[5] = x13;
   o32[6] = x14;
   o32[7] = x15;
-  return dst;
+  return out;
 }
-// Original DJB ChaCha20, 8 bytes nonce, 8 bytes counter
+/**
+ * Original, non-RFC chacha20 from DJB. 8-byte nonce, 8-byte counter.
+ */
 export const chacha20orig = salsaBasic({ core: chachaCore, counterRight: false, counterLen: 8 });
-// Also known as chacha20-tls (IETF), 12 bytes nonce, 4 bytes counter
+/**
+ * ChaCha stream cipher. Conforms to RFC 8439 (IETF, TLS). 12-byte nonce, 4-byte counter.
+ * With 12-byte nonce, it's not safe to use fill it with random (CSPRNG), due to collision chance.
+ */
 export const chacha20 = salsaBasic({
   core: chachaCore,
   counterRight: false,
@@ -143,7 +157,11 @@ export const chacha20 = salsaBasic({
   allow128bitKeys: false,
 });
 
-// xchacha draft RFC https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha
+/**
+ * XChaCha eXtended-nonce ChaCha. 24-byte nonce.
+ * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
+ * https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha
+ */
 export const xchacha20 = salsaBasic({
   core: chachaCore,
   counterRight: false,
@@ -152,13 +170,19 @@ export const xchacha20 = salsaBasic({
   allow128bitKeys: false,
 });
 
-// Reduced-round chacha, described in original paper
+/**
+ * Reduced 8-round chacha, described in original paper.
+ */
 export const chacha8 = salsaBasic({
   core: chachaCore,
   counterRight: false,
   counterLen: 4,
   rounds: 8,
 });
+
+/**
+ * Reduced 12-round chacha, described in original paper.
+ */
 export const chacha12 = salsaBasic({
   core: chachaCore,
   counterRight: false,
@@ -195,13 +219,15 @@ const computeTag = (
   return res;
 };
 
-// salsa and chacha (RFC 7539) use poly1305 differently.
-// We could have composed them such as in:
-// https://github.com/paulmillr/scure-base/blob/b266c73dde977b1dd7ef40ef7a23cc15aab526b3/index.ts#L250
-// But authKey construction makes it hard:
-// - salsa:  authKey changes position in salsa stream
-// - chacha: authKey can't be computed inside computeTag, it modifies the counter
-// Algo from RFC 7539.
+/**
+ * AEAD algorithm from RFC 8439.
+ * Salsa20 and chacha (RFC 8439) use poly1305 differently.
+ * We could have composed them similar to:
+ * https://github.com/paulmillr/scure-base/blob/b266c73dde977b1dd7ef40ef7a23cc15aab526b3/index.ts#L250
+ * But it's hard because of authKey:
+ * In salsa20, authKey changes position in salsa stream.
+ * In chacha, authKey can't be computed inside computeTag, it modifies the counter.
+ */
 export const _poly1305_aead =
   (fn: typeof chacha20) =>
   (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher => {
@@ -229,5 +255,14 @@ export const _poly1305_aead =
     };
   };
 
+/**
+ * ChaCha20-Poly1305 from RFC 8439.
+ * With 12-byte nonce, it's not safe to use fill it with random (CSPRNG), due to collision chance.
+ */
 export const chacha20_poly1305 = _poly1305_aead(chacha20);
+/**
+ * XChaCha20-Poly1305 extended-nonce chacha.
+ * https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha
+ * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
+ */
 export const xchacha20_poly1305 = _poly1305_aead(xchacha20);

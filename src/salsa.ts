@@ -10,7 +10,9 @@ import { poly1305 } from './_poly1305.js';
 // Left rotate for uint32
 const rotl = (a: number, b: number) => (a << b) | (a >>> (32 - b));
 
-// NOTE: same as hsalsa, but we cannot move out block without 25% perf loss :(
+/**
+ * Salsa20 core function.
+ */
 // prettier-ignore
 function salsaCore(c: Uint32Array, k: Uint32Array, i: Uint32Array, out: Uint32Array, cnt: number, rounds = 20): void {
   // Based on https://cr.yp.to/salsa20.html
@@ -53,6 +55,13 @@ function salsaCore(c: Uint32Array, k: Uint32Array, i: Uint32Array, out: Uint32Ar
   out[oi++] = (y12 + x12) | 0; out[oi++] = (y13 + x13) | 0;
   out[oi++] = (y14 + x14) | 0; out[oi++] = (y15 + x15) | 0;
 }
+
+/**
+ * hsalsa hashing function, used primarily in xsalsa, to hash
+ * key and nonce into key' and nonce'.
+ * Same as salsaCore, but there doesn't seem to be a way to move the block
+ * out without 25% performance hit.
+ */
 // prettier-ignore
 export function hsalsa(c: Uint32Array, key: Uint8Array, nonce: Uint8Array, out: Uint8Array): Uint8Array {
   const k32 = u32(key);
@@ -92,7 +101,16 @@ export function hsalsa(c: Uint32Array, key: Uint8Array, nonce: Uint8Array, out: 
   return out;
 }
 
+/**
+ * Salsa20 from original paper.
+ * With 12-byte nonce, it's not safe to use fill it with random (CSPRNG), due to collision chance.
+ */
 export const salsa20 = salsaBasic({ core: salsaCore, counterRight: true });
+
+/**
+ * xsalsa20 eXtended-nonce salsa.
+ * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
+ */
 export const xsalsa20 = salsaBasic({
   core: salsaCore,
   counterRight: true,
@@ -100,7 +118,11 @@ export const xsalsa20 = salsaBasic({
   allow128bitKeys: false,
 });
 
-// Also known as 'tweetnacl secretbox'
+/**
+ * xsalsa20-poly1305 eXtended-nonce salsa.
+ * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
+ * Also known as secretbox from libsodium / nacl.
+ */
 export const xsalsa20_poly1305 = (key: Uint8Array, nonce: Uint8Array): Cipher => {
   const tagLength = 16;
   ensureBytes(key, 32);
@@ -139,3 +161,13 @@ export const xsalsa20_poly1305 = (key: Uint8Array, nonce: Uint8Array): Cipher =>
     },
   };
 };
+
+/**
+ * Alias to xsalsa20poly1305, for compatibility with libsodium / nacl
+ */
+export function secretbox(key: Uint8Array, nonce: Uint8Array) {
+  ensureBytes(key);
+  ensureBytes(nonce);
+  const xs = xsalsa20_poly1305(key, nonce);
+  return { seal: xs.encrypt, open: xs.decrypt };
+}

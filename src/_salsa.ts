@@ -4,7 +4,7 @@ import assert from './_assert.js';
 import { u32, utf8ToBytes, checkOpts } from './utils.js';
 
 /*
-RFC7539 requires multi-step cipher stream, where
+RFC8439 requires multi-step cipher stream, where
 authKey starts with counter: 0, actual msg with counter: 1.
 
 For this, we need a way to re-use nonce / counter:
