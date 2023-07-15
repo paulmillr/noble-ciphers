@@ -73,6 +73,9 @@ export type SalsaOpts = {
   extendNonceFn?: (c: Uint32Array, key: Uint8Array, src: Uint8Array, dst: Uint8Array) => Uint8Array;
 };
 
+// Is byte array aligned to 4 byte offset (u32)?
+const isAligned32 = (b: Uint8Array) => !(b.byteOffset % 4);
+
 export const salsaBasic = (opts: SalsaOpts) => {
   const { core, rounds, counterRight, counterLen, allow128bitKeys, extendNonceFn, blockLen } =
     checkOpts(
@@ -146,16 +149,17 @@ export const salsaBasic = (opts: SalsaOpts) => {
     const b32 = u32(block);
     const k32 = u32(k);
     const n32 = u32(nonce);
-    const d32 = u32(data);
-    const o32 = u32(output);
+    // Make sure that buffers aligned to 4 bytes
+    const d32 = isAligned32(data) && u32(data);
+    const o32 = isAligned32(output) && u32(output);
     toClean.push(b32);
     const len = data.length;
     for (let pos = 0, ctr = counter; pos < len; ctr++) {
       core(sigma, k32, n32, b32, ctr, rounds);
       if (ctr >= 2 ** 32 - 1) throw new Error('Salsa/ChaCha: counter overflow');
       const take = Math.min(blockLen, len - pos);
-      // Fast path: we have at least one block in input
-      if (take === blockLen) {
+      // full block && aligned to 4 bytes
+      if (take === blockLen && o32 && d32) {
         const pos32 = pos / 4;
         if (pos % 4 !== 0) throw new Error('Salsa/ChaCha: wrong block position');
         for (let j = 0; j < blockLen32; j++) o32[pos32 + j] = d32[pos32 + j] ^ b32[j];

@@ -212,7 +212,13 @@ const buffers = {
 
 async function validate() {
   // Verify that things we bench actually work
-  for (const [size, [samples, buf]] of Object.entries(buffers)) {
+  const bufs = [...Object.entries(buffers).map((i) => i[1][1])];
+  // Verify different buffer sizes
+  for (let i = 0; i < 2048; i++) bufs.push(buf(i));
+  // Verify different subarrays positions
+  const b2 = buf(2048);
+  //for (let i = 0; i < 2048; i++) bufs.push(b2.subarray(i));
+  for (const buf of bufs) {
     const b = buf.slice();
     // hashes
     for (let [k, libs] of Object.entries(HASHES)) {
@@ -243,6 +249,7 @@ async function validate() {
       }
     }
   }
+  console.log('VALIDATED');
 }
 
 export const main = () =>
