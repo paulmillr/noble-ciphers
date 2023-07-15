@@ -1,6 +1,6 @@
 {
   "name": "@noble/ciphers",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Auditable & minimal JS implementation of Salsa20, ChaCha, Poly1305 & AES-SIV",
   "files": [
     "esm",
@@ -17,7 +17,7 @@
     "bench:install": "cd benchmark && npm install && cd ../../",
     "build": "npm run build:clean; tsc && tsc -p tsconfig.esm.json",
     "build:release": "cd build; npm i; npm run build",
-    "build:clean": "rm *.{js,d.ts,js.map,d.ts.map} esm/*.{js,js.map,d.ts.map} webcrypto esm/webcrypto 2> /dev/null",
+    "build:clean": "rm -r *.{js,d.ts,js.map,d.ts.map} esm/*.{js,d.ts,js.map,d.ts.map} webcrypto esm/webcrypto 2> /dev/null",
     "lint": "prettier --check 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
     "format": "prettier --write 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
     "test": "node test/index.js"
