@@ -235,6 +235,16 @@ should('tweetnacl secretbox compat', () => {
   }
 });
 
+should('handle byte offsets correctly', () => {
+  const sample = new Uint8Array(60).fill(1);
+  const data = new Uint8Array(sample.buffer, 1);
+  const key = new Uint8Array(32).fill(2);
+  const nonce12 = new Uint8Array(12).fill(3);
+  const stream_c = chacha20_poly1305(key, nonce12);
+  const encrypted_c = stream_c.encrypt(data);
+  stream_c.decrypt(encrypted_c); // === data
+});
+
 describe('Wycheproof', () => {
   const t = (name, vectors, cipher) => {
     should(name, () => {
