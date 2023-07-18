@@ -17,10 +17,15 @@ import { ChaCha20Poly1305 as StableChachaPoly } from '@stablelib/chacha20poly130
 import { XChaCha20Poly1305 as StableXchachaPoly } from '@stablelib/xchacha20poly1305';
 import { oneTimeAuth as stablePoly1305 } from '@stablelib/poly1305';
 import { default as tweetnacl } from 'tweetnacl'; // secretbox = xsalsa20-poly1305.
+import {
+  ChaCha20Poly1305 as ChainsafeChachaPoly,
+  newInstance as chainsafe_init_wasm,
+} from '@chainsafe/as-chacha20poly1305';
 
 const ONLY_NOBLE = process.argv[2] === 'noble';
-
 const buf = (n) => new Uint8Array(n).fill(n);
+
+let chainsafe_chacha_poly;
 
 // Works for gcm only?
 const nodeGCM = (name) => {
@@ -135,6 +140,14 @@ export const CIPHERS = {
     stable: {
       encrypt: (buf, opts) => new StableChachaPoly(opts.key).seal(opts.nonce, buf),
       decrypt: (buf, opts) => new StableChachaPoly(opts.key).open(opts.nonce, buf),
+    },
+    chainsafe: {
+      encrypt: (buf, opts) => {
+        return chainsafe_chacha_poly.seal(opts.key, opts.nonce, buf);
+      },
+      decrypt: (buf, opts) => {
+        return chainsafe_chacha_poly.open(opts.key, opts.nonce, buf);
+      },
     },
     noble: {
       encrypt: (buf, opts) => chacha20_poly1305(opts.key, opts.nonce).encrypt(buf),
@@ -254,6 +267,10 @@ async function validate() {
 
 export const main = () =>
   run(async () => {
+    if (!ONLY_NOBLE) {
+      const ctx = chainsafe_init_wasm();
+      chainsafe_chacha_poly = new ChainsafeChachaPoly(ctx);
+    }
     await validate();
     if (ONLY_NOBLE) {
       // Benchmark different noble-ciphers
