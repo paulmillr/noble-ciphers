@@ -39,6 +39,22 @@ For React Native, you may need a
 If you don't like NPM, a standalone
 [noble-ciphers.js](https://github.com/paulmillr/noble-ciphers/releases) is also available.
 
+- [Usage](#usage)
+      - [AES usage](#aes-usage)
+  - [How to encrypt properly](#how-to-encrypt-properly)
+  - [Encryption limits](#encryption-limits)
+  - [Salsa](#salsa)
+  - [ChaCha](#chacha)
+  - [Poly1305](#poly1305)
+  - [AES](#aes)
+      - [How AES works](#how-aes-works)
+      - [Block modes](#block-modes)
+  - [FF1](#ff1)
+- [Security](#security)
+- [Speed](#speed)
+- [Contributing & testing](#contributing--testing)
+- [License](#license)
+
 ```js
 // import * from '@noble/ciphers'; // Error
 // Use sub-imports for tree-shaking, to ensure small size of your apps
