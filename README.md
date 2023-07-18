@@ -44,7 +44,6 @@ If you don't like NPM, a standalone
 // Use sub-imports for tree-shaking, to ensure small size of your apps
 import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
 import { randomBytes } from '@noble/ciphers/webcrypto/utils';
-
 const key = randomBytes(32);
 const nonce = randomBytes(24);
 const data = new Uint8Array([104, 101, 108, 108, 111, 44, 32, 110, 111, 98, 108, 101]);
@@ -74,7 +73,6 @@ import {
   aes_128_gcm, aes_128_ctr, aes_128_cbc,
   aes_256_gcm, aes_256_ctr, aes_256_cbc
 } from '@noble/ciphers/webcrypto/aes';
-
 const stream_aes = aes_256_gcm(key, nonce);
 const ciphertext_aes = await stream_aes.encrypt(data); // async
 const plaintext_aes = await stream_a.decrypt(ciphertext_aes); // === data
