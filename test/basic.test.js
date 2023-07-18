@@ -229,7 +229,7 @@ should('tweetnacl secretbox compat', () => {
     const c = xsalsa20poly1305(key, nonce);
     deepStrictEqual(hex.encode(c.encrypt(msg)), hex.encode(exp), i);
     deepStrictEqual(hex.encode(c.decrypt(exp)), hex.encode(msg), i);
-    const cSlow = slow.xsalsa20_poly1305(key, nonce);
+    const cSlow = slow.xsalsa20poly1305(key, nonce);
     deepStrictEqual(hex.encode(cSlow.encrypt(msg)), hex.encode(exp), i);
     deepStrictEqual(hex.encode(cSlow.decrypt(exp)), hex.encode(msg), i);
   }
