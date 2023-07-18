@@ -59,12 +59,14 @@ If you don't like NPM, a standalone
 // import * from '@noble/ciphers'; // Error
 // Use sub-imports for tree-shaking, to ensure small size of your apps
 import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
-import { utf8ToBytes } from '@noble/ciphers/utils';
 import { randomBytes } from '@noble/ciphers/webcrypto/utils';
 
 const key = randomBytes(32);
 const nonce = randomBytes(24);
-const data = utf8ToBytes('hello, noble'); // strings must be converted to Uint8Array
+const data = new Uint8Array([104, 101, 108, 108, 111, 44, 32, 110, 111, 98, 108, 101]);
+// Library works over byte arrays. The data above is the same as:
+// import { utf8ToBytes } from '@noble/ciphers/utils';
+// const data = utf8ToBytes('hello, noble');
 
 // XSalsa20
 const stream_s = xsalsa20poly1305(key, nonce);
@@ -87,7 +89,7 @@ stream_c.decrypt(encrypted_c); // === data
 
 ##### AES usage
 
-```
+```js
 import {
   aes_128_gcm, aes_128_ctr, aes_128_cbc,
   aes_256_gcm, aes_256_ctr, aes_256_cbc
