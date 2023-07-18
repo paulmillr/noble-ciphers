@@ -39,22 +39,6 @@ For React Native, you may need a
 If you don't like NPM, a standalone
 [noble-ciphers.js](https://github.com/paulmillr/noble-ciphers/releases) is also available.
 
-- [Usage](#usage)
-      - [AES usage](#aes-usage)
-  - [How to encrypt properly](#how-to-encrypt-properly)
-  - [Encryption limits](#encryption-limits)
-  - [Salsa](#salsa)
-  - [ChaCha](#chacha)
-  - [Poly1305](#poly1305)
-  - [AES](#aes)
-      - [How AES works](#how-aes-works)
-      - [Block modes](#block-modes)
-  - [FF1](#ff1)
-- [Security](#security)
-- [Speed](#speed)
-- [Contributing & testing](#contributing--testing)
-- [License](#license)
-
 ```js
 // import * from '@noble/ciphers'; // Error
 // Use sub-imports for tree-shaking, to ensure small size of your apps
@@ -64,14 +48,13 @@ import { randomBytes } from '@noble/ciphers/webcrypto/utils';
 const key = randomBytes(32);
 const nonce = randomBytes(24);
 const data = new Uint8Array([104, 101, 108, 108, 111, 44, 32, 110, 111, 98, 108, 101]);
+const stream = xsalsa20poly1305(key, nonce);
+const encrypted_s = stream.encrypt(data);
+stream.decrypt(encrypted); // === data
+
 // Library works over byte arrays. The data above is the same as:
 // import { utf8ToBytes } from '@noble/ciphers/utils';
 // const data = utf8ToBytes('hello, noble');
-
-// XSalsa20
-const stream_s = xsalsa20poly1305(key, nonce);
-const encrypted_s = stream_s.encrypt(data);
-stream_s.decrypt(encrypted_s); // === data
 
 // XChaCha
 import { xchacha20poly1305 } from '@noble/ciphers/salsa';
@@ -85,11 +68,8 @@ const nonce12 = randomBytes(12);
 const stream_c = chacha20poly1305(key, nonce12);
 const encrypted_c = stream_c.encrypt(data);
 stream_c.decrypt(encrypted_c); // === data
-```
 
-##### AES usage
-
-```js
+// Webcrypto shortcuts
 import {
   aes_128_gcm, aes_128_ctr, aes_128_cbc,
   aes_256_gcm, aes_256_ctr, aes_256_cbc
@@ -99,6 +79,7 @@ const stream_aes = aes_256_gcm(key, nonce);
 const ciphertext_aes = await stream_aes.encrypt(data); // async
 const plaintext_aes = await stream_a.decrypt(ciphertext_aes); // === data
 
+// AES-SIV, FF1
 import { aes_256_gcm_siv } from '@noble/ciphers/webcrypto/siv';
 import { FF1, BinaryFF1 } from '@noble/ciphers/webcrypto/ff1';
 
