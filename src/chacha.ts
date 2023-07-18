@@ -259,10 +259,10 @@ export const _poly1305_aead =
  * ChaCha20-Poly1305 from RFC 8439.
  * With 12-byte nonce, it's not safe to use fill it with random (CSPRNG), due to collision chance.
  */
-export const chacha20_poly1305 = _poly1305_aead(chacha20);
+export const chacha20poly1305 = _poly1305_aead(chacha20);
 /**
  * XChaCha20-Poly1305 extended-nonce chacha.
  * https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha
  * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
  */
-export const xchacha20_poly1305 = _poly1305_aead(xchacha20);
+export const xchacha20poly1305 = _poly1305_aead(xchacha20);

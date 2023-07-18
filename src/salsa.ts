@@ -123,7 +123,7 @@ export const xsalsa20 = salsaBasic({
  * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
  * Also known as secretbox from libsodium / nacl.
  */
-export const xsalsa20_poly1305 = (key: Uint8Array, nonce: Uint8Array): Cipher => {
+export const xsalsa20poly1305 = (key: Uint8Array, nonce: Uint8Array): Cipher => {
   const tagLength = 16;
   ensureBytes(key, 32);
   ensureBytes(nonce, 24);
@@ -168,6 +168,6 @@ export const xsalsa20_poly1305 = (key: Uint8Array, nonce: Uint8Array): Cipher =>
 export function secretbox(key: Uint8Array, nonce: Uint8Array) {
   ensureBytes(key);
   ensureBytes(nonce);
-  const xs = xsalsa20_poly1305(key, nonce);
+  const xs = xsalsa20poly1305(key, nonce);
   return { seal: xs.encrypt, open: xs.decrypt };
 }

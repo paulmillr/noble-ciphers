@@ -238,7 +238,7 @@ function computeTag(
 /**
  * xsalsa20-poly1305 eXtended-nonce (24 bytes) salsa.
  */
-export function xsalsa20_poly1305(key: Uint8Array, nonce: Uint8Array) {
+export function xsalsa20poly1305(key: Uint8Array, nonce: Uint8Array) {
   u.ensureBytes(key);
   u.ensureBytes(nonce);
   return {
@@ -269,7 +269,7 @@ export function xsalsa20_poly1305(key: Uint8Array, nonce: Uint8Array) {
 export function secretbox(key: Uint8Array, nonce: Uint8Array) {
   u.ensureBytes(key);
   u.ensureBytes(nonce);
-  const xs = xsalsa20_poly1305(key, nonce);
+  const xs = xsalsa20poly1305(key, nonce);
   return { seal: xs.encrypt, open: xs.decrypt };
 }
 
@@ -304,10 +304,10 @@ export const _poly1305_aead =
 /**
  * chacha20-poly1305 12-byte-nonce chacha.
  */
-export const chacha20_poly1305 = _poly1305_aead(chacha20);
+export const chacha20poly1305 = _poly1305_aead(chacha20);
 
 /**
  * xchacha20-poly1305 eXtended-nonce (24 bytes) chacha.
  * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
  */
-export const xchacha20_poly1305 = _poly1305_aead(xchacha20);
+export const xchacha20poly1305 = _poly1305_aead(xchacha20);

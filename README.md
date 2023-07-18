@@ -42,7 +42,7 @@ If you don't like NPM, a standalone
 ```js
 // import * from '@noble/ciphers'; // Error
 // Use sub-imports for tree-shaking, to ensure small size of your apps
-import { xsalsa20_poly1305 } from '@noble/ciphers/salsa';
+import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
 import { utf8ToBytes } from '@noble/ciphers/utils';
 import { randomBytes } from '@noble/ciphers/webcrypto/utils';
 
@@ -51,20 +51,20 @@ const nonce = randomBytes(24);
 const data = utf8ToBytes('hello, noble'); // strings must be converted to Uint8Array
 
 // XSalsa20
-const stream_s = xsalsa20_poly1305(key, nonce);
+const stream_s = xsalsa20poly1305(key, nonce);
 const encrypted_s = stream_s.encrypt(data);
 stream_s.decrypt(encrypted_s); // === data
 
 // XChaCha
-import { xchacha20_poly1305 } from '@noble/ciphers/salsa';
-const stream_xc = xchacha20_poly1305(key, nonce);
+import { xchacha20poly1305 } from '@noble/ciphers/salsa';
+const stream_xc = xchacha20poly1305(key, nonce);
 const encrypted_xc = stream_xc.encrypt(data);
 stream_xc.decrypt(encrypted_xc); // === data
 
 // ChaCha
-import { chacha20_poly1305 } from '@noble/ciphers/chacha';
+import { chacha20poly1305 } from '@noble/ciphers/chacha';
 const nonce12 = randomBytes(12);
-const stream_c = chacha20_poly1305(key, nonce12);
+const stream_c = chacha20poly1305(key, nonce12);
 const encrypted_c = stream_c.encrypt(data);
 stream_c.decrypt(encrypted_c); // === data
 ```
@@ -151,7 +151,7 @@ of a random function. See [RFC draft](https://datatracker.ietf.org/doc/draft-irt
 ### Salsa
 
 ```js
-import { xsalsa20_poly1305, secretbox } from '@noble/ciphers/salsa';
+import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
 import { utf8ToBytes } from '@noble/ciphers/utils';
 import { randomBytes } from '@noble/ciphers/webcrypto/utils';
 
@@ -159,11 +159,12 @@ const key = randomBytes(32);
 const data = utf8ToBytes('hello, noble'); // strings must be converted to Uint8Array
 
 const nonce = randomBytes(24);
-const stream_x = xsalsa20_poly1305(key, nonce); // === secretbox(key, nonce)
+const stream_x = xsalsa20poly1305(key, nonce); // === secretbox(key, nonce)
 const ciphertext = stream_x.encrypt(data);      // === secretbox.seal(data)
 const plaintext = stream_x.decrypt(ciphertext); // === secretbox.open(ciphertext)
 
-// We provide sodium secretbox alias, which is just xsalsa20_poly1305
+// We provide sodium secretbox alias, which is just xsalsa20poly1305
+import { secretbox } from '@noble/ciphers/salsa';
 const box = secretbox(key, nonce);
 const ciphertext = box.seal(plaintext);
 const plaintext = box.open(ciphertext);
@@ -194,7 +195,7 @@ alias and corresponding seal / open methods.
 ### ChaCha
 
 ```js
-import { chacha20_poly1305, xchacha20_poly1305 } from '@noble/ciphers/chacha';
+import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
 import { utf8ToBytes } from '@noble/ciphers/utils';
 import { randomBytes } from '@noble/ciphers/webcrypto/utils';
 
@@ -202,12 +203,12 @@ const key = randomBytes(32);
 const data = utf8ToBytes('hello, noble'); // strings must be converted to Uint8Array
 
 const nonce12 = randomBytes(12); // chacha uses 96-bit nonce
-const stream_c = chacha20_poly1305(key, nonce12);
+const stream_c = chacha20poly1305(key, nonce12);
 const ciphertext_c = stream_c.encrypt(data);
 const plaintext_c = stream_c.decrypt(ciphertext_c); // === data
 
 const nonce24 = randomBytes(24); // xchacha uses 192-bit nonce
-const stream_xc = xchacha20_poly1305(key, nonce24);
+const stream_xc = xchacha20poly1305(key, nonce24);
 const ciphertext_xc = stream_xc.encrypt(data);
 const plaintext_xc = stream_xc.decrypt(ciphertext_xc); // === data
 
@@ -332,20 +333,20 @@ Benchmark results on Apple M2 with node v20:
 
 ```
 encrypt (64B)
-├─xsalsa20_poly1305 x 484,966 ops/sec @ 2μs/op
-├─chacha20_poly1305 x 442,282 ops/sec @ 2μs/op
+├─xsalsa20poly1305 x 484,966 ops/sec @ 2μs/op
+├─chacha20poly1305 x 442,282 ops/sec @ 2μs/op
 └─xchacha20poly1305 x 300,842 ops/sec @ 3μs/op
 encrypt (1KB)
-├─xsalsa20_poly1305 x 143,905 ops/sec @ 6μs/op
-├─chacha20_poly1305 x 141,663 ops/sec @ 7μs/op
+├─xsalsa20poly1305 x 143,905 ops/sec @ 6μs/op
+├─chacha20poly1305 x 141,663 ops/sec @ 7μs/op
 └─xchacha20poly1305 x 122,639 ops/sec @ 8μs/op
 encrypt (8KB)
-├─xsalsa20_poly1305 x 23,373 ops/sec @ 42μs/op
-├─chacha20_poly1305 x 23,683 ops/sec @ 42μs/op
+├─xsalsa20poly1305 x 23,373 ops/sec @ 42μs/op
+├─chacha20poly1305 x 23,683 ops/sec @ 42μs/op
 └─xchacha20poly1305 x 23,066 ops/sec @ 43μs/op
 encrypt (1MB)
-├─xsalsa20_poly1305 x 193 ops/sec @ 5ms/op
-├─chacha20_poly1305 x 196 ops/sec @ 5ms/op
+├─xsalsa20poly1305 x 193 ops/sec @ 5ms/op
+├─chacha20poly1305 x 196 ops/sec @ 5ms/op
 └─xchacha20poly1305 x 195 ops/sec @ 5ms/op
 ```
 
@@ -377,12 +378,12 @@ encrypt (1MB)
 Compare to other implementations:
 
 ```
-xsalsa20_poly1305 (encrypt, 1MB)
+xsalsa20poly1305 (encrypt, 1MB)
 ├─tweetnacl x 108 ops/sec @ 9ms/op
 ├─noble x 190 ops/sec @ 5ms/op
 └─micro x 21 ops/sec @ 47ms/op
 
-chacha20_poly1305 (encrypt, 1MB)
+chacha20poly1305 (encrypt, 1MB)
 ├─node x 1,360 ops/sec @ 735μs/op
 ├─stablelib x 117 ops/sec @ 8ms/op
 ├─noble x 193 ops/sec @ 5ms/op

@@ -1,14 +1,14 @@
 const { deepStrictEqual, throws } = require('assert');
 const { should, describe } = require('micro-should');
 const { hex, base64 } = require('@scure/base');
-const { salsa20, hsalsa, xsalsa20, xsalsa20_poly1305 } = require('../salsa.js');
+const { salsa20, hsalsa, xsalsa20, xsalsa20poly1305 } = require('../salsa.js');
 const {
   chacha20,
   chacha20orig,
   hchacha,
   xchacha20,
-  chacha20_poly1305,
-  xchacha20_poly1305,
+  chacha20poly1305,
+  xchacha20poly1305,
 } = require('../chacha.js');
 const { poly1305 } = require('../_poly1305.js');
 const slow = require('../_micro.js');
@@ -216,17 +216,17 @@ describe('poly1305', () => {
       }
     });
   };
-  t('Chacha20Poly1305', stable_chacha_poly, chacha20_poly1305);
-  t('Xchacha20Poly1305', stable_xchacha_poly, xchacha20_poly1305);
-  t('Chacha20Poly1305', stable_chacha_poly, slow.chacha20_poly1305);
-  t('Xchacha20Poly1305', stable_xchacha_poly, slow.xchacha20_poly1305);
+  t('Chacha20Poly1305', stable_chacha_poly, chacha20poly1305);
+  t('Xchacha20Poly1305', stable_xchacha_poly, xchacha20poly1305);
+  t('Chacha20Poly1305', stable_chacha_poly, slow.chacha20poly1305);
+  t('Xchacha20Poly1305', stable_xchacha_poly, slow.xchacha20poly1305);
 });
 
 should('tweetnacl secretbox compat', () => {
   for (let i = 0; i < tweetnacl_secretbox.length; i++) {
     const v = tweetnacl_secretbox[i];
     const [key, nonce, msg, exp] = v.map(base64.decode);
-    const c = xsalsa20_poly1305(key, nonce);
+    const c = xsalsa20poly1305(key, nonce);
     deepStrictEqual(hex.encode(c.encrypt(msg)), hex.encode(exp), i);
     deepStrictEqual(hex.encode(c.decrypt(exp)), hex.encode(msg), i);
     const cSlow = slow.xsalsa20_poly1305(key, nonce);
@@ -240,7 +240,7 @@ should('handle byte offsets correctly', () => {
   const data = new Uint8Array(sample.buffer, 1);
   const key = new Uint8Array(32).fill(2);
   const nonce12 = new Uint8Array(12).fill(3);
-  const stream_c = chacha20_poly1305(key, nonce12);
+  const stream_c = chacha20poly1305(key, nonce12);
   const encrypted_c = stream_c.encrypt(data);
   stream_c.decrypt(encrypted_c); // === data
 });
@@ -271,10 +271,10 @@ describe('Wycheproof', () => {
       }
     });
   };
-  t('wycheproof_chacha20_poly1305', wycheproof_chacha20_poly1305, chacha20_poly1305);
-  t('wycheproof_xchacha20_poly1305', wycheproof_xchacha20_poly1305, xchacha20_poly1305);
-  t('wycheproof_chacha20_poly1305', wycheproof_chacha20_poly1305, slow.chacha20_poly1305);
-  t('wycheproof_xchacha20_poly1305', wycheproof_xchacha20_poly1305, slow.xchacha20_poly1305);
+  t('wycheproof_chacha20_poly1305', wycheproof_chacha20_poly1305, chacha20poly1305);
+  t('wycheproof_xchacha20_poly1305', wycheproof_xchacha20_poly1305, xchacha20poly1305);
+  t('wycheproof_chacha20_poly1305', wycheproof_chacha20_poly1305, slow.chacha20poly1305);
+  t('wycheproof_xchacha20_poly1305', wycheproof_xchacha20_poly1305, slow.xchacha20poly1305);
 });
 
 if (require.main === module) should.run();
