@@ -12,8 +12,9 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@devtomio/sodium": "0.3.0",
     "@chainsafe/as-chacha20poly1305": "0.1.0",
+    "@devtomio/sodium": "0.3.0",
+    "@noble/ciphers": "file:..",
     "@stablelib/chacha": "1.0.1",
     "@stablelib/chacha20poly1305": "1.0.1",
     "@stablelib/salsa20": "1.0.2",

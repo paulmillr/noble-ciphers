@@ -42,24 +42,36 @@ If you don't like NPM, a standalone
 ```js
 // import * from '@noble/ciphers'; // Error
 // Use sub-imports for tree-shaking, to ensure small size of your apps
-import { xsalsa20_poly1305, secretbox } from '@noble/ciphers/salsa';
-import { chacha20_poly1305 } from '@noble/ciphers/chacha';
-import { randomBytes } from '@noble/ciphers/webcrypto/utils';
+import { xsalsa20_poly1305 } from '@noble/ciphers/salsa';
 import { utf8ToBytes } from '@noble/ciphers/utils';
+import { randomBytes } from '@noble/ciphers/webcrypto/utils';
 
 const key = randomBytes(32);
+const nonce = randomBytes(24);
 const data = utf8ToBytes('hello, noble'); // strings must be converted to Uint8Array
 
-const nonce24 = randomBytes(24);
-const stream_s = xsalsa20_poly1305(key, nonce24);
+// XSalsa20
+const stream_s = xsalsa20_poly1305(key, nonce);
 const encrypted_s = stream_s.encrypt(data);
 stream_s.decrypt(encrypted_s); // === data
 
+// XChaCha
+import { xchacha20_poly1305 } from '@noble/ciphers/salsa';
+const stream_xc = xchacha20_poly1305(key, nonce);
+const encrypted_xc = stream_xc.encrypt(data);
+stream_xc.decrypt(encrypted_xc); // === data
+
+// ChaCha
+import { chacha20_poly1305 } from '@noble/ciphers/chacha';
 const nonce12 = randomBytes(12);
 const stream_c = chacha20_poly1305(key, nonce12);
 const encrypted_c = stream_c.encrypt(data);
 stream_c.decrypt(encrypted_c); // === data
+```
 
+##### AES usage
+
+```
 import {
   aes_128_gcm, aes_128_ctr, aes_128_cbc,
   aes_256_gcm, aes_256_ctr, aes_256_cbc
@@ -314,57 +326,55 @@ The library is experimental. Use at your own risk.
 
 ## Speed
 
+To summarize, noble is the fastest JS implementation.
+
 Benchmark results on Apple M2 with node v20:
 
 ```
-encrypt (32B)
-├─salsa x 1,210,653 ops/sec @ 826ns/op
-├─chacha x 1,440,922 ops/sec @ 694ns/op
-├─xsalsa x 846,023 ops/sec @ 1μs/op
-├─xchacha x 842,459 ops/sec @ 1μs/op
-├─xsalsa20_poly1305 x 562,746 ops/sec @ 1μs/op
-├─chacha20_poly1305 x 468,603 ops/sec @ 2μs/op
-└─xchacha20poly1305 x 311,623 ops/sec @ 3μs/op
-
 encrypt (64B)
-├─salsa x 1,310,615 ops/sec @ 763ns/op
-├─chacha x 1,577,287 ops/sec @ 634ns/op
-├─xsalsa x 864,304 ops/sec @ 1μs/op
-├─xchacha x 862,068 ops/sec @ 1μs/op
-├─xsalsa20_poly1305 x 481,000 ops/sec @ 2μs/op
-├─chacha20_poly1305 x 446,627 ops/sec @ 2μs/op
-└─xchacha20poly1305 x 302,480 ops/sec @ 3μs/op
-
+├─xsalsa20_poly1305 x 484,966 ops/sec @ 2μs/op
+├─chacha20_poly1305 x 442,282 ops/sec @ 2μs/op
+└─xchacha20poly1305 x 300,842 ops/sec @ 3μs/op
 encrypt (1KB)
-├─salsa x 356,506 ops/sec @ 2μs/op
-├─chacha x 380,952 ops/sec @ 2μs/op
-├─xsalsa x 312,891 ops/sec @ 3μs/op
-├─xchacha x 318,674 ops/sec @ 3μs/op
-├─xsalsa20_poly1305 x 143,864 ops/sec @ 6μs/op
-├─chacha20_poly1305 x 141,703 ops/sec @ 7μs/op
-└─xchacha20poly1305 x 122,895 ops/sec @ 8μs/op
-
+├─xsalsa20_poly1305 x 143,905 ops/sec @ 6μs/op
+├─chacha20_poly1305 x 141,663 ops/sec @ 7μs/op
+└─xchacha20poly1305 x 122,639 ops/sec @ 8μs/op
 encrypt (8KB)
-├─salsa x 56,170 ops/sec @ 17μs/op
-├─chacha x 57,997 ops/sec @ 17μs/op
-├─xsalsa x 54,758 ops/sec @ 18μs/op
-├─xchacha x 56,085 ops/sec @ 17μs/op
-├─xsalsa20_poly1305 x 23,203 ops/sec @ 43μs/op
-├─chacha20_poly1305 x 23,482 ops/sec @ 42μs/op
-└─xchacha20poly1305 x 22,900 ops/sec @ 43μs/op
-
+├─xsalsa20_poly1305 x 23,373 ops/sec @ 42μs/op
+├─chacha20_poly1305 x 23,683 ops/sec @ 42μs/op
+└─xchacha20poly1305 x 23,066 ops/sec @ 43μs/op
 encrypt (1MB)
-├─salsa x 462 ops/sec @ 2ms/op
-├─chacha x 473 ops/sec @ 2ms/op
-├─xsalsa x 463 ops/sec @ 2ms/op
-├─xchacha x 474 ops/sec @ 2ms/op
-├─xsalsa20_poly1305 x 190 ops/sec @ 5ms/op
-├─chacha20_poly1305 x 193 ops/sec @ 5ms/op
-└─xchacha20poly1305 x 192 ops/sec @ 5ms/op
-
+├─xsalsa20_poly1305 x 193 ops/sec @ 5ms/op
+├─chacha20_poly1305 x 196 ops/sec @ 5ms/op
+└─xchacha20poly1305 x 195 ops/sec @ 5ms/op
 ```
 
-Compare to other implementations (slow is `_micro.ts`):
+Unauthenticated encryption:
+
+```
+encrypt (64B)
+├─salsa x 1,272,264 ops/sec @ 786ns/op
+├─chacha x 1,526,717 ops/sec @ 655ns/op
+├─xsalsa x 847,457 ops/sec @ 1μs/op
+└─xchacha x 848,896 ops/sec @ 1μs/op
+encrypt (1KB)
+├─salsa x 355,492 ops/sec @ 2μs/op
+├─chacha x 377,358 ops/sec @ 2μs/op
+├─xsalsa x 311,915 ops/sec @ 3μs/op
+└─xchacha x 315,457 ops/sec @ 3μs/op
+encrypt (8KB)
+├─salsa x 56,063 ops/sec @ 17μs/op
+├─chacha x 57,359 ops/sec @ 17μs/op
+├─xsalsa x 54,848 ops/sec @ 18μs/op
+└─xchacha x 55,475 ops/sec @ 18μs/op
+encrypt (1MB)
+├─salsa x 465 ops/sec @ 2ms/op
+├─chacha x 474 ops/sec @ 2ms/op
+├─xsalsa x 466 ops/sec @ 2ms/op
+└─xchacha x 476 ops/sec @ 2ms/op
+```
+
+Compare to other implementations:
 
 ```
 xsalsa20_poly1305 (encrypt, 1MB)
