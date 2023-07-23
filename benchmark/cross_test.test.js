@@ -1,4 +1,4 @@
-import { deepStrictEqual, throws } from 'assert';
+import { deepStrictEqual } from 'assert';
 import { should, describe } from 'micro-should';
 import { CIPHERS } from './aead.js';
 

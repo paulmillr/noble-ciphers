@@ -385,6 +385,12 @@ chacha20poly1305 (encrypt, 1MB)
 ├─stablelib x 117 ops/sec @ 8ms/op
 ├─noble x 193 ops/sec @ 5ms/op
 └─micro x 19 ops/sec @ 50ms/op
+
+chacha (encrypt, 1MB)
+├─node x 2,035 ops/sec @ 491μs/op
+├─stablelib x 206 ops/sec @ 4ms/op
+├─noble x 474 ops/sec @ 2ms/op
+└─micro x 61 ops/sec @ 16ms/op
 ```
 
 ## Contributing & testing

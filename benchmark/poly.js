@@ -1,12 +1,18 @@
-import { deepStrictEqual } from 'assert';
 import { compare, utils as butils } from 'micro-bmark';
 import { poly1305 } from '@noble/ciphers/_poly1305';
 import * as micro from '@noble/ciphers/_micro';
 import { oneTimeAuth as stablePoly1305 } from '@stablelib/poly1305';
 import { default as tweetnacl } from 'tweetnacl'; // secretbox = xsalsa20-poly1305.
+import { validateHashes, buf } from './_utils.js';
 
-const ONLY_NOBLE = process.argv[2] === 'noble';
-const buf = (n) => new Uint8Array(n).fill(n);
+const buffers = [
+  { size: '32B', samples: 2_000_000, data: buf(32) },
+  { size: '64B', samples: 1_000_000, data: buf(64) },
+  { size: '1KB', samples: 66667, data: buf(1024) },
+  { size: '8KB', samples: 8333, data: buf(1024 * 8) },
+  { size: '1MB', samples: 524, data: buf(1024 * 1024) },
+];
+
 const HASHES = {
   poly1305: {
     opts: { key: buf(32) },
@@ -23,47 +29,11 @@ const HASHES = {
   },
 };
 
-// buffer title, sample count, data
-const buffers = {
-  '32B': [2000000, buf(32)],
-  '64B': [1000000, buf(64)],
-  '1KB': [66667, buf(1024)],
-  '8KB': [8333, buf(1024 * 8)],
-  '1MB': [524, buf(1024 * 1024)],
-};
-
-async function validate() {
-  // Verify that things we bench actually work
-  const bufs = [...Object.entries(buffers).map((i) => i[1][1])];
-  // Verify different buffer sizes
-  for (let i = 0; i < 2048; i++) bufs.push(buf(i));
-  // Verify different subarrays positions
-  const b2 = buf(2048);
-  //for (let i = 0; i < 2048; i++) bufs.push(b2.subarray(i));
-  for (const buf of bufs) {
-    const b = buf.slice();
-    // hashes
-    for (let [k, libs] of Object.entries(HASHES)) {
-      let value;
-      for (const [lib, fn] of Object.entries(libs)) {
-        if (lib === 'opts') continue;
-        if (value === undefined) value = fn(buf, libs.opts);
-        else {
-          const cur = fn(buf, libs.opts);
-          deepStrictEqual(value, cur, `hash verify (${lib})`);
-        }
-        deepStrictEqual(buf, b, `hash mutates buffer (${lib})`);
-      }
-    }
-  }
-  console.log('VALIDATED');
-}
-
-export const main = async () => {
-  await validate();
+export async function main() {
+  await validateHashes(buffers, HASHES);
   // Benchmark against other libraries
   for (let [k, libs] of Object.entries(HASHES)) {
-    for (const [size, [samples, buf]] of Object.entries(buffers)) {
+    for (const { size, samples, data: buf } of buffers) {
       await compare(
         `${k} (${size})`,
         samples,
@@ -77,7 +47,7 @@ export const main = async () => {
   }
   // Log current RAM
   butils.logMem();
-};
+}
 
 // ESM is broken.
 import url from 'url';
