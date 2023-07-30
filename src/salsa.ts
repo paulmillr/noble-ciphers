@@ -14,7 +14,9 @@ const rotl = (a: number, b: number) => (a << b) | (a >>> (32 - b));
  * Salsa20 core function.
  */
 // prettier-ignore
-function salsaCore(c: Uint32Array, k: Uint32Array, i: Uint32Array, out: Uint32Array, cnt: number, rounds = 20): void {
+function salsaCore(
+  c: Uint32Array, k: Uint32Array, i: Uint32Array, out: Uint32Array, cnt: number, rounds = 20
+): void {
   // Based on https://cr.yp.to/salsa20.html
   let y00 = c[0], y01 = k[0], y02 = k[1], y03 = k[2]; // "expa" Key     Key     Key
   let y04 = k[3], y05 = c[1], y06 = i[0], y07 = i[1]; // Key    "nd 3"  Nonce   Nonce
@@ -105,13 +107,13 @@ export function hsalsa(c: Uint32Array, key: Uint8Array, nonce: Uint8Array, out: 
  * Salsa20 from original paper.
  * With 12-byte nonce, it's not safe to use fill it with random (CSPRNG), due to collision chance.
  */
-export const salsa20 = salsaBasic({ core: salsaCore, counterRight: true });
+export const salsa20 = /* @__PURE__ */ salsaBasic({ core: salsaCore, counterRight: true });
 
 /**
  * xsalsa20 eXtended-nonce salsa.
  * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
  */
-export const xsalsa20 = salsaBasic({
+export const xsalsa20 = /* @__PURE__ */ salsaBasic({
   core: salsaCore,
   counterRight: true,
   extendNonceFn: hsalsa,

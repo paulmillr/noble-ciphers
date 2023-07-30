@@ -13,7 +13,9 @@ const rotl = (a: number, b: number) => (a << b) | (a >>> (32 - b));
  * ChaCha core function.
  */
 // prettier-ignore
-function chachaCore(c: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32Array, cnt: number, rounds = 20): void {
+function chachaCore(
+  c: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32Array, cnt: number, rounds = 20
+): void {
   let y00 = c[0], y01 = c[1], y02 = c[2], y03 = c[3]; // "expa"   "nd 3"  "2-by"  "te k"
   let y04 = k[0], y05 = k[1], y06 = k[2], y07 = k[3]; // Key      Key     Key     Key
   let y08 = k[4], y09 = k[5], y10 = k[6], y11 = k[7]; // Key      Key     Key     Key
@@ -83,7 +85,9 @@ function chachaCore(c: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32A
  * out without 25% performance hit.
  */
 // prettier-ignore
-export function hchacha(c: Uint32Array, key: Uint8Array, src: Uint8Array, out: Uint8Array): Uint8Array {
+export function hchacha(
+  c: Uint32Array, key: Uint8Array, src: Uint8Array, out: Uint8Array
+): Uint8Array {
   const k32 = u32(key);
   const i32 = u32(src);
   const o32 = u32(out);
@@ -145,12 +149,16 @@ export function hchacha(c: Uint32Array, key: Uint8Array, src: Uint8Array, out: U
 /**
  * Original, non-RFC chacha20 from DJB. 8-byte nonce, 8-byte counter.
  */
-export const chacha20orig = salsaBasic({ core: chachaCore, counterRight: false, counterLen: 8 });
+export const chacha20orig = /* @__PURE__ */ salsaBasic({
+  core: chachaCore,
+  counterRight: false,
+  counterLen: 8,
+});
 /**
  * ChaCha stream cipher. Conforms to RFC 8439 (IETF, TLS). 12-byte nonce, 4-byte counter.
  * With 12-byte nonce, it's not safe to use fill it with random (CSPRNG), due to collision chance.
  */
-export const chacha20 = salsaBasic({
+export const chacha20 = /* @__PURE__ */ salsaBasic({
   core: chachaCore,
   counterRight: false,
   counterLen: 4,
@@ -162,7 +170,7 @@ export const chacha20 = salsaBasic({
  * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
  * https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha
  */
-export const xchacha20 = salsaBasic({
+export const xchacha20 = /* @__PURE__ */ salsaBasic({
   core: chachaCore,
   counterRight: false,
   counterLen: 8,
@@ -173,7 +181,7 @@ export const xchacha20 = salsaBasic({
 /**
  * Reduced 8-round chacha, described in original paper.
  */
-export const chacha8 = salsaBasic({
+export const chacha8 = /* @__PURE__ */ salsaBasic({
   core: chachaCore,
   counterRight: false,
   counterLen: 4,
@@ -183,14 +191,14 @@ export const chacha8 = salsaBasic({
 /**
  * Reduced 12-round chacha, described in original paper.
  */
-export const chacha12 = salsaBasic({
+export const chacha12 = /* @__PURE__ */ salsaBasic({
   core: chachaCore,
   counterRight: false,
   counterLen: 4,
   rounds: 12,
 });
 
-const ZERO = new Uint8Array(16);
+const ZERO = /* @__PURE__ */ new Uint8Array(16);
 // Pad to digest size with zeros
 const updatePadded = (h: ReturnType<typeof poly1305.create>, msg: Uint8Array) => {
   h.update(msg);
@@ -273,10 +281,10 @@ export const _poly1305_aead =
  * ChaCha20-Poly1305 from RFC 8439.
  * With 12-byte nonce, it's not safe to use fill it with random (CSPRNG), due to collision chance.
  */
-export const chacha20poly1305 = _poly1305_aead(chacha20);
+export const chacha20poly1305 = /* @__PURE__ */ _poly1305_aead(chacha20);
 /**
  * XChaCha20-Poly1305 extended-nonce chacha.
  * https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha
  * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
  */
-export const xchacha20poly1305 = _poly1305_aead(xchacha20);
+export const xchacha20poly1305 = /* @__PURE__ */ _poly1305_aead(xchacha20);
