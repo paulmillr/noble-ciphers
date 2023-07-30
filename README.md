@@ -72,7 +72,7 @@ import {
 import { aes_256_gcm_siv } from '@noble/ciphers/webcrypto/siv'; // AES-GCM-SIV
 import { FF1, BinaryFF1 } from '@noble/ciphers/webcrypto/ff1'; // FF1
 import { randomBytes } from '@noble/ciphers/webcrypto/utils';
-import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes, concatBytes, equalBytes } from '@noble/ciphers/utils';
+import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes, concatBytes } from '@noble/ciphers/utils';
 import * as c from '@noble/ciphers/_micro'; // Everything, written in minimal, auditable way
 ```
 
