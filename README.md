@@ -40,110 +40,76 @@ If you don't like NPM, a standalone
 [noble-ciphers.js](https://github.com/paulmillr/noble-ciphers/releases) is also available.
 
 ```js
-// import * from '@noble/ciphers'; // Error
-// Use sub-imports for tree-shaking, to ensure small size of your apps
-import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
-import { randomBytes } from '@noble/ciphers/webcrypto/utils';
-const key = randomBytes(32);
-const nonce = randomBytes(24);
-const data = new Uint8Array([104, 101, 108, 108, 111, 44, 32, 110, 111, 98, 108, 101]);
-const stream = xsalsa20poly1305(key, nonce);
-const encrypted_s = stream.encrypt(data);
-stream.decrypt(encrypted); // === data
+// import * from '@noble/ciphers'; // Error: use sub-imports, to ensure small size of your apps
 
-// Library works over byte arrays. The data above is the same as:
-// import { utf8ToBytes } from '@noble/ciphers/utils';
-// const data = utf8ToBytes('hello, noble');
+// Simple API: uses xchacha20poly1305 with random nonce. Abstracts complexity away.
+import { encrypt, decrypt, utf8ToBytes, randomKey } from '@noble/ciphers/simple';
+const key = randomKey();
+const plaintext = utf8ToBytes('hello'); // Library works over Uint8Array-s
+const ciphertext = encrypt(key, plaintext);
+const plaintext_ = decrypt(key, ciphertext);
 
-// XChaCha
-import { xchacha20poly1305 } from '@noble/ciphers/salsa';
-const stream_xc = xchacha20poly1305(key, nonce);
-const encrypted_xc = stream_xc.encrypt(data);
-stream_xc.decrypt(encrypted_xc); // === data
+// Simple AES API: uses aes_256_gcm with random nonce.
+import { aes_encrypt, aes_decrypt } from '@noble/ciphers/simple';
+const a_key = randomKey();
+const a_ciphertext = await aes_encrypt(a_key, plaintext);
+const a_plaintext = await aes_decrypt(a_key, a_ciphertext);
+```
 
-// ChaCha
-import { chacha20poly1305 } from '@noble/ciphers/chacha';
-const nonce12 = randomBytes(12);
-const stream_c = chacha20poly1305(key, nonce12);
-const encrypted_c = stream_c.encrypt(data);
-stream_c.decrypt(encrypted_c); // === data
+For specific APIs, see [salsa](#salsa), [chacha](#chacha) and [aes](#aes)
+sections below. All available algorithms:
 
-// Webcrypto shortcuts
+```js
+// AEADs
+import { xsalsa20poly1305 } from '@noble/ciphers/salsa'; // aka sodium secretbox
+import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
+// Pure ciphers
+import { salsa20, xsalsa20 } from '@noble/ciphers/salsa';
+import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha';
+// AES webcrypto shortcuts
 import {
-  aes_128_gcm, aes_128_ctr, aes_128_cbc,
-  aes_256_gcm, aes_256_ctr, aes_256_cbc
+  aes_128_gcm, aes_128_ctr, aes_128_cbc, aes_256_gcm, aes_256_ctr, aes_256_cbc
 } from '@noble/ciphers/webcrypto/aes';
-const stream_aes = aes_256_gcm(key, nonce);
-const ciphertext_aes = await stream_aes.encrypt(data); // async
-const plaintext_aes = await stream_a.decrypt(ciphertext_aes); // === data
-
-// AES-SIV, FF1
-import { aes_256_gcm_siv } from '@noble/ciphers/webcrypto/siv';
-import { FF1, BinaryFF1 } from '@noble/ciphers/webcrypto/ff1';
-
-// All algoritms, written in minimal, auditable way.
-// Other files contain unrolled loops, which are 5x faster, but less auditable.
-import * as ciphers from '@noble/ciphers/_micro';
+import { aes_256_gcm_siv } from '@noble/ciphers/webcrypto/siv'; // AES-GCM-SIV
+import { FF1, BinaryFF1 } from '@noble/ciphers/webcrypto/ff1'; // FF1
+import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes, concatBytes, equalBytes } from '@noble/ciphers/utils';
+import { randomBytes } from '@noble/ciphers/webcrypto/utils';
+import * as ciphers from '@noble/ciphers/_micro'; // All algorithms, written in minimal, auditable way
 ```
 
 ### How to encrypt properly
 
-1. Use unpredictable, random key; don't re-use keys between different protocols
-2. Use new nonce every time and don't repeat it
-3. Be aware of rules for cryptographic key wear-out and [encryption limits](#encryption-limits)
-4. Prefer authenticated encryption, with MACs like poly1305, GCM, hmac
+1. Use unpredictable key with enough entropy
+    - Random key must be using cryptographically secure random number generator (CSPRNG), not `Math.random` etc.
+    - Non-random key generated from KDF is fine
+    - Re-using key is fine, but be aware of rules for cryptographic key wear-out and [encryption limits](#encryption-limits)
+2. Use new nonce every time and [don't repeat it](#nonces)
+    - [`simple` module](#simple) manages nonces for you
+    - chacha and salsa20 are fine for sequential counters that *never* repeat: `01, 02...`
+    - xchacha and xsalsa20 should be used for random nonces instead
+3. Prefer authenticated encryption (AEAD)
+    - chacha20poly1305 is good, chacha20 without poly1305 is bad
+    - aes-gcm is good, aes-ctr / aes-cbc is bad
+    - Flipping bits or even ciphertext substitution won't be detected in
+      unauthenticated ciphers
+4. Don't re-use keys between different protocols
+    - For example, using secp256k1 key in AES is bad
+    - Use hkdf or, at least, a hash function to create sub-key instead
 
-Most ciphers need a key and a nonce (aka initialization vector / IV) to encrypt a data:
+### simple
 
-    ciphertext = encrypt(plaintext, key, nonce)
+```js
+import { randomKey, utf8ToBytes, encrypt, decrypt } from '@noble/ciphers/simple';
+const key = randomKey();
+const plaintext = new Uint8Array([104, 101, 108, 108, 111]); // == new TextEncoder().encode('hello')
+const ciphertext = encrypt(key, plaintext);
+const plaintext = decrypt(key, ciphertext);
+```
 
-Repeating (key, nonce) pair with different plaintexts would allow an attacker to decrypt it:
+Do you want to just encrypt and decrypt a bunch of data?
+We provide simplified API that abstracts complexity away.
 
-    ciphertext_a = encrypt(plaintext_a, key, nonce)
-    ciphertext_b = encrypt(plaintext_b, key, nonce)
-    stream_diff = xor(ciphertext_a, ciphertext_b) # Break encryption
-
-So, you can't repeat nonces. One way of doing so is using counters:
-
-    for i in 0..:
-        ciphertext[i] = encrypt(plaintexts[i], key, i)
-
-Another is generating random nonce every time:
-
-    for i in 0..:
-        rand_nonces[i] = random()
-        ciphertext[i] = encrypt(plaintexts[i], key, rand_nonces[i])
-
-Counters are OK, but it's not always possible to store current counter value:
-e.g. in decentralized, unsyncable systems.
-
-Randomness is OK, but there's a catch:
-ChaCha20 and AES-GCM use 96-bit / 12-byte nonces, which implies
-higher chance of collision. In the example above,
-`random()` can collide and produce repeating nonce.
-
-To safely use random nonces, utilize XSalsa20 or XChaCha:
-they increased nonce length to 192-bit, minimizing a chance of collision.
-AES-SIV is also fine. In situations where you can't use eXtended-nonce
-algorithms, key rotation is advised. hkdf would work great for this case.
-
-### Encryption limits
-
-A "protected message" would mean a probability of `2**-50` that a passive attacker
-successfully distinguishes the ciphertext outputs of the AEAD scheme from the outputs
-of a random function. See [RFC draft](https://datatracker.ietf.org/doc/draft-irtf-cfrg-aead-limits/) for details.
-
-- Max message size:
-    - AES-GCM: ~68GB, `2**36-256`
-    - Salsa, ChaCha, XSalsa, XChaCha: ~256GB, `2**38-64`
-- Max amount of protected messages, under same key:
-    - AES-GCM: `2**32.5`
-    - Salsa, ChaCha: `2**46`, but only integrity is affected, not confidentiality
-    - XSalsa, XChaCha: `2**72`
-- Max amount of protected messages, across all keys:
-    - AES-GCM: `2**69/B` where B is max blocks encrypted by a key. Meaning
-      `2**59` for 1KB, `2**49` for 1MB, `2**39` for 1GB
-    - Salsa, ChaCha, XSalsa, XChaCha: `2**100`
+Internally, xchacha20poly1305 is used, with random nonce, which is then prepended to ciphertext.
 
 ### Salsa
 
@@ -160,12 +126,15 @@ const stream_x = xsalsa20poly1305(key, nonce); // === secretbox(key, nonce)
 const ciphertext = stream_x.encrypt(data);      // === secretbox.seal(data)
 const plaintext = stream_x.decrypt(ciphertext); // === secretbox.open(ciphertext)
 
+// Avoid memory allocations: re-use same uint8array
+stream_x.decrypt(ciphertext, ciphertext.subarray(-16));
+// ciphertext is now plaintext
+
 // We provide sodium secretbox alias, which is just xsalsa20poly1305
-import { secretbox } from '@noble/ciphers/salsa';
+import { secretbox } from '@noble/ciphers/simple';
 const box = secretbox(key, nonce);
 const ciphertext = box.seal(plaintext);
 const plaintext = box.open(ciphertext);
-
 
 // Standalone salsa is also available
 import { salsa20, xsalsa20 } from '@noble/ciphers/salsa';
@@ -204,11 +173,14 @@ const stream_c = chacha20poly1305(key, nonce12);
 const ciphertext_c = stream_c.encrypt(data);
 const plaintext_c = stream_c.decrypt(ciphertext_c); // === data
 
+// Avoid memory allocations: re-use same uint8array
+stream_c.decrypt(ciphertext_c, ciphertext_c.subarray(-16));
+// ciphertext_c is now plaintext_c
+
 const nonce24 = randomBytes(24); // xchacha uses 192-bit nonce
 const stream_xc = xchacha20poly1305(key, nonce24);
 const ciphertext_xc = stream_xc.encrypt(data);
 const plaintext_xc = stream_xc.decrypt(ciphertext_xc); // === data
-
 
 // Standalone chacha is also available
 import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha';
@@ -322,9 +294,67 @@ More info: https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G
 
 The library is experimental. Use at your own risk.
 
+### Nonces
+
+Most ciphers need a key and a nonce (aka initialization vector / IV) to encrypt a data:
+
+    ciphertext = encrypt(plaintext, key, nonce)
+
+Repeating (key, nonce) pair with different plaintexts would allow an attacker to decrypt it:
+
+    ciphertext_a = encrypt(plaintext_a, key, nonce)
+    ciphertext_b = encrypt(plaintext_b, key, nonce)
+    stream_diff = xor(ciphertext_a, ciphertext_b)   # Break encryption
+
+So, you can't repeat nonces. One way of doing so is using counters:
+
+    for i in 0..:
+        ciphertext[i] = encrypt(plaintexts[i], key, i)
+
+Another is generating random nonce every time:
+
+    for i in 0..:
+        rand_nonces[i] = random()
+        ciphertext[i] = encrypt(plaintexts[i], key, rand_nonces[i])
+
+Counters are OK, but it's not always possible to store current counter value:
+e.g. in decentralized, unsyncable systems.
+
+Randomness is OK, but there's a catch:
+ChaCha20 and AES-GCM use 96-bit / 12-byte nonces, which implies
+higher chance of collision. In the example above,
+`random()` can collide and produce repeating nonce.
+
+To safely use random nonces, utilize XSalsa20 or XChaCha:
+they increased nonce length to 192-bit, minimizing a chance of collision.
+AES-SIV is also fine. In situations where you can't use eXtended-nonce
+algorithms, key rotation is advised. hkdf would work great for this case.
+
+A "protected message" would mean a probability of `2**-50` that a passive attacker
+successfully distinguishes the ciphertext outputs of the AEAD scheme from the outputs
+of a random function. See [RFC draft](https://datatracker.ietf.org/doc/draft-irtf-cfrg-aead-limits/) for details.
+
+### Encryption limits
+
+- Max message size:
+    - AES-GCM: ~68GB, `2**36-256`
+    - Salsa, ChaCha, XSalsa, XChaCha: ~256GB, `2**38-64`
+- Max amount of protected messages, under same key:
+    - AES-GCM: `2**32.5`
+    - Salsa, ChaCha: `2**46`, but only integrity is affected, not confidentiality
+    - XSalsa, XChaCha: `2**72`
+- Max amount of protected messages, across all keys:
+    - AES-GCM: `2**69/B` where B is max blocks encrypted by a key. Meaning
+      `2**59` for 1KB, `2**49` for 1MB, `2**39` for 1GB
+    - Salsa, ChaCha, XSalsa, XChaCha: `2**100`
+
 ## Speed
 
 To summarize, noble is the fastest JS implementation.
+
+You can gain additional speed-up and
+avoid memory allocations by passing `output`
+uint8array into encrypt / decrypt methods.
 
 Benchmark results on Apple M2 with node v20:
 
