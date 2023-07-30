@@ -61,7 +61,7 @@ export function polyval(h: Uint8Array, data: Uint8Array) {
   const s = new Uint32Array(4);
   // Precompute for multiplication
   const a = mulPart(u32(h));
-  if (data.length % 16) throw new Error('Polyval: data should be padded to 16 bytes');
+  if (data.length % 16) throw new Error('polyval: data must be padded to 16 bytes');
   const data32 = u32(data);
   for (let i = 0; i < data32.length; i += 4) {
     // Xor

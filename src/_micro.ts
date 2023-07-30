@@ -253,11 +253,11 @@ export function xsalsa20poly1305(key: Uint8Array, nonce: Uint8Array) {
     },
     decrypt: (ciphertext: Uint8Array) => {
       u.ensureBytes(ciphertext);
-      if (ciphertext.length < 16) throw new Error('Encrypted data should be at least 16 bytes');
+      if (ciphertext.length < 16) throw new Error('encrypted data must be at least 16 bytes');
       const c = u.concatBytes(new Uint8Array(16), ciphertext);
       const authKey = xsalsa20(key, nonce, new Uint8Array(32));
       const tag = poly1305(c.subarray(32), authKey);
-      if (!u.equalBytes(c.subarray(16, 32), tag)) throw new Error('Wrong tag');
+      if (!u.equalBytes(c.subarray(16, 32), tag)) throw new Error('invalid poly1305 tag');
       return xsalsa20(key, nonce, c).subarray(32);
     },
   };
@@ -291,11 +291,11 @@ export const _poly1305_aead =
       decrypt: (ciphertext: Uint8Array) => {
         u.ensureBytes(ciphertext);
         if (ciphertext.length < tagLength)
-          throw new Error(`Encrypted data should be at least ${tagLength}`);
-        const realTag = ciphertext.subarray(-tagLength);
+          throw new Error(`encrypted data must be at least ${tagLength} bytes`);
+        const passedTag = ciphertext.subarray(-tagLength);
         const data = ciphertext.subarray(0, -tagLength);
         const tag = computeTag(fn, key, nonce, data, AAD);
-        if (!u.equalBytes(realTag, tag)) throw new Error('Wrong tag');
+        if (!u.equalBytes(passedTag, tag)) throw new Error('invalid poly1305 tag');
         return fn(key, nonce, data, undefined, 1);
       },
     };

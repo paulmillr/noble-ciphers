@@ -31,7 +31,7 @@ const wrapPos = (pos: number, blockSize: number) => Math.ceil(pos / blockSize) *
 
 const limit = (name: string, min: number, max: number) => (value: number) => {
   if (!Number.isSafeInteger(value) || min > value || value > max)
-    throw new Error(`${name}: invalid value=${value}, should be [${min}..${max}]`);
+    throw new Error(`${name}: invalid value=${value}, must be [${min}..${max}]`);
 };
 
 // From RFC 8452: Section 6
@@ -58,9 +58,10 @@ async function ctr(key: Uint8Array, tag: Uint8Array, input: Uint8Array) {
 
 export async function deriveKeys(key: Uint8Array, nonce: Uint8Array) {
   NONCE_LIMIT(nonce.length);
-  if (key.length !== 16 && key.length !== 32)
-    throw new Error(`Key length should be 16 or 32 bytes, got: ${key.length} bytes.`);
-  const encKey = new Uint8Array(key.length);
+  const len = key.length;
+  if (len !== 16 && len !== 32)
+    throw new Error(`key length must be 16 or 32 bytes, got: ${len} bytes`);
+  const encKey = new Uint8Array(len);
   const authKey = new Uint8Array(16);
   let counter = 0;
   const deriveBlock = new Uint8Array(nonce.length + 4);
@@ -117,7 +118,7 @@ export async function aes_256_gcm_siv(
       const tag = ciphertext.subarray(-16);
       const plaintext = await ctr(encKey, tag, ciphertext.subarray(0, -16));
       const expectedTag = await computeTag(plaintext, AAD);
-      if (!equalBytes(tag, expectedTag)) throw new Error('Wrong TAG');
+      if (!equalBytes(tag, expectedTag)) throw new Error('invalid poly1305 tag');
       return plaintext;
     },
   };

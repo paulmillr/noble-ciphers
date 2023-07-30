@@ -20,7 +20,7 @@ export type Hash = {
 };
 function hash(hash: Hash) {
   if (typeof hash !== 'function' || typeof hash.create !== 'function')
-    throw new Error('Hash should be wrapped by utils.wrapConstructor');
+    throw new Error('hash must be wrapped by utils.wrapConstructor');
   number(hash.outputLen);
   number(hash.blockLen);
 }

@@ -126,7 +126,7 @@ export function checkOpts<T1 extends EmptyObj, T2 extends EmptyObj>(
   opts?: T2
 ): T1 & T2 {
   if (opts !== undefined && (typeof opts !== 'object' || !isPlainObject(opts)))
-    throw new Error('Options should be object or undefined');
+    throw new Error('options must be object or undefined');
   const merged = Object.assign(defaults, opts);
   return merged as T1 & T2;
 }

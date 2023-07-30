@@ -229,28 +229,42 @@ const computeTag = (
  * In chacha, authKey can't be computed inside computeTag, it modifies the counter.
  */
 export const _poly1305_aead =
-  (fn: typeof chacha20) =>
+  (xorStream: typeof chacha20) =>
   (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher => {
     const tagLength = 16;
     ensureBytes(key, 32);
     ensureBytes(nonce);
     return {
       tagLength,
-      encrypt: (plaintext: Uint8Array) => {
-        const res = new Uint8Array(plaintext.length + tagLength);
-        fn(key, nonce, plaintext, res, 1);
-        const tag = computeTag(fn, key, nonce, res.subarray(0, -tagLength), AAD);
-        res.set(tag, plaintext.length); // append tag
-        return res;
+      encrypt: (plaintext: Uint8Array, output?: Uint8Array) => {
+        const plength = plaintext.length;
+        const clength = plength + tagLength;
+        if (output) {
+          ensureBytes(output, clength);
+        } else {
+          output = new Uint8Array(clength);
+        }
+        xorStream(key, nonce, plaintext, output, 1);
+        const tag = computeTag(xorStream, key, nonce, output.subarray(0, -tagLength), AAD);
+        output.set(tag, plength); // append tag
+        return output;
       },
-      decrypt: (ciphertext: Uint8Array) => {
-        if (ciphertext.length < tagLength)
-          throw new Error(`Encrypted data should be at least ${tagLength}`);
-        const realTag = ciphertext.subarray(-tagLength);
+      decrypt: (ciphertext: Uint8Array, output?: Uint8Array) => {
+        const clength = ciphertext.length;
+        const plength = clength - tagLength;
+        if (clength < tagLength)
+          throw new Error(`encrypted data must be at least ${tagLength} bytes`);
+        if (output) {
+          ensureBytes(output, plength);
+        } else {
+          output = new Uint8Array(plength);
+        }
         const data = ciphertext.subarray(0, -tagLength);
-        const tag = computeTag(fn, key, nonce, data, AAD);
-        if (!equalBytes(realTag, tag)) throw new Error('Wrong tag');
-        return fn(key, nonce, data, undefined, 1);
+        const passedTag = ciphertext.subarray(-tagLength);
+        const tag = computeTag(xorStream, key, nonce, data, AAD);
+        if (!equalBytes(passedTag, tag)) throw new Error('invalid tag');
+        xorStream(key, nonce, data, output, 1);
+        return output;
       },
     };
   };

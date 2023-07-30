@@ -88,7 +88,7 @@ export const salsaBasic = (opts: SalsaOpts) => {
   assert.bool(counterRight);
   assert.bool(allow128bitKeys);
   const blockLen32 = blockLen / 4;
-  if (blockLen % 4 !== 0) throw new Error('Salsa/ChaCha: blockLen should be aligned to 4 bytes');
+  if (blockLen % 4 !== 0) throw new Error('Salsa/ChaCha: blockLen must be aligned to 4 bytes');
   return (
     key: Uint8Array,
     nonce: Uint8Array,
@@ -124,11 +124,11 @@ export const salsaBasic = (opts: SalsaOpts) => {
       k.set(key, 16);
       sigma = sigma16_32;
       toClean.push(k);
-    } else throw new Error(`Salsa/ChaCha: wrong key length=${key.length}, expected`);
+    } else throw new Error(`Salsa/ChaCha: invalid 32-byte key, got length=${key.length}`);
     // Handle extended nonce (HChaCha/HSalsa)
     if (extendNonceFn) {
       if (nonce.length <= 16)
-        throw new Error(`Salsa/ChaCha: extended nonce should be bigger than 16 bytes`);
+        throw new Error(`Salsa/ChaCha: extended nonce must be bigger than 16 bytes`);
       k = extendNonceFn(sigma, k, nonce.subarray(0, 16), new Uint8Array(32));
       toClean.push(k);
       nonce = nonce.subarray(16);
@@ -136,7 +136,7 @@ export const salsaBasic = (opts: SalsaOpts) => {
     // Handle nonce counter
     const nonceLen = 16 - counterLen;
     if (nonce.length !== nonceLen)
-      throw new Error(`Salsa/ChaCha: nonce should be ${nonceLen} or 16 bytes`);
+      throw new Error(`Salsa/ChaCha: nonce must be ${nonceLen} or 16 bytes`);
     // Pad counter when nonce is 64 bit
     if (nonceLen !== 12) {
       const nc = new Uint8Array(12);
@@ -161,7 +161,7 @@ export const salsaBasic = (opts: SalsaOpts) => {
       // full block && aligned to 4 bytes
       if (take === blockLen && o32 && d32) {
         const pos32 = pos / 4;
-        if (pos % 4 !== 0) throw new Error('Salsa/ChaCha: wrong block position');
+        if (pos % 4 !== 0) throw new Error('Salsa/ChaCha: invalid block position');
         for (let j = 0; j < blockLen32; j++) o32[pos32 + j] = d32[pos32 + j] ^ b32[j];
         pos += blockLen;
         continue;
