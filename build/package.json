@@ -9,7 +9,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@noble/ciphers": "..",
+    "@noble/ciphers": "file:..",
     "esbuild": "0.17.19"
   },
   "scripts": {
