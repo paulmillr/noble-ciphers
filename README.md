@@ -40,8 +40,7 @@ If you don't like NPM, a standalone
 [noble-ciphers.js](https://github.com/paulmillr/noble-ciphers/releases) is also available.
 
 ```js
-// import * from '@noble/ciphers'; // Error: use sub-imports, to ensure small size of your apps
-
+// import * from '@noble/ciphers'; // Error: use sub-imports, to ensure small app size
 // Simple API: uses xchacha20poly1305 with random nonce. Abstracts complexity away.
 import { encrypt, decrypt, utf8ToBytes, randomKey } from '@noble/ciphers/simple';
 const key = randomKey();
@@ -57,7 +56,7 @@ const a_plaintext = await aes_decrypt(a_key, a_ciphertext);
 ```
 
 For specific APIs, see [salsa](#salsa), [chacha](#chacha) and [aes](#aes)
-sections below. All available algorithms:
+sections below. All available imports:
 
 ```js
 // AEADs
@@ -72,9 +71,9 @@ import {
 } from '@noble/ciphers/webcrypto/aes';
 import { aes_256_gcm_siv } from '@noble/ciphers/webcrypto/siv'; // AES-GCM-SIV
 import { FF1, BinaryFF1 } from '@noble/ciphers/webcrypto/ff1'; // FF1
-import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes, concatBytes, equalBytes } from '@noble/ciphers/utils';
 import { randomBytes } from '@noble/ciphers/webcrypto/utils';
-import * as ciphers from '@noble/ciphers/_micro'; // All algorithms, written in minimal, auditable way
+import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes, concatBytes, equalBytes } from '@noble/ciphers/utils';
+import * as c from '@noble/ciphers/_micro'; // Everything, written in minimal, auditable way
 ```
 
 ### How to encrypt properly
@@ -84,7 +83,7 @@ import * as ciphers from '@noble/ciphers/_micro'; // All algorithms, written in 
     - Non-random key generated from KDF is fine
     - Re-using key is fine, but be aware of rules for cryptographic key wear-out and [encryption limits](#encryption-limits)
 2. Use new nonce every time and [don't repeat it](#nonces)
-    - [`simple` module](#simple) manages nonces for you
+    - `simple` module manages nonces for you
     - chacha and salsa20 are fine for sequential counters that *never* repeat: `01, 02...`
     - xchacha and xsalsa20 should be used for random nonces instead
 3. Prefer authenticated encryption (AEAD)
@@ -95,21 +94,6 @@ import * as ciphers from '@noble/ciphers/_micro'; // All algorithms, written in 
 4. Don't re-use keys between different protocols
     - For example, using secp256k1 key in AES is bad
     - Use hkdf or, at least, a hash function to create sub-key instead
-
-### simple
-
-```js
-import { randomKey, utf8ToBytes, encrypt, decrypt } from '@noble/ciphers/simple';
-const key = randomKey();
-const plaintext = new Uint8Array([104, 101, 108, 108, 111]); // == new TextEncoder().encode('hello')
-const ciphertext = encrypt(key, plaintext);
-const plaintext = decrypt(key, ciphertext);
-```
-
-Do you want to just encrypt and decrypt a bunch of data?
-We provide simplified API that abstracts complexity away.
-
-Internally, xchacha20poly1305 is used, with random nonce, which is then prepended to ciphertext.
 
 ### Salsa
 
