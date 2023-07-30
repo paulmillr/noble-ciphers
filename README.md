@@ -314,11 +314,11 @@ they increased nonce length to 192-bit, minimizing a chance of collision.
 AES-SIV is also fine. In situations where you can't use eXtended-nonce
 algorithms, key rotation is advised. hkdf would work great for this case.
 
+### Encryption limits
+
 A "protected message" would mean a probability of `2**-50` that a passive attacker
 successfully distinguishes the ciphertext outputs of the AEAD scheme from the outputs
 of a random function. See [RFC draft](https://datatracker.ietf.org/doc/draft-irtf-cfrg-aead-limits/) for details.
-
-### Encryption limits
 
 - Max message size:
     - AES-GCM: ~68GB, `2**36-256`
