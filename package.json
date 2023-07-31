@@ -1,6 +1,6 @@
 {
   "name": "@noble/ciphers",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Auditable & minimal JS implementation of Salsa20, ChaCha, Poly1305 & AES-SIV",
   "files": [
     "esm",
@@ -73,6 +73,11 @@
       "import": "./esm/salsa.js",
       "default": "./salsa.js"
     },
+    "./simple": {
+      "types": "./simple.d.ts",
+      "import": "./esm/simple.js",
+      "default": "./simple.js"
+    },
     "./utils": {
       "types": "./utils.d.ts",
       "import": "./esm/utils.js",
@@ -109,16 +114,14 @@
     "./webcrypto/crypto": "./webcrypto/crypto.js"
   },
   "keywords": [
+    "salsa20",
+    "chacha",
+    "aes",
     "cryptography",
     "crypto",
     "noble",
     "cipher",
     "ciphers",
-    "aes",
-    "gcm",
-    "siv",
-    "salsa20",
-    "chacha20",
     "xsalsa20",
     "xchacha20",
     "poly1305",
@@ -126,7 +129,8 @@
     "chacha20poly1305",
     "xchacha20poly1305",
     "secretbox",
-    "rijndael"
+    "rijndael",
+    "siv"
   ],
   "funding": "https://paulmillr.com/funding/"
 }
