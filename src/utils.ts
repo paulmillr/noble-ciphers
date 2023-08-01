@@ -176,6 +176,11 @@ export type AsyncCipher = {
   decrypt(ciphertext: Uint8Array): Promise<Uint8Array>;
 };
 
+export type CipherWithOutput = Cipher & {
+  encrypt(plaintext: Uint8Array, output?: Uint8Array): Uint8Array;
+  decrypt(ciphertext: Uint8Array, output?: Uint8Array): Uint8Array;
+};
+
 // Polyfill for Safari 14
 export function setBigUint64(
   view: DataView,

@@ -65,7 +65,9 @@ function salsaCore(
  * out without 25% performance hit.
  */
 // prettier-ignore
-export function hsalsa(c: Uint32Array, key: Uint8Array, nonce: Uint8Array, out: Uint8Array): Uint8Array {
+export function hsalsa(
+  c: Uint32Array, key: Uint8Array, nonce: Uint8Array, out: Uint8Array
+): Uint8Array {
   const k32 = u32(key);
   const i32 = u32(nonce);
   const o32 = u32(out);

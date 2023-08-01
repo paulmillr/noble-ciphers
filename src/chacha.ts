@@ -1,4 +1,11 @@
-import { Cipher, createView, ensureBytes, equalBytes, setBigUint64, u32 } from './utils.js';
+import {
+  CipherWithOutput,
+  createView,
+  ensureBytes,
+  equalBytes,
+  setBigUint64,
+  u32,
+} from './utils.js';
 import { poly1305 } from './_poly1305.js';
 import { salsaBasic } from './_salsa.js';
 
@@ -238,7 +245,7 @@ const computeTag = (
  */
 export const _poly1305_aead =
   (xorStream: typeof chacha20) =>
-  (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher => {
+  (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): CipherWithOutput => {
     const tagLength = 16;
     ensureBytes(key, 32);
     ensureBytes(nonce);
