@@ -1,6 +1,13 @@
-import { Cipher, createView, ensureBytes, equalBytes, setBigUint64, u32 } from './utils.js';
 import { poly1305 } from './_poly1305.js';
 import { salsaBasic } from './_salsa.js';
+import {
+  CipherWithReusableOutput,
+  createView,
+  ensureBytes,
+  equalBytes,
+  setBigUint64,
+  u32,
+} from './utils.js';
 
 // ChaCha20 stream cipher was released in 2008. ChaCha aims to increase
 // the diffusion per round, but had slightly less cryptanalysis.
@@ -238,7 +245,7 @@ const computeTag = (
  */
 export const _poly1305_aead =
   (xorStream: typeof chacha20) =>
-  (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher => {
+  (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): CipherWithReusableOutput => {
     const tagLength = 16;
     ensureBytes(key, 32);
     ensureBytes(nonce);

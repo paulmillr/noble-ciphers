@@ -169,6 +169,10 @@ export type Cipher = {
   encrypt(plaintext: Uint8Array): Uint8Array;
   decrypt(ciphertext: Uint8Array): Uint8Array;
 };
+export type CipherWithReusableOutput = Cipher & {
+  encrypt(plaintext: Uint8Array, output?: Uint8Array): Uint8Array;
+  decrypt(ciphertext: Uint8Array, output?: Uint8Array): Uint8Array;
+};
 
 export type AsyncCipher = {
   tagLength?: number;

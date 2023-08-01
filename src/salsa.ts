@@ -1,4 +1,4 @@
-import { ensureBytes, u32, equalBytes, Cipher } from './utils.js';
+import { ensureBytes, u32, equalBytes, Cipher, CipherWithReusableOutput } from './utils.js';
 import { salsaBasic } from './_salsa.js';
 import { poly1305 } from './_poly1305.js';
 
@@ -125,7 +125,10 @@ export const xsalsa20 = /* @__PURE__ */ salsaBasic({
  * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
  * Also known as secretbox from libsodium / nacl.
  */
-export const xsalsa20poly1305 = (key: Uint8Array, nonce: Uint8Array): Cipher => {
+export const xsalsa20poly1305 = (
+  key: Uint8Array,
+  nonce: Uint8Array
+): Cipher & Omit<CipherWithReusableOutput, 'decrypt'> => {
   const tagLength = 16;
   ensureBytes(key, 32);
   ensureBytes(nonce, 24);
