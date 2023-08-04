@@ -41,25 +41,20 @@ If you don't like NPM, a standalone
 
 ```js
 // import * from '@noble/ciphers'; // Error: use sub-imports, to ensure small app size
+import { xchacha20poly1305 } from '@noble/ciphers/chacha';
+// import { xchacha20poly1305 } from 'npm:@noble/ciphers@0.2.0/chacha'; // Deno
+import { randomBytes } from '@noble/ciphers/webcrypto/utils';
 
-// Simple chacha: xchacha20poly1305 with prepended-to-ciphertext random nonce:
-// nonce || ciphertext || mac
-import { encrypt, decrypt, utf8ToBytes, randomKey } from '@noble/ciphers/simple';
-// import { encrypt, decrypt } from 'npm:@noble/ciphers@0.2.0/simple'; // Deno
-const key = randomKey();
-const plaintext = utf8ToBytes('hello'); // Library works over Uint8Array-s
-const ciphertext = encrypt(key, plaintext);
-const plaintext_ = decrypt(key, ciphertext); // == plaintext
-
-// Simple AES: AES-256-GCM with prepended-to-ciphertext random nonce:
-// nonce || ciphertext || mac
-import { aes_encrypt, aes_decrypt } from '@noble/ciphers/simple';
-const a_key = randomKey();
-const a_ciphertext = await aes_encrypt(a_key, plaintext);
-const a_plaintext = await aes_decrypt(a_key, a_ciphertext);
+const key = randomBytes(32);
+const nonce = randomBytes(24);
+const chacha = xchacha20poly1305(key, nonce);
+const plaintext = new Uint8Array([104, 101, 108, 108, 111]); // Uint8Array-s are required
+// could have been written as:
+// import { utf8ToBytes } from '@noble/ciphers/utils'; const plaintext = utf8ToBytes('hello');
+const ciphertext = chacha.encrypt(key, plaintext);
+const plaintext_ = chacha.decrypt(key, ciphertext); // == plaintext
 
 // All modules
-
 // AEADs
 import { xsalsa20poly1305 } from '@noble/ciphers/salsa'; // aka sodium secretbox
 import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
@@ -78,6 +73,7 @@ import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes, concatBytes } from '@
 ```
 
 - [Usage](#usage)
+  - [Simple](#simple)
   - [Salsa](#salsa)
   - [ChaCha](#chacha)
   - [Poly1305](#poly1305)
@@ -92,6 +88,33 @@ import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes, concatBytes } from '@
 - [Speed](#speed)
 - [Contributing & testing](#contributing--testing)
 - [License](#license)
+
+### Simple
+
+```js
+// Simple ChaCha: xchacha20poly1305 with prepended-to-ciphertext random nonce
+import { encrypt, decrypt, utf8ToBytes, randomKey } from '@noble/ciphers/simple';
+const key = randomKey();
+const plaintext = utf8ToBytes('hello'); // Library works over Uint8Array-s
+const ciphertext = encrypt(key, plaintext);
+const plaintext_ = decrypt(key, ciphertext); // == plaintext
+
+// Simple AES: AES-256-GCM with prepended-to-ciphertext random nonce
+import { aes_encrypt, aes_decrypt } from '@noble/ciphers/simple';
+const a_key = randomKey();
+const a_plaintext = utf8ToBytes('hello'); // Library works over Uint8Array-s
+const a_ciphertext = await aes_encrypt(a_key, a_plaintext);
+const a_plaintext_ = await aes_decrypt(a_key, a_ciphertext);
+```
+
+We provide "simple" api, which hides away algorithm details and nonce management,
+making it very simple to use:
+
+- `encrypt` generates secure random nonce and prepends it to the ciphertext
+- `decrypt` takes nonce as first few bytes of ciphertext
+- The result format is: `nonce || ciphertext || mac`
+
+We recommend using ChaCha. AES should only be used when you can't use chacha. Also, check out [how to encrypt properly](#how-to-encrypt-properly).
 
 ### Salsa
 
@@ -117,6 +140,7 @@ import { secretbox } from '@noble/ciphers/simple';
 const box = secretbox(key, nonce);
 const ciphertext = box.seal(plaintext);
 const plaintext = box.open(ciphertext);
+// secretbox does not manage nonces for you
 
 // Standalone salsa is also available
 import { salsa20, xsalsa20 } from '@noble/ciphers/salsa';
