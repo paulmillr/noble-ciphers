@@ -41,22 +41,51 @@ If you don't like NPM, a standalone
 
 ```js
 // import * from '@noble/ciphers'; // Error: use sub-imports, to ensure small app size
-// Simple API: uses xchacha20poly1305 with random nonce. Abstracts complexity away.
 import { encrypt, decrypt, utf8ToBytes, randomKey } from '@noble/ciphers/simple';
+// import { encrypt, decrypt } from 'npm:@noble/ciphers@0.2.0/simple'; // Deno
+
+// Simple chacha API: xchacha20poly1305 with random nonce.
+// Nonce is auto-prepended to ciphertext: (nonce || ciphertext || mac)
 const key = randomKey();
 const plaintext = utf8ToBytes('hello'); // Library works over Uint8Array-s
 const ciphertext = encrypt(key, plaintext);
 const plaintext_ = decrypt(key, ciphertext);
+```
 
-// Simple AES API: uses aes_256_gcm with random nonce.
+### Simple AES
+
+```js
 import { aes_encrypt, aes_decrypt } from '@noble/ciphers/simple';
+
+// Simple AES API: aes_256_gcm with random nonce.
+// Nonce is auto-prepended to ciphertext: (nonce || ciphertext || mac)
 const a_key = randomKey();
 const a_ciphertext = await aes_encrypt(a_key, plaintext);
 const a_plaintext = await aes_decrypt(a_key, a_ciphertext);
 ```
 
+- [Usage](#usage)
+  - [Simple AES](#simple-aes)
+  - [Everything](#everything)
+  - [How to encrypt properly](#how-to-encrypt-properly)
+  - [Salsa](#salsa)
+  - [ChaCha](#chacha)
+  - [Poly1305](#poly1305)
+  - [AES](#aes)
+      - [How AES works](#how-aes-works)
+      - [Block modes](#block-modes)
+  - [FF1](#ff1)
+- [Security](#security)
+  - [Nonces](#nonces)
+  - [Encryption limits](#encryption-limits)
+- [Speed](#speed)
+- [Contributing & testing](#contributing--testing)
+- [License](#license)
+
+### Everything
+
 For specific APIs, see [salsa](#salsa), [chacha](#chacha) and [aes](#aes)
-sections below. All available imports:
+sections.
 
 ```js
 // AEADs
