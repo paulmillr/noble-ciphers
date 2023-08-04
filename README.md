@@ -45,11 +45,11 @@ import { encrypt, decrypt, utf8ToBytes, randomKey } from '@noble/ciphers/simple'
 // import { encrypt, decrypt } from 'npm:@noble/ciphers@0.2.0/simple'; // Deno
 
 // Simple chacha API: xchacha20poly1305 with random nonce.
-// Nonce is auto-prepended to ciphertext: (nonce || ciphertext || mac)
+// Nonce is prepended to ciphertext: (nonce || ciphertext || mac)
 const key = randomKey();
 const plaintext = utf8ToBytes('hello'); // Library works over Uint8Array-s
 const ciphertext = encrypt(key, plaintext);
-const plaintext_ = decrypt(key, ciphertext);
+const plaintext_ = decrypt(key, ciphertext); // == plaintext
 
 // Simple AES API: aes_256_gcm with random nonce.
 // Nonce is auto-prepended to ciphertext: (nonce || ciphertext || mac)
@@ -57,6 +57,8 @@ import { aes_encrypt, aes_decrypt } from '@noble/ciphers/simple';
 const a_key = randomKey();
 const a_ciphertext = await aes_encrypt(a_key, plaintext);
 const a_plaintext = await aes_decrypt(a_key, a_ciphertext);
+
+// All modules
 
 // AEADs
 import { xsalsa20poly1305 } from '@noble/ciphers/salsa'; // aka sodium secretbox
