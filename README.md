@@ -50,44 +50,14 @@ const key = randomKey();
 const plaintext = utf8ToBytes('hello'); // Library works over Uint8Array-s
 const ciphertext = encrypt(key, plaintext);
 const plaintext_ = decrypt(key, ciphertext);
-```
-
-### Simple AES
-
-```js
-import { aes_encrypt, aes_decrypt } from '@noble/ciphers/simple';
 
 // Simple AES API: aes_256_gcm with random nonce.
 // Nonce is auto-prepended to ciphertext: (nonce || ciphertext || mac)
+import { aes_encrypt, aes_decrypt } from '@noble/ciphers/simple';
 const a_key = randomKey();
 const a_ciphertext = await aes_encrypt(a_key, plaintext);
 const a_plaintext = await aes_decrypt(a_key, a_ciphertext);
-```
 
-- [Usage](#usage)
-  - [Simple AES](#simple-aes)
-  - [Everything](#everything)
-  - [How to encrypt properly](#how-to-encrypt-properly)
-  - [Salsa](#salsa)
-  - [ChaCha](#chacha)
-  - [Poly1305](#poly1305)
-  - [AES](#aes)
-      - [How AES works](#how-aes-works)
-      - [Block modes](#block-modes)
-  - [FF1](#ff1)
-- [Security](#security)
-  - [Nonces](#nonces)
-  - [Encryption limits](#encryption-limits)
-- [Speed](#speed)
-- [Contributing & testing](#contributing--testing)
-- [License](#license)
-
-### Everything
-
-For specific APIs, see [salsa](#salsa), [chacha](#chacha) and [aes](#aes)
-sections.
-
-```js
 // AEADs
 import { xsalsa20poly1305 } from '@noble/ciphers/salsa'; // aka sodium secretbox
 import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
@@ -102,27 +72,24 @@ import { aes_256_gcm_siv } from '@noble/ciphers/webcrypto/siv'; // AES-GCM-SIV
 import { FF1, BinaryFF1 } from '@noble/ciphers/webcrypto/ff1'; // FF1
 import { randomBytes } from '@noble/ciphers/webcrypto/utils';
 import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes, concatBytes } from '@noble/ciphers/utils';
-import * as c from '@noble/ciphers/_micro'; // Everything, written in minimal, auditable way
+// import * as c from '@noble/ciphers/_micro'; // Everything, written in minimal, auditable way
 ```
 
-### How to encrypt properly
-
-1. Use unpredictable key with enough entropy
-    - Random key must be using cryptographically secure random number generator (CSPRNG), not `Math.random` etc.
-    - Non-random key generated from KDF is fine
-    - Re-using key is fine, but be aware of rules for cryptographic key wear-out and [encryption limits](#encryption-limits)
-2. Use new nonce every time and [don't repeat it](#nonces)
-    - `simple` module manages nonces for you
-    - chacha and salsa20 are fine for sequential counters that *never* repeat: `01, 02...`
-    - xchacha and xsalsa20 should be used for random nonces instead
-3. Prefer authenticated encryption (AEAD)
-    - chacha20poly1305 is good, chacha20 without poly1305 is bad
-    - aes-gcm is good, aes-ctr / aes-cbc is bad
-    - Flipping bits or even ciphertext substitution won't be detected in
-      unauthenticated ciphers
-4. Don't re-use keys between different protocols
-    - For example, using secp256k1 key in AES is bad
-    - Use hkdf or, at least, a hash function to create sub-key instead
+- [Usage](#usage)
+  - [Salsa](#salsa)
+  - [ChaCha](#chacha)
+  - [Poly1305](#poly1305)
+  - [AES](#aes)
+      - [How AES works](#how-aes-works)
+      - [Block modes](#block-modes)
+  - [FF1](#ff1)
+- [Security](#security)
+  - [How to encrypt properly](#how-to-encrypt-properly)
+  - [Nonces](#nonces)
+  - [Encryption limits](#encryption-limits)
+- [Speed](#speed)
+- [Contributing & testing](#contributing--testing)
+- [License](#license)
 
 ### Salsa
 
@@ -306,6 +273,25 @@ More info: https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G
 ## Security
 
 The library is experimental. Use at your own risk.
+
+### How to encrypt properly
+
+1. Use unpredictable key with enough entropy
+    - Random key must be using cryptographically secure random number generator (CSPRNG), not `Math.random` etc.
+    - Non-random key generated from KDF is fine
+    - Re-using key is fine, but be aware of rules for cryptographic key wear-out and [encryption limits](#encryption-limits)
+2. Use new nonce every time and [don't repeat it](#nonces)
+    - `simple` module manages nonces for you
+    - chacha and salsa20 are fine for sequential counters that *never* repeat: `01, 02...`
+    - xchacha and xsalsa20 should be used for random nonces instead
+3. Prefer authenticated encryption (AEAD)
+    - chacha20poly1305 is good, chacha20 without poly1305 is bad
+    - aes-gcm is good, aes-ctr / aes-cbc is bad
+    - Flipping bits or even ciphertext substitution won't be detected in
+      unauthenticated ciphers
+4. Don't re-use keys between different protocols
+    - For example, using secp256k1 key in AES is bad
+    - Use hkdf or, at least, a hash function to create sub-key instead
 
 ### Nonces
 
