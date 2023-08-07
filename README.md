@@ -6,7 +6,7 @@ Auditable & minimal JS implementation of Salsa20, ChaCha, Poly1305 & AES-SIV
 - 🔻 Tree-shaking-friendly: use only what's necessary, other code won't be included
 - 🏎 [Ultra-fast](#speed), hand-optimized for caveats of JS engines
 - 🔍 Unique tests ensure correctness: property-based, cross-library and Wycheproof vectors
-- 💼 AES: GCM (Galois Counter Mode), SIV (Nonce Misuse-Resistant encryption)
+- 💼 AES: SIV (Nonce Misuse-Resistant encryption), simple GCM/CTR/CBC webcrypto wrapper
 - 💃 Salsa20, ChaCha, XSalsa20, XChaCha, Poly1305, ChaCha8, ChaCha12
 - ✍️ FF1 format-preserving encryption
 - 🧂 Compatible with NaCl / libsodium secretbox
@@ -87,6 +87,8 @@ import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes, concatBytes } from '@
   - [Encryption limits](#encryption-limits)
 - [Speed](#speed)
 - [Contributing & testing](#contributing--testing)
+- [Resources](#resources)
+  - [Projects using ciphers](#projects-using-ciphers)
 - [License](#license)
 
 ### Simple
@@ -198,8 +200,7 @@ const ciphertext_12 = chacha12(key, nonce12, data);
 
 ChaCha20 stream cipher ([website](https://cr.yp.to/chacha.html),
 [PDF](http://cr.yp.to/chacha/chacha-20080128.pdf),
-[wiki](https://en.wikipedia.org/wiki/Salsa20),
-[blog post](https://loup-vaillant.fr/tutorials/chacha20-design)) was released
+[wiki](https://en.wikipedia.org/wiki/Salsa20)) was released
 in 2008. ChaCha aims to increase the diffusion per round, but had slightly less
 cryptanalysis. It was standardized in
 [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3.
@@ -212,8 +213,7 @@ randomly-generated nonces.
 
 Poly1305 ([website](https://cr.yp.to/mac.html),
 [PDF](https://cr.yp.to/mac/poly1305-20050329.pdf),
-[wiki](https://en.wikipedia.org/wiki/Poly1305),
-[blog post](https://loup-vaillant.fr/tutorials/poly1305-design))
+[wiki](https://en.wikipedia.org/wiki/Poly1305))
 is a fast and parallel secret-key message-authentication code suitable for
 a wide variety of applications. It was standardized in
 [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3.
@@ -293,8 +293,7 @@ We only expose GCM & SIV for now.
 ### FF1
 
 Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publication 800-38G.
-
-More info: https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf
+[See more info](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf).
 
 ## Security
 
@@ -454,6 +453,21 @@ chacha (encrypt, 1MB)
 2. `npm install` to install build dependencies like TypeScript
 3. `npm run build` to compile TypeScript code
 4. `npm run test` will execute all main tests
+
+## Resources
+
+- [Fast-key-erasure random-number generators](https://blog.cr.yp.to/20170723-random.html)
+- [The design of Chacha20](https://loup-vaillant.fr/tutorials/chacha20-design)
+- [The design of Poly1305](https://loup-vaillant.fr/tutorials/poly1305-design)
+- Multi-user / multi-key attacks
+    - [Break a dozen secret keys, get a million more for free](https://blog.cr.yp.to/20151120-batchattacks.html)
+    - [128 Bits of Security and 128 Bits of Security: Know the Difference](https://loup-vaillant.fr/tutorials/128-bits-of-security)
+
+### Projects using ciphers
+
+- [js-libp2p-noise](https://github.com/ChainSafe/js-libp2p-noise)
+
+See [full list on GitHub](https://github.com/paulmillr/noble-ciphers/network/dependents).
 
 ## License
 
