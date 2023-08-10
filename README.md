@@ -62,13 +62,13 @@ import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
 import { salsa20, xsalsa20 } from '@noble/ciphers/salsa';
 import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha';
 // AES webcrypto shortcuts
-import {
-  aes_128_gcm, aes_128_ctr, aes_128_cbc, aes_256_gcm, aes_256_ctr, aes_256_cbc
-} from '@noble/ciphers/webcrypto/aes';
+import { aes_128_gcm, aes_128_ctr, aes_128_cbc } from '@noble/ciphers/webcrypto/aes';
+import { aes_256_gcm, aes_256_ctr, aes_256_cbc } from '@noble/ciphers/webcrypto/aes';
 import { aes_256_gcm_siv } from '@noble/ciphers/webcrypto/siv'; // AES-GCM-SIV
 import { FF1, BinaryFF1 } from '@noble/ciphers/webcrypto/ff1'; // FF1
+import { bytesToHex, hexToBytes, concatBytes } from '@noble/ciphers/utils';
+import { bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils';
 import { randomBytes } from '@noble/ciphers/webcrypto/utils';
-import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes, concatBytes } from '@noble/ciphers/utils';
 // import * as c from '@noble/ciphers/_micro'; // Everything, written in minimal, auditable way
 ```
 
@@ -78,8 +78,8 @@ import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes, concatBytes } from '@
   - [ChaCha](#chacha)
   - [Poly1305](#poly1305)
   - [AES](#aes)
-      - [How AES works](#how-aes-works)
-      - [Block modes](#block-modes)
+    - [How AES works](#how-aes-works)
+    - [Block modes](#block-modes)
   - [FF1](#ff1)
 - [Security](#security)
   - [How to encrypt properly](#how-to-encrypt-properly)
@@ -136,7 +136,7 @@ const data = utf8ToBytes('hello, noble'); // strings must be converted to Uint8A
 
 const nonce = randomBytes(24);
 const stream_x = xsalsa20poly1305(key, nonce); // === secretbox(key, nonce)
-const ciphertext = stream_x.encrypt(data);      // === secretbox.seal(data)
+const ciphertext = stream_x.encrypt(data); // === secretbox.seal(data)
 const plaintext = stream_x.decrypt(ciphertext); // === secretbox.open(ciphertext)
 
 // Avoid memory allocations: re-use same uint8array
@@ -239,10 +239,8 @@ using chacha-poly or xsalsa-poly.
 ### AES
 
 ```js
-import {
-  aes_128_gcm, aes_128_ctr, aes_128_cbc,
-  aes_256_gcm, aes_256_ctr, aes_256_cbc
-} from '@noble/ciphers/webcrypto/aes';
+import { aes_128_gcm, aes_128_ctr, aes_128_cbc } from '@noble/ciphers/webcrypto/aes';
+import { aes_256_gcm, aes_256_ctr, aes_256_cbc } from '@noble/ciphers/webcrypto/aes';
 
 for (let cipher of [aes_256_gcm, aes_256_ctr, aes_256_cbc]) {
   const stream_new = cipher(key, nonce);
@@ -251,7 +249,7 @@ for (let cipher of [aes_256_gcm, aes_256_ctr, aes_256_cbc]) {
 }
 
 import { aes_256_gcm_siv } from '@noble/ciphers/webcrypto/siv';
-const stream_siv = aes_256_gcm_siv(key, nonce)
+const stream_siv = aes_256_gcm_siv(key, nonce);
 await stream_siv.encrypt(plaintext, AAD);
 ```
 
@@ -285,14 +283,14 @@ We only expose GCM & SIV for now.
 - CBC — key is previous round’s block. Hard to use: need proper padding, also needs MAC
 - CTR — counter, allows to create streaming cipher. Requires good IV. Parallelizable. OK, but no MAC
 - GCM — modern CTR, parallel, with MAC. Not ideal:
-    - Conservative key wear-out is `2**32` (4B) msgs
-    - MAC can be forged: see Poly1305 section above
+  - Conservative key wear-out is `2**32` (4B) msgs
+  - MAC can be forged: see Poly1305 section above
 - SIV — synthetic initialization vector, nonce-misuse-resistant
-    - Can be 1.5-2x slower than GCM by itself
-    - nonce misuse-resistant schemes guarantee that if a
-      nonce repeats, then the only security loss is that identical
-      plaintexts will produce identical ciphertexts
-    - MAC can be forged: see Poly1305 section above
+  - Can be 1.5-2x slower than GCM by itself
+  - nonce misuse-resistant schemes guarantee that if a
+    nonce repeats, then the only security loss is that identical
+    plaintexts will produce identical ciphertexts
+  - MAC can be forged: see Poly1305 section above
 - XTS — used in hard drives. Similar to ECB (deterministic), but has `[i][j]`
   tweak arguments corresponding to sector i and 16-byte block (part of sector) j. Not authenticated!
 
@@ -308,21 +306,21 @@ The library is experimental. Use at your own risk.
 ### How to encrypt properly
 
 1. Use unpredictable key with enough entropy
-    - Random key must be using cryptographically secure random number generator (CSPRNG), not `Math.random` etc.
-    - Non-random key generated from KDF is fine
-    - Re-using key is fine, but be aware of rules for cryptographic key wear-out and [encryption limits](#encryption-limits)
+   - Random key must be using cryptographically secure random number generator (CSPRNG), not `Math.random` etc.
+   - Non-random key generated from KDF is fine
+   - Re-using key is fine, but be aware of rules for cryptographic key wear-out and [encryption limits](#encryption-limits)
 2. Use new nonce every time and [don't repeat it](#nonces)
-    - `simple` module manages nonces for you
-    - chacha and salsa20 are fine for sequential counters that *never* repeat: `01, 02...`
-    - xchacha and xsalsa20 should be used for random nonces instead
+   - `simple` module manages nonces for you
+   - chacha and salsa20 are fine for sequential counters that _never_ repeat: `01, 02...`
+   - xchacha and xsalsa20 should be used for random nonces instead
 3. Prefer authenticated encryption (AEAD)
-    - chacha20poly1305 is good, chacha20 without poly1305 is bad
-    - aes-gcm is good, aes-ctr / aes-cbc is bad
-    - Flipping bits or even ciphertext substitution won't be detected in
-      unauthenticated ciphers
+   - chacha20poly1305 is good, chacha20 without poly1305 is bad
+   - aes-gcm is good, aes-ctr / aes-cbc is bad
+   - Flipping bits or even ciphertext substitution won't be detected in
+     unauthenticated ciphers
 4. Don't re-use keys between different protocols
-    - For example, using secp256k1 key in AES is bad
-    - Use hkdf or, at least, a hash function to create sub-key instead
+   - For example, using secp256k1 key in AES is bad
+   - Use hkdf or, at least, a hash function to create sub-key instead
 
 ### Nonces
 
@@ -367,16 +365,16 @@ successfully distinguishes the ciphertext outputs of the AEAD scheme from the ou
 of a random function. See [RFC draft](https://datatracker.ietf.org/doc/draft-irtf-cfrg-aead-limits/) for details.
 
 - Max message size:
-    - AES-GCM: ~68GB, `2**36-256`
-    - Salsa, ChaCha, XSalsa, XChaCha: ~256GB, `2**38-64`
+  - AES-GCM: ~68GB, `2**36-256`
+  - Salsa, ChaCha, XSalsa, XChaCha: ~256GB, `2**38-64`
 - Max amount of protected messages, under same key:
-    - AES-GCM: `2**32.5`
-    - Salsa, ChaCha: `2**46`, but only integrity is affected, not confidentiality
-    - XSalsa, XChaCha: `2**72`
+  - AES-GCM: `2**32.5`
+  - Salsa, ChaCha: `2**46`, but only integrity is affected, not confidentiality
+  - XSalsa, XChaCha: `2**72`
 - Max amount of protected messages, across all keys:
-    - AES-GCM: `2**69/B` where B is max blocks encrypted by a key. Meaning
-      `2**59` for 1KB, `2**49` for 1MB, `2**39` for 1GB
-    - Salsa, ChaCha, XSalsa, XChaCha: `2**100`
+  - AES-GCM: `2**69/B` where B is max blocks encrypted by a key. Meaning
+    `2**59` for 1KB, `2**49` for 1MB, `2**39` for 1GB
+  - Salsa, ChaCha, XSalsa, XChaCha: `2**100`
 
 ## Speed
 
@@ -466,8 +464,8 @@ chacha (encrypt, 1MB)
 - [The design of Chacha20](https://loup-vaillant.fr/tutorials/chacha20-design)
 - [The design of Poly1305](https://loup-vaillant.fr/tutorials/poly1305-design)
 - Multi-user / multi-key attacks
-    - [Break a dozen secret keys, get a million more for free](https://blog.cr.yp.to/20151120-batchattacks.html)
-    - [128 Bits of Security and 128 Bits of Security: Know the Difference](https://loup-vaillant.fr/tutorials/128-bits-of-security)
+  - [Break a dozen secret keys, get a million more for free](https://blog.cr.yp.to/20151120-batchattacks.html)
+  - [128 Bits of Security and 128 Bits of Security: Know the Difference](https://loup-vaillant.fr/tutorials/128-bits-of-security)
 
 ### Projects using ciphers
 
