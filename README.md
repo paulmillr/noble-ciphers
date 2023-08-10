@@ -116,7 +116,13 @@ making it very simple to use:
 - `decrypt` takes nonce as first few bytes of ciphertext
 - The result format is: `nonce || ciphertext || mac`
 
-We recommend using ChaCha. AES should only be used when you can't use chacha. Also, check out [how to encrypt properly](#how-to-encrypt-properly).
+We recommend using ChaCha. AES should only be used when you can't use chacha.
+
+Secretbox was nacl / sodium attempt to make simple API, but unfortunately it still
+requires nonce management. Our API is easy to use and compatible with every other lib:
+if you don't use noble on the other end, just `.slice()` the output.
+
+Also, check out [how to encrypt properly](#how-to-encrypt-properly).
 
 ### Salsa
 
@@ -466,8 +472,7 @@ chacha (encrypt, 1MB)
 ### Projects using ciphers
 
 - [js-libp2p-noise](https://github.com/ChainSafe/js-libp2p-noise)
-
-See [full list on GitHub](https://github.com/paulmillr/noble-ciphers/network/dependents).
+- See [full list of projects on GitHub](https://github.com/paulmillr/noble-curves/network/dependents).
 
 ## License
 
