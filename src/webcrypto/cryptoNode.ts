@@ -3,5 +3,5 @@
 // The file will throw on node.js 14 and earlier.
 // @ts-ignore
 import * as nc from 'node:crypto';
-export const crypto =
+export const crypto: Crypto =
   nc && typeof nc === 'object' && 'webcrypto' in nc ? (nc.webcrypto as any) : undefined;
