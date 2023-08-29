@@ -39,6 +39,26 @@ For React Native, you may need a
 If you don't like NPM, a standalone
 [noble-ciphers.js](https://github.com/paulmillr/noble-ciphers/releases) is also available.
 
+- [Modules](#modules)
+  - [Salsa](#salsa)
+  - [ChaCha](#chacha)
+  - [Poly1305](#poly1305)
+  - [AES](#aes)
+  - [FF1](#ff1)
+- [Guidance](#guidance)
+  - [How to encrypt properly](#how-to-encrypt-properly)
+  - [Nonces](#nonces)
+  - [Encryption limits](#encryption-limits)
+  - [AES internals and block modes](#aes-internals-and-block-modes)
+- [Security](#security)
+- [Speed](#speed)
+- [Contributing & testing](#contributing--testing)
+- [Resources](#resources)
+  - [Projects using ciphers](#projects-using-ciphers)
+- [License](#license)
+
+### Modules
+
 ```js
 // import * from '@noble/ciphers'; // Error: use sub-imports, to ensure small app size
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
@@ -71,58 +91,6 @@ import { bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils';
 import { randomBytes } from '@noble/ciphers/webcrypto/utils';
 // import * as c from '@noble/ciphers/_micro'; // Everything, written in minimal, auditable way
 ```
-
-- [Usage](#usage)
-  - [Simple](#simple)
-  - [Salsa](#salsa)
-  - [ChaCha](#chacha)
-  - [Poly1305](#poly1305)
-  - [AES](#aes)
-    - [How AES works](#how-aes-works)
-    - [Block modes](#block-modes)
-  - [FF1](#ff1)
-- [Security](#security)
-  - [How to encrypt properly](#how-to-encrypt-properly)
-  - [Nonces](#nonces)
-  - [Encryption limits](#encryption-limits)
-- [Speed](#speed)
-- [Contributing & testing](#contributing--testing)
-- [Resources](#resources)
-  - [Projects using ciphers](#projects-using-ciphers)
-- [License](#license)
-
-### Simple
-
-```js
-// Simple ChaCha: xchacha20poly1305 with prepended-to-ciphertext random nonce
-import { encrypt, decrypt, utf8ToBytes, randomKey } from '@noble/ciphers/simple';
-const key = randomKey();
-const plaintext = utf8ToBytes('hello'); // Library works over Uint8Array-s
-const ciphertext = encrypt(key, plaintext);
-const plaintext_ = decrypt(key, ciphertext); // == plaintext
-
-// Simple AES: AES-256-GCM with prepended-to-ciphertext random nonce
-import { aes_encrypt, aes_decrypt } from '@noble/ciphers/simple';
-const a_key = randomKey();
-const a_plaintext = utf8ToBytes('hello'); // Library works over Uint8Array-s
-const a_ciphertext = await aes_encrypt(a_key, a_plaintext);
-const a_plaintext_ = await aes_decrypt(a_key, a_ciphertext);
-```
-
-We provide "simple" api, which hides away algorithm details and nonce management,
-making it very simple to use:
-
-- `encrypt` generates secure random nonce and prepends it to the ciphertext
-- `decrypt` takes nonce as first few bytes of ciphertext
-- The result format is: `nonce || ciphertext || mac`
-
-We recommend using ChaCha. AES should only be used when you can't use chacha.
-
-Secretbox was nacl / sodium attempt to make simple API, but unfortunately it still
-requires nonce management. Our API is easy to use and compatible with every other lib:
-if you don't use noble on the other end, just `.slice()` the output.
-
-Also, check out [how to encrypt properly](#how-to-encrypt-properly).
 
 ### Salsa
 
@@ -261,88 +229,16 @@ and provide an improved, simple API. There is a simple reason for this:
 webcrypto API is terrible: different block modes require different params.
 
 Optional [AES-GCM-SIV](https://en.wikipedia.org/wiki/AES-GCM-SIV)
-(synthetic initialization vector) nonce-misuse-resistant mode is also provided.
+synthetic initialization vector nonce-misuse-resistant mode is also provided.
 
-##### How AES works
-
-`cipher = encrypt(block, key)`. Data is split into 128-bit blocks. Encrypted in 10/12/14 rounds (128/192/256bit). Every round does:
-
-1. **S-box**, table substitution
-2. **Shift rows**, cyclic shift left of all rows of data array
-3. **Mix columns**, multiplying every column by fixed polynomial
-4. **Add round key**, round_key xor i-th column of array
-
-For non-deterministic (not ECB) schemes, initialization vector (IV) is mixed to block/key;
-and each new round either depends on previous block's key, or on some counter.
-
-##### Block modes
-
-We only expose GCM & SIV for now.
-
-- ECB — simple deterministic replacement. Dangerous: always map x to y. See [AES Penguin](https://words.filippo.io/the-ecb-penguin/)
-- CBC — key is previous round’s block. Hard to use: need proper padding, also needs MAC
-- CTR — counter, allows to create streaming cipher. Requires good IV. Parallelizable. OK, but no MAC
-- GCM — modern CTR, parallel, with MAC. Not ideal:
-  - Conservative key wear-out is `2**32` (4B) msgs
-  - MAC can be forged: see Poly1305 section above
-- SIV — synthetic initialization vector, nonce-misuse-resistant
-  - Can be 1.5-2x slower than GCM by itself
-  - nonce misuse-resistant schemes guarantee that if a
-    nonce repeats, then the only security loss is that identical
-    plaintexts will produce identical ciphertexts
-  - MAC can be forged: see Poly1305 section above
-- XTS — used in hard drives. Similar to ECB (deterministic), but has `[i][j]`
-  tweak arguments corresponding to sector i and 16-byte block (part of sector) j. Not authenticated!
+Check out [AES internals and block modes](#aes-internals-and-block-modes).
 
 ### FF1
 
 Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publication 800-38G.
 [See more info](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf).
 
-## Security
-
-The library has not been independently audited yet.
-
-It is tested against property-based, cross-library and Wycheproof vectors,
-and has fuzzing by [Guido Vranken's cryptofuzz](https://github.com/guidovranken/cryptofuzz).
-
-### Constant-timeness
-
-_JIT-compiler_ and _Garbage Collector_ make "constant time" extremely hard to
-achieve [timing attack](https://en.wikipedia.org/wiki/Timing_attack) resistance
-in a scripting language. Which means _any other JS library can't have
-constant-timeness_. Even statically typed Rust, a language without GC,
-[makes it harder to achieve constant-time](https://www.chosenplaintext.ca/open-source/rust-timing-shield/security)
-for some cases. If your goal is absolute security, don't use any JS lib — including bindings to native ones.
-Use low-level libraries & languages. Nonetheless we're targetting algorithmic constant time.
-
-### Supply chain security
-
-1. **Commits** are signed with PGP keys, to prevent forgery. Make sure to verify commit signatures.
-2. **Releases** are transparent and built on GitHub CI. Make sure to verify [provenance](https://docs.npmjs.com/generating-provenance-statements) logs
-3. **Rare releasing** is followed.
-   The less often it is done, the less code dependents would need to audit
-4. **Dependencies** are minimal:
-   - All deps are prevented from automatic updates and have locked-down version ranges. Every update is checked with `npm-diff`
-   - Updates themselves are rare, to ensure rogue updates are not catched accidentally
-5. devDependencies are only used if you want to contribute to the repo. They are disabled for end-users:
-   - scure-base, micro-bmark and micro-should are developed by the same author and follow identical security practices
-   - prettier (linter), fast-check (property-based testing) and typescript are used for code quality, vector generation and ts compilation. The packages are big, which makes it hard to audit their source code thoroughly and fully
-
-We consider infrastructure attacks like rogue NPM modules very important;
-that's why it's crucial to minimize the amount of 3rd-party dependencies & native bindings.
-If your app uses 500 dependencies, any dep could get hacked and you'll be
-downloading malware with every install. Our goal is to minimize this attack vector.
-
-If you see anything unusual: investigate and report.
-
-### Randomness
-
-We're deferring to built-in
-[crypto.getRandomValues](https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues)
-which is considered cryptographically secure (CSPRNG).
-
-In the past, browsers had bugs that made it weak: it may happen again.
+## Guidance
 
 ### How to encrypt properly
 
@@ -417,6 +313,79 @@ of a random function. See [RFC draft](https://datatracker.ietf.org/doc/draft-irt
     `2**59` for 1KB, `2**49` for 1MB, `2**39` for 1GB
   - Salsa, ChaCha, XSalsa, XChaCha: `2**100`
 
+##### AES internals and block modes
+
+`cipher = encrypt(block, key)`. Data is split into 128-bit blocks. Encrypted in 10/12/14 rounds (128/192/256bit). Every round does:
+
+1. **S-box**, table substitution
+2. **Shift rows**, cyclic shift left of all rows of data array
+3. **Mix columns**, multiplying every column by fixed polynomial
+4. **Add round key**, round_key xor i-th column of array
+
+For non-deterministic (not ECB) schemes, initialization vector (IV) is mixed to block/key;
+and each new round either depends on previous block's key, or on some counter.
+
+As for block modes: we only expose GCM & SIV for now.
+
+- ECB — simple deterministic replacement. Dangerous: always map x to y. See [AES Penguin](https://words.filippo.io/the-ecb-penguin/)
+- CBC — key is previous round’s block. Hard to use: need proper padding, also needs MAC
+- CTR — counter, allows to create streaming cipher. Requires good IV. Parallelizable. OK, but no MAC
+- GCM — modern CTR, parallel, with MAC. Not ideal:
+  - Conservative key wear-out is `2**32` (4B) msgs
+  - MAC can be forged: see Poly1305 section above
+- SIV — synthetic initialization vector, nonce-misuse-resistant
+  - Can be 1.5-2x slower than GCM by itself
+  - nonce misuse-resistant schemes guarantee that if a
+    nonce repeats, then the only security loss is that identical
+    plaintexts will produce identical ciphertexts
+  - MAC can be forged: see Poly1305 section above
+- XTS — used in hard drives. Similar to ECB (deterministic), but has `[i][j]`
+  tweak arguments corresponding to sector i and 16-byte block (part of sector) j. Not authenticated!
+
+## Security
+
+The library has not been independently audited yet.
+
+It is tested against property-based, cross-library and Wycheproof vectors,
+and has fuzzing by [Guido Vranken's cryptofuzz](https://github.com/guidovranken/cryptofuzz).
+
+### Constant-timeness
+
+_JIT-compiler_ and _Garbage Collector_ make "constant time" extremely hard to
+achieve [timing attack](https://en.wikipedia.org/wiki/Timing_attack) resistance
+in a scripting language. Which means _any other JS library can't have
+constant-timeness_. Even statically typed Rust, a language without GC,
+[makes it harder to achieve constant-time](https://www.chosenplaintext.ca/open-source/rust-timing-shield/security)
+for some cases. If your goal is absolute security, don't use any JS lib — including bindings to native ones.
+Use low-level libraries & languages. Nonetheless we're targetting algorithmic constant time.
+
+### Supply chain security
+
+1. **Commits** are signed with PGP keys, to prevent forgery. Make sure to verify commit signatures.
+2. **Releases** are transparent and built on GitHub CI. Make sure to verify [provenance](https://docs.npmjs.com/generating-provenance-statements) logs
+3. **Rare releasing** is followed.
+   The less often it is done, the less code dependents would need to audit
+4. **Dependencies** are minimal:
+   - All deps are prevented from automatic updates and have locked-down version ranges. Every update is checked with `npm-diff`
+   - Updates themselves are rare, to ensure rogue updates are not catched accidentally
+5. devDependencies are only used if you want to contribute to the repo. They are disabled for end-users:
+   - scure-base, micro-bmark and micro-should are developed by the same author and follow identical security practices
+   - prettier (linter), fast-check (property-based testing) and typescript are used for code quality, vector generation and ts compilation. The packages are big, which makes it hard to audit their source code thoroughly and fully
+
+We consider infrastructure attacks like rogue NPM modules very important;
+that's why it's crucial to minimize the amount of 3rd-party dependencies & native bindings.
+If your app uses 500 dependencies, any dep could get hacked and you'll be
+downloading malware with every install. Our goal is to minimize this attack vector.
+
+If you see anything unusual: investigate and report.
+
+### Randomness
+
+We're deferring to built-in
+[crypto.getRandomValues](https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues)
+which is considered cryptographically secure (CSPRNG).
+
+In the past, browsers had bugs that made it weak: it may happen again.
 ## Speed
 
 To summarize, noble is the fastest JS implementation.
