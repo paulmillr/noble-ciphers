@@ -65,27 +65,6 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 // import { xchacha20poly1305 } from 'npm:@noble/ciphers@0.2.0/chacha'; // Deno
 import { randomBytes } from '@noble/ciphers/webcrypto/utils';
 
-const key = randomBytes(32);
-const nonce = randomBytes(24);
-const chacha = xchacha20poly1305(key, nonce);
-const plaintext = new Uint8Array([104, 101, 108, 108, 111]); // Uint8Array-s are required
-// could have been written as:
-// import { utf8ToBytes } from '@noble/ciphers/utils'; const plaintext = utf8ToBytes('hello');
-const ciphertext = chacha.encrypt(key, plaintext);
-const plaintext_ = chacha.decrypt(key, ciphertext); // == plaintext
-
-// All modules
-// AEADs
-import { xsalsa20poly1305 } from '@noble/ciphers/salsa'; // aka sodium secretbox
-import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
-// Pure ciphers
-import { salsa20, xsalsa20 } from '@noble/ciphers/salsa';
-import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha';
-// AES webcrypto shortcuts
-import { aes_128_gcm, aes_128_ctr, aes_128_cbc } from '@noble/ciphers/webcrypto/aes';
-import { aes_256_gcm, aes_256_ctr, aes_256_cbc } from '@noble/ciphers/webcrypto/aes';
-import { aes_256_gcm_siv } from '@noble/ciphers/webcrypto/siv'; // AES-GCM-SIV
-import { FF1, BinaryFF1 } from '@noble/ciphers/webcrypto/ff1'; // FF1
 import { bytesToHex, hexToBytes, concatBytes } from '@noble/ciphers/utils';
 import { bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils';
 import { randomBytes } from '@noble/ciphers/webcrypto/utils';
