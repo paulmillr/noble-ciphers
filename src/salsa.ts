@@ -176,3 +176,13 @@ export const xsalsa20poly1305 = (key: Uint8Array, nonce: Uint8Array): Cipher => 
     },
   };
 };
+
+/**
+ * Alias to xsalsa20poly1305, for compatibility with libsodium / nacl
+ */
+export function secretbox(key: Uint8Array, nonce: Uint8Array) {
+  ensureBytes(key);
+  ensureBytes(nonce);
+  const xs = xsalsa20poly1305(key, nonce);
+  return { seal: xs.encrypt, open: xs.decrypt };
+}

@@ -93,7 +93,7 @@ stream_x.decrypt(ciphertext, ciphertext.subarray(-16));
 // ciphertext is now plaintext
 
 // We provide sodium secretbox alias, which is just xsalsa20poly1305
-import { secretbox } from '@noble/ciphers/simple';
+import { secretbox } from '@noble/ciphers/salsa';
 const box = secretbox(key, nonce);
 const ciphertext = box.seal(plaintext);
 const plaintext = box.open(ciphertext);
@@ -206,7 +206,7 @@ AES ([wiki](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard))
 is a variant of Rijndael block cipher, standardized by NIST.
 
 We don't implement AES in pure JS for now: instead, we wrap WebCrypto built-in
-and provide an improved, simple API. There is a simple reason for this:
+and provide an improved, simple API. There is a reason for this:
 webcrypto API is terrible: different block modes require different params.
 
 Optional [AES-GCM-SIV](https://en.wikipedia.org/wiki/AES-GCM-SIV)
@@ -228,7 +228,6 @@ Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publi
    - Non-random key generated from KDF is fine
    - Re-using key is fine, but be aware of rules for cryptographic key wear-out and [encryption limits](#encryption-limits)
 2. Use new nonce every time and [don't repeat it](#nonces)
-   - `simple` module manages nonces for you
    - chacha and salsa20 are fine for sequential counters that _never_ repeat: `01, 02...`
    - xchacha and xsalsa20 should be used for random nonces instead
 3. Prefer authenticated encryption (AEAD)
