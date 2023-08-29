@@ -48,9 +48,9 @@ import { randomBytes } from '@noble/ciphers/webcrypto/utils';
 const key = randomBytes(32);
 const data = utf8ToBytes('hello, noble'); // strings must be converted to Uint8Array
 const nonce = randomBytes(24);
-const stream_x = xchacha20poly1305(key, nonce); // === secretbox(key, nonce)
-const ciphertext = stream_x.encrypt(data); // === secretbox.seal(data)
-const plaintext = stream_x.decrypt(ciphertext); // === secretbox.open(ciphertext)
+const stream_x = xchacha20poly1305(key, nonce);
+const ciphertext = stream_x.encrypt(data);
+const plaintext = stream_x.decrypt(ciphertext);
 ```
 
 - [Modules](#modules)
