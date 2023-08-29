@@ -39,6 +39,20 @@ For React Native, you may need a
 If you don't like NPM, a standalone
 [noble-ciphers.js](https://github.com/paulmillr/noble-ciphers/releases) is also available.
 
+```js
+// import * from '@noble/ciphers'; // Error: use sub-imports, to ensure small app size
+import { xchacha20poly1305 } from '@noble/ciphers/chacha';
+// import { xchacha20poly1305 } from 'npm:@noble/ciphers@0.2.0/chacha'; // Deno
+import { utf8ToBytes } from '@noble/ciphers/utils';
+import { randomBytes } from '@noble/ciphers/webcrypto/utils';
+const key = randomBytes(32);
+const data = utf8ToBytes('hello, noble'); // strings must be converted to Uint8Array
+const nonce = randomBytes(24);
+const stream_x = xchacha20poly1305(key, nonce); // === secretbox(key, nonce)
+const ciphertext = stream_x.encrypt(data); // === secretbox.seal(data)
+const plaintext = stream_x.decrypt(ciphertext); // === secretbox.open(ciphertext)
+```
+
 - [Modules](#modules)
   - [Salsa](#salsa)
   - [ChaCha](#chacha)
@@ -57,19 +71,7 @@ If you don't like NPM, a standalone
   - [Projects using ciphers](#projects-using-ciphers)
 - [License](#license)
 
-### Modules
-
-```js
-// import * from '@noble/ciphers'; // Error: use sub-imports, to ensure small app size
-import { xchacha20poly1305 } from '@noble/ciphers/chacha';
-// import { xchacha20poly1305 } from 'npm:@noble/ciphers@0.2.0/chacha'; // Deno
-import { randomBytes } from '@noble/ciphers/webcrypto/utils';
-
-import { bytesToHex, hexToBytes, concatBytes } from '@noble/ciphers/utils';
-import { bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils';
-import { randomBytes } from '@noble/ciphers/webcrypto/utils';
-// import * as c from '@noble/ciphers/_micro'; // Everything, written in minimal, auditable way
-```
+## Modules
 
 ### Salsa
 
