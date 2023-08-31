@@ -1,25 +1,51 @@
 import { ensureBytes } from '../utils.js';
 import { getWebcryptoSubtle } from './utils.js';
 
-function generate(algo: string, length: number) {
+/**
+ * AAD is only effective on AES-256-GCM or AES-128-GCM. Otherwise it'll be ignored
+ */
+export type Cipher = (
+  key: Uint8Array,
+  nonce: Uint8Array,
+  AAD?: Uint8Array
+) => {
+  keyLength: number;
+  encrypt(plaintext: Uint8Array): Promise<Uint8Array>;
+  decrypt(ciphertext: Uint8Array): Promise<Uint8Array>;
+};
+
+type Algo = 'AES-CTR' | 'AES-GCM' | 'AES-CBC';
+type BitLength = 128 | 256;
+
+function getCryptParams(
+  algo: Algo,
+  nonce: Uint8Array,
+  AAD?: Uint8Array
+): AesCbcParams | AesCtrParams | AesGcmParams {
+  const params = { name: algo };
+  if (algo === 'AES-CTR') {
+    return { ...params, counter: nonce, length: 64 } as AesCtrParams;
+  } else if (algo === 'AES-GCM') {
+    return { ...params, iv: nonce, additionalData: AAD } as AesGcmParams;
+  } else if (algo === 'AES-CBC') {
+    return { ...params, iv: nonce } as AesCbcParams;
+  } else {
+    throw new Error('unknown aes cipher');
+  }
+}
+
+function generate(algo: Algo, length: BitLength): Cipher {
   const keyLength = length / 8;
   const keyParams = { name: algo, length };
-  const cryptParams: Record<string, any> = { name: algo };
-  // const params: Record<string, any> = ({ e: algo, i: { name: algo, length } });
 
-  return (key: Uint8Array, nonce: Uint8Array) => {
+  return (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => {
     ensureBytes(key, keyLength);
-    if (algo === 'AES-CTR') {
-      cryptParams.counter = nonce;
-      cryptParams.length = 64;
-    } else {
-      cryptParams.iv = nonce;
-    }
+    const cryptParams = getCryptParams(algo, nonce, AAD);
 
     return {
       keyLength,
 
-      async encrypt(plaintext: Uint8Array): Promise<Uint8Array> {
+      async encrypt(plaintext: Uint8Array) {
         ensureBytes(plaintext);
         const cr = getWebcryptoSubtle();
         const iKey = await cr.importKey('raw', key, keyParams, true, ['encrypt']);
@@ -27,7 +53,7 @@ function generate(algo: string, length: number) {
         return new Uint8Array(cipher);
       },
 
-      async decrypt(ciphertext: Uint8Array): Promise<Uint8Array> {
+      async decrypt(ciphertext: Uint8Array) {
         ensureBytes(ciphertext);
         const cr = getWebcryptoSubtle();
         const iKey = await cr.importKey('raw', key, keyParams, true, ['decrypt']);
