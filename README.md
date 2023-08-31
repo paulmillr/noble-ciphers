@@ -231,10 +231,9 @@ Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publi
    - chacha and salsa20 are fine for sequential counters that _never_ repeat: `01, 02...`
    - xchacha and xsalsa20 should be used for random nonces instead
 3. Prefer authenticated encryption (AEAD)
-   - chacha20poly1305 is good, chacha20 without poly1305 is bad
-   - aes-gcm is good, aes-ctr / aes-cbc is bad
-   - Flipping bits or even ciphertext substitution won't be detected in
-     unauthenticated ciphers
+   - HMAC+ChaCha / HMAC+AES / chacha20poly1305 / aes-gcm is good
+   - chacha20 without poly1305 or hmac / aes-ctr / aes-cbc is bad
+   - Flipping bits or ciphertext substitution won't be detected in unauthenticated ciphers
 4. Don't re-use keys between different protocols
    - For example, using secp256k1 key in AES is bad
    - Use hkdf or, at least, a hash function to create sub-key instead
