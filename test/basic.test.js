@@ -235,14 +235,33 @@ should('tweetnacl secretbox compat', () => {
   }
 });
 
-should('handle byte offsets correctly', () => {
-  const sample = new Uint8Array(60).fill(1);
-  const data = new Uint8Array(sample.buffer, 1);
-  const key = new Uint8Array(32).fill(2);
-  const nonce12 = new Uint8Array(12).fill(3);
-  const stream_c = chacha20poly1305(key, nonce12);
-  const encrypted_c = stream_c.encrypt(data);
-  stream_c.decrypt(encrypted_c); // === data
+describe('handle byte offsets correctly', () => {
+  const VECTORS = {
+    chacha20poly1305: { stream: chacha20poly1305, nonceLen: 12, keyLen: 32 },
+    xchacha20poly1305: { stream: xchacha20poly1305, nonceLen: 24, keyLen: 32 },
+    xsalsa20poly1305: { stream: xsalsa20poly1305, nonceLen: 24, keyLen: 32 },
+  };
+  for (const name in VECTORS) {
+    const v = VECTORS[name];
+    should(name, () => {
+      const sample = new Uint8Array(60).fill(1);
+      const data = new Uint8Array(sample.buffer, 1);
+      const key = new Uint8Array(v.keyLen).fill(2);
+      const nonce = new Uint8Array(v.nonceLen).fill(3);
+      const stream_c = v.stream(key, nonce);
+      const encrypted_c = stream_c.encrypt(data);
+      const decrypted_c = stream_c.decrypt(encrypted_c);
+      deepStrictEqual(decrypted_c, data);
+      // Key + nonce with offset
+      const keyOffset = new Uint8Array(v.keyLen + 1).fill(2).subarray(1);
+      const nonceOffset = new Uint8Array(v.nonceLen + 1).fill(3).subarray(1);
+      const streamOffset = v.stream(keyOffset, nonceOffset);
+      const encryptedOffset = stream_c.encrypt(data);
+      deepStrictEqual(encryptedOffset, encrypted_c);
+      const decryptedOffset = streamOffset.decrypt(encryptedOffset);
+      deepStrictEqual(decryptedOffset, data);
+    });
+  }
 });
 
 describe('Wycheproof', () => {

@@ -116,7 +116,12 @@ export const salsaBasic = (opts: SalsaOpts) => {
     let k, sigma;
     // Handle 128 byte keys
     if (key.length === 32) {
-      k = key;
+      if (isAligned32(key)) k = key;
+      else {
+        // Align key to 4 bytes
+        k = key.slice();
+        toClean.push(k);
+      }
       sigma = sigma32_32;
     } else if (key.length === 16 && allow128bitKeys) {
       k = new Uint8Array(32);
@@ -125,6 +130,11 @@ export const salsaBasic = (opts: SalsaOpts) => {
       sigma = sigma16_32;
       toClean.push(k);
     } else throw new Error(`Salsa/ChaCha: invalid 32-byte key, got length=${key.length}`);
+    // Align nonce to 4 bytes
+    if (!isAligned32(nonce)) {
+      nonce = nonce.slice();
+      toClean.push(nonce);
+    }
     // Handle extended nonce (HChaCha/HSalsa)
     if (extendNonceFn) {
       if (nonce.length <= 16)
