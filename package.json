@@ -73,11 +73,6 @@
       "import": "./esm/salsa.js",
       "default": "./salsa.js"
     },
-    "./simple": {
-      "types": "./simple.d.ts",
-      "import": "./esm/simple.js",
-      "default": "./simple.js"
-    },
     "./utils": {
       "types": "./utils.d.ts",
       "import": "./esm/utils.js",
