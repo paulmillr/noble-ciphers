@@ -1,7 +1,7 @@
 import { ensureBytes } from '../utils.js';
 import { getWebcryptoSubtle } from './utils.js';
 
-function generate(algo: string, length: number) {
+function generateAes(algo: string, length: number) {
   const keyLength = length / 8;
   const keyParams = { name: algo, length };
   const cryptParams: Record<string, any> = { name: algo };
@@ -38,11 +38,11 @@ function generate(algo: string, length: number) {
   };
 }
 
-export const aes_128_ctr = generate('AES-CTR', 128);
-export const aes_256_ctr = generate('AES-CTR', 256);
+export const aes_128_ctr = generateAes('AES-CTR', 128);
+export const aes_256_ctr = generateAes('AES-CTR', 256);
 
-export const aes_128_cbc = generate('AES-CBC', 128);
-export const aes_256_cbc = generate('AES-CBC', 256);
+export const aes_128_cbc = generateAes('AES-CBC', 128);
+export const aes_256_cbc = generateAes('AES-CBC', 256);
 
-export const aes_128_gcm = generate('AES-GCM', 128);
-export const aes_256_gcm = generate('AES-GCM', 256);
+export const aes_128_gcm = generateAes('AES-GCM', 128);
+export const aes_256_gcm = generateAes('AES-GCM', 256);
