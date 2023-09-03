@@ -142,7 +142,7 @@ export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
   // Should not happen
   if (a.length !== b.length) throw new Error('equalBytes: Different size of Uint8Arrays');
   let isSame = true;
-  for (let i = 0; i < a.length; i++) isSame &&= a[i] === b[i]; // Lets hope JIT won't optimize away.
+  for (let i = 0; isSame && i < a.length; i++) isSame = a[i] === b[i]; // Lets hope JIT won't optimize away.
   return isSame;
 }
 
