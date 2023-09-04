@@ -1,8 +1,10 @@
 import type { AsyncCipher } from '../utils.js';
-import { getWebcryptoSubtle } from './utils.js';
+import { cryptoSubtleUtils } from './utils.js';
 
 // Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publication 800-38G.
 // https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf
+
+const BLOCK_LEN = 16;
 
 // Utils
 function toBytesBE(num: bigint, length?: number): Uint8Array {
@@ -30,18 +32,6 @@ function mod(a: any, b: any): number | bigint {
   const result = a % b;
   return result >= 0 ? result : b + result;
 }
-// AES stuff
-const BLOCK_LEN = 16;
-const IV = new Uint8Array(BLOCK_LEN);
-export async function encryptBlock(msg: Uint8Array, key: Uint8Array): Promise<Uint8Array> {
-  if (key.length !== 16 && key.length !== 32) throw new Error('Invalid key length');
-  const cr = getWebcryptoSubtle();
-  const mode = { name: `AES-CBC`, length: key.length * 8 };
-  const wKey = await cr.importKey('raw', key, mode, true, ['encrypt']);
-  const cipher = await cr.encrypt({ name: `aes-cbc`, iv: IV, counter: IV, length: 64 }, wKey, msg);
-  return new Uint8Array(cipher).subarray(0, 16);
-}
-
 function NUMradix(radix: number, data: number[]): bigint {
   let res = 0n;
   for (let i of data) res = res * BigInt(radix) + BigInt(i);
@@ -81,7 +71,7 @@ async function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: nu
     let r = new Uint8Array(16);
     for (let j = 0; j < PQ.length / BLOCK_LEN; j++) {
       for (let i = 0; i < BLOCK_LEN; i++) r[i] ^= PQ[j * BLOCK_LEN + i];
-      r.set(await encryptBlock(r, key));
+      r.set(await cryptoSubtleUtils.aesEncryptBlock(r, key));
     }
     // Let S be the first d bytes of the following string of ⎡d/16⎤ blocks:
     // R || CIPHK(R ⊕[1]16) || CIPHK(R ⊕[2]16) ...CIPHK(R ⊕[⎡d / 16⎤ – 1]16).
@@ -89,7 +79,7 @@ async function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: nu
     for (let j = 1; s.length < d; j++) {
       const block = toBytesBE(BigInt(j), 16);
       for (let k = 0; k < BLOCK_LEN; k++) block[k] ^= r[k];
-      s.push(...Array.from(await encryptBlock(block, key)));
+      s.push(...Array.from(await cryptoSubtleUtils.aesEncryptBlock(block, key)));
     }
     let y = fromBytesBE(Uint8Array.from(s.slice(0, d)));
     s.fill(0);
