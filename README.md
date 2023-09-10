@@ -42,14 +42,15 @@ If you don't like NPM, a standalone
 // import * from '@noble/ciphers'; // Error: use sub-imports, to ensure small app size
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 // import { xchacha20poly1305 } from 'npm:@noble/ciphers@0.2.0/chacha'; // Deno
-import { utf8ToBytes } from '@noble/ciphers/utils';
 import { randomBytes } from '@noble/ciphers/webcrypto/utils';
 const key = randomBytes(32);
-const data = utf8ToBytes('hello, noble'); // strings must be converted to Uint8Array
 const nonce = randomBytes(24);
-const stream_x = xchacha20poly1305(key, nonce);
-const ciphertext = stream_x.encrypt(data);
-const plaintext = stream_x.decrypt(ciphertext);
+const stream = xchacha20poly1305(key, nonce);
+
+import { utf8ToBytes } from '@noble/ciphers/utils';
+const data = utf8ToBytes('hello, noble'); // strings must become Uint8Array
+const ciphertext = stream.encrypt(data);
+const plaintext = stream.decrypt(ciphertext); // bytesToUtf8(plaintext)
 ```
 
 - [Modules](#modules)
@@ -78,27 +79,23 @@ const plaintext = stream_x.decrypt(ciphertext);
 import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
 import { utf8ToBytes } from '@noble/ciphers/utils';
 import { randomBytes } from '@noble/ciphers/webcrypto/utils';
-
 const key = randomBytes(32);
-const data = utf8ToBytes('hello, noble'); // strings must be converted to Uint8Array
-
 const nonce = randomBytes(24);
-const stream_x = xsalsa20poly1305(key, nonce); // === secretbox(key, nonce)
-const ciphertext = stream_x.encrypt(data); // === secretbox.seal(data)
-const plaintext = stream_x.decrypt(ciphertext); // === secretbox.open(ciphertext)
+const stream_x = xsalsa20poly1305(key, nonce);
+const data = utf8ToBytes('hello, noble');
+const ciphertext = stream_x.encrypt(data);
+const plaintext = stream_x.decrypt(ciphertext);
 
-// Avoid memory allocations: re-use same uint8array
-stream_x.decrypt(ciphertext, ciphertext.subarray(-16));
-// ciphertext is now plaintext
+// `dst` argument to avoid memory allocations: re-use same uint8array
+stream_x.decrypt(ciphertext, ciphertext.subarray(-16)); // ciphertext became plaintext
 
-// We provide sodium secretbox alias, which is just xsalsa20poly1305
+// We provide alias to sodium `secretbox`, which is identical to xsalsa20poly1305
 import { secretbox } from '@noble/ciphers/salsa';
 const box = secretbox(key, nonce);
 const ciphertext = box.seal(plaintext);
 const plaintext = box.open(ciphertext);
-// secretbox does not manage nonces for you
 
-// Standalone salsa is also available
+// Standalone salsa
 import { salsa20, xsalsa20 } from '@noble/ciphers/salsa';
 const nonce12 = randomBytes(12); // salsa uses 96-bit nonce, xsalsa uses 192-bit
 const encrypted_s = salsa20(key, nonce12, data);
@@ -128,23 +125,23 @@ import { utf8ToBytes } from '@noble/ciphers/utils';
 import { randomBytes } from '@noble/ciphers/webcrypto/utils';
 
 const key = randomBytes(32);
-const data = utf8ToBytes('hello, noble'); // strings must be converted to Uint8Array
-
-const nonce12 = randomBytes(12); // chacha uses 96-bit nonce
+const nonce12 = randomBytes(12);
 const stream_c = chacha20poly1305(key, nonce12);
+
+const data = utf8ToBytes('hello, noble'); // strings must be converted to Uint8Array
 const ciphertext_c = stream_c.encrypt(data);
 const plaintext_c = stream_c.decrypt(ciphertext_c); // === data
 
-// Avoid memory allocations: re-use same uint8array
+// `dst` argument to avoid memory allocations: re-use same uint8array
 stream_c.decrypt(ciphertext_c, ciphertext_c.subarray(-16));
-// ciphertext_c is now plaintext_c
 
-const nonce24 = randomBytes(24); // xchacha uses 192-bit nonce
+// xchacha: extended-nonce chacha
+const nonce24 = randomBytes(24); // 192-bit nonce
 const stream_xc = xchacha20poly1305(key, nonce24);
 const ciphertext_xc = stream_xc.encrypt(data);
 const plaintext_xc = stream_xc.decrypt(ciphertext_xc); // === data
 
-// Standalone chacha is also available
+// Standalone chacha
 import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha';
 const ciphertext_pc = chacha20(key, nonce12, data);
 const ciphertext_pxc = xchacha20(key, nonce24, data);
