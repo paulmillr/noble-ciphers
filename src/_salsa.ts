@@ -76,6 +76,8 @@ export type SalsaOpts = {
 // Is byte array aligned to 4 byte offset (u32)?
 const isAligned32 = (b: Uint8Array) => !(b.byteOffset % 4);
 
+const MAX_COUNTER = 2 ** 32 - 1;
+
 export const salsaBasic = (opts: SalsaOpts) => {
   const { core, rounds, counterRight, counterLen, allow128bitKeys, extendNonceFn, blockLen } =
     checkOpts(
@@ -106,7 +108,7 @@ export const salsaBasic = (opts: SalsaOpts) => {
     // Uint32Array(1) [ 0 ]
     // > new Uint32Array([2**32-1])
     // Uint32Array(1) [ 4294967295 ]
-    if (counter < 0 || counter >= 2 ** 32 - 1) throw new Error('Salsa/ChaCha: counter overflow');
+    if (counter < 0 || counter >= MAX_COUNTER) throw new Error('Salsa/ChaCha: counter overflow');
     if (output.length < data.length) {
       throw new Error(
         `Salsa/ChaCha: output (${output.length}) is shorter than data (${data.length})`
@@ -166,7 +168,7 @@ export const salsaBasic = (opts: SalsaOpts) => {
     const len = data.length;
     for (let pos = 0, ctr = counter; pos < len; ctr++) {
       core(sigma, k32, n32, b32, ctr, rounds);
-      if (ctr >= 2 ** 32 - 1) throw new Error('Salsa/ChaCha: counter overflow');
+      if (ctr >= MAX_COUNTER) throw new Error('Salsa/ChaCha: counter overflow');
       const take = Math.min(blockLen, len - pos);
       // full block && aligned to 4 bytes
       if (take === blockLen && o32 && d32) {
