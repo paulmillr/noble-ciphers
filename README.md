@@ -448,6 +448,7 @@ chacha (encrypt, 1MB)
 - [Fast-key-erasure random-number generators](https://blog.cr.yp.to/20170723-random.html)
 - [The design of Chacha20](https://loup-vaillant.fr/tutorials/chacha20-design)
 - [The design of Poly1305](https://loup-vaillant.fr/tutorials/poly1305-design)
+- [How to design a new block cipher?](https://crypto.stackexchange.com/a/39792/71535)
 - Multi-user / multi-key attacks
   - [Break a dozen secret keys, get a million more for free](https://blog.cr.yp.to/20151120-batchattacks.html)
   - [128 Bits of Security and 128 Bits of Security: Know the Difference](https://loup-vaillant.fr/tutorials/128-bits-of-security)
