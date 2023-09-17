@@ -1,29 +1,11 @@
 import type { AsyncCipher } from '../utils.js';
+import { bytesToNumberBE, numberToBytesBE } from '../utils.js';
 import { cryptoSubtleUtils } from './utils.js';
 
 // Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publication 800-38G.
 // https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf
 
 const BLOCK_LEN = 16;
-
-// Utils
-function toBytesBE(num: bigint, length?: number): Uint8Array {
-  let hex = num.toString(16);
-  hex = hex.length & 1 ? `0${hex}` : hex;
-  if (length) hex = hex.padStart(length * 2, '00');
-  const len = hex.length / 2;
-  const u8 = new Uint8Array(len);
-  for (let j = 0, i = 0; i < hex.length && i < len * 2; i += 2, j++)
-    u8[j] = parseInt(hex[i] + hex[i + 1], 16);
-  return u8;
-}
-
-function fromBytesBE(bytes: Uint8Array): bigint {
-  let value = 0n;
-  for (let i = bytes.length - 1, j = 0; i >= 0; i--, j++)
-    value += (BigInt(bytes[i]) & 255n) << (8n * BigInt(j));
-  return value;
-}
 
 // Calculates a modulo b
 function mod(a: number, b: number): number;
@@ -32,6 +14,7 @@ function mod(a: any, b: any): number | bigint {
   const result = a % b;
   return result >= 0 ? result : b + result;
 }
+
 function NUMradix(radix: number, data: number[]): bigint {
   let res = 0n;
   for (let i of data) res = res * BigInt(radix) + BigInt(i);
@@ -66,7 +49,7 @@ async function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: nu
   const round = async (A: number[], B: number[], i: number, decrypt = false) => {
     // Q = ... || [i]1 || [NUMradix(B)]b.
     PQ[PQ.length - b - 1] = i;
-    if (b) PQ.set(toBytesBE(NUMradix(radix, B), b), PQ.length - b);
+    if (b) PQ.set(numberToBytesBE(NUMradix(radix, B), b), PQ.length - b);
     // PRF
     let r = new Uint8Array(16);
     for (let j = 0; j < PQ.length / BLOCK_LEN; j++) {
@@ -77,11 +60,11 @@ async function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: nu
     // R || CIPHK(R ⊕[1]16) || CIPHK(R ⊕[2]16) ...CIPHK(R ⊕[⎡d / 16⎤ – 1]16).
     let s = Array.from(r);
     for (let j = 1; s.length < d; j++) {
-      const block = toBytesBE(BigInt(j), 16);
+      const block = numberToBytesBE(BigInt(j), 16);
       for (let k = 0; k < BLOCK_LEN; k++) block[k] ^= r[k];
       s.push(...Array.from(await cryptoSubtleUtils.aesEncryptBlock(block, key)));
     }
-    let y = fromBytesBE(Uint8Array.from(s.slice(0, d)));
+    let y = bytesToNumberBE(Uint8Array.from(s.slice(0, d)));
     s.fill(0);
     if (decrypt) y = -y;
     const m = i % 2 === 0 ? u : v;

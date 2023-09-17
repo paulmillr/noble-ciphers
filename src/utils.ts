@@ -71,6 +71,21 @@ export function hexToBytes(hex: string): Uint8Array {
   return array;
 }
 
+export function hexToNumber(hex: string): bigint {
+  if (typeof hex !== 'string') throw new Error('hex string expected, got ' + typeof hex);
+  // Big Endian
+  return BigInt(hex === '' ? '0' : `0x${hex}`);
+}
+
+// BE: Big Endian, LE: Little Endian
+export function bytesToNumberBE(bytes: Uint8Array): bigint {
+  return hexToNumber(bytesToHex(bytes));
+}
+
+export function numberToBytesBE(n: number | bigint, len: number): Uint8Array {
+  return hexToBytes(n.toString(16).padStart(len * 2, '0'));
+}
+
 // There is no setImmediate in browser and setTimeout is slow.
 // call of async fn will return Promise, which will be fullfiled only on
 // next scheduler queue processing step and this is exactly what we need.
