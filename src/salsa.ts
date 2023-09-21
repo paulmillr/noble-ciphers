@@ -1,6 +1,6 @@
-import { ensureBytes, u32, equalBytes, Cipher } from './utils.js';
-import { salsaBasic } from './_salsa.js';
+import { Cipher, ensureBytes, equalBytes, u32 } from './utils.js';
 import { poly1305 } from './_poly1305.js';
+import { salsaBasic } from './_salsa.js';
 
 // Salsa20 stream cipher was released in 2005.
 // Salsa's goal was to implement AES replacement that does not rely on S-Boxes,

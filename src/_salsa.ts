@@ -1,6 +1,6 @@
 // Basic utils for salsa-like ciphers
 // Check out _micro.ts for descriptive documentation.
-import assert from './_assert.js';
+import { number as anumber, bytes as abytes, bool as abool } from './_assert.js';
 import { u32, utf8ToBytes, checkOpts } from './utils.js';
 
 /*
@@ -84,11 +84,11 @@ export const salsaBasic = (opts: SalsaOpts) => {
       { rounds: 20, counterRight: false, counterLen: 8, allow128bitKeys: true, blockLen: 64 },
       opts
     );
-  assert.number(counterLen);
-  assert.number(rounds);
-  assert.number(blockLen);
-  assert.bool(counterRight);
-  assert.bool(allow128bitKeys);
+  anumber(counterLen);
+  anumber(rounds);
+  anumber(blockLen);
+  abool(counterRight);
+  abool(allow128bitKeys);
   const blockLen32 = blockLen / 4;
   if (blockLen % 4 !== 0) throw new Error('Salsa/ChaCha: blockLen must be aligned to 4 bytes');
   return (
@@ -98,12 +98,12 @@ export const salsaBasic = (opts: SalsaOpts) => {
     output?: Uint8Array,
     counter = 0
   ): Uint8Array => {
-    assert.bytes(key);
-    assert.bytes(nonce);
-    assert.bytes(data);
+    abytes(key);
+    abytes(nonce);
+    abytes(data);
     if (!output) output = new Uint8Array(data.length);
-    assert.bytes(output);
-    assert.number(counter);
+    abytes(output);
+    anumber(counter);
     // > new Uint32Array([2**32])
     // Uint32Array(1) [ 0 ]
     // > new Uint32Array([2**32-1])

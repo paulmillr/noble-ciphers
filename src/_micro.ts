@@ -6,17 +6,14 @@
 
 import * as u from './utils.js';
 import { salsaBasic } from './_salsa.js';
+
 // Utils
-function hexToNumber(hex: string): bigint {
-  if (typeof hex !== 'string') throw new Error('hex string expected, got ' + typeof hex);
-  // Big Endian
-  return BigInt(hex === '' ? '0' : `0x${hex}`);
-}
 function bytesToNumberLE(bytes: Uint8Array): bigint {
-  return hexToNumber(u.bytesToHex(Uint8Array.from(bytes).reverse()));
+  return u.hexToNumber(u.bytesToHex(Uint8Array.from(bytes).reverse()));
 }
+
 function numberToBytesLE(n: number | bigint, len: number): Uint8Array {
-  return u.hexToBytes(n.toString(16).padStart(len * 2, '0')).reverse();
+  return u.numberToBytesBE(n, len).reverse();
 }
 
 const rotl = (a: number, b: number) => (a << b) | (a >>> (32 - b));

@@ -1,4 +1,4 @@
-import { u8, u32, ensureBytes } from './utils.js';
+import { ensureBytes, u8, u32 } from './utils.js';
 
 // AES-SIV polyval, little-endian "mirror image" of AES-GCM GHash
 // polynomial hash function. Defined in RFC 8452.

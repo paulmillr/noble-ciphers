@@ -1,5 +1,5 @@
+import { exists as aexists, output as aoutput } from './_assert.js';
 import { toBytes, Input, ensureBytes, Hash } from './utils.js';
-import assert from './_assert.js';
 
 // Poly1305 is a fast and parallel secret-key message-authentication code.
 // https://cr.yp.to/mac.html, https://cr.yp.to/mac/poly1305-20050329.pdf
@@ -216,7 +216,7 @@ class Poly1305 implements Hash<Poly1305> {
     }
   }
   update(data: Input): this {
-    assert.exists(this);
+    aexists(this);
     const { buffer, blockLen } = this;
     data = toBytes(data);
     const len = data.length;
@@ -245,8 +245,8 @@ class Poly1305 implements Hash<Poly1305> {
     this.pad.fill(0);
   }
   digestInto(out: Uint8Array) {
-    assert.exists(this);
-    assert.output(out, this);
+    aexists(this);
+    aoutput(out, this);
     this.finished = true;
     const { buffer, h } = this;
     let { pos } = this;
