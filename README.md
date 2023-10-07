@@ -19,12 +19,14 @@ Auditable & minimal JS implementation of Salsa20, ChaCha, Poly1305 & AES-SIV
 - Zero or minimal dependencies
 - Highly readable TypeScript / JS code
 - PGP-signed releases and transparent NPM builds with provenance
-- Check out [homepage](https://paulmillr.com/noble/) & all libraries:
+- All libraries:
   [ciphers](https://github.com/paulmillr/noble-ciphers),
   [curves](https://github.com/paulmillr/noble-curves),
   [hashes](https://github.com/paulmillr/noble-hashes),
   4kb [secp256k1](https://github.com/paulmillr/noble-secp256k1) /
   [ed25519](https://github.com/paulmillr/noble-ed25519)
+- [Check out homepage](https://paulmillr.com/noble/)
+  for reading resources, documentation and apps built with noble
 
 ## Usage
 
@@ -34,8 +36,8 @@ We support all major platforms and runtimes.
 For [Deno](https://deno.land), ensure to use
 [npm specifier](https://deno.land/manual@v1.28.0/node/npm_specifiers).
 For React Native, you may need a
-[polyfill for crypto.getRandomValues](https://github.com/LinusU/react-native-get-random-values).
-If you don't like NPM, a standalone
+[polyfill for getRandomValues](https://github.com/LinusU/react-native-get-random-values).
+A standalone file
 [noble-ciphers.js](https://github.com/paulmillr/noble-ciphers/releases) is also available.
 
 ```js
@@ -53,12 +55,11 @@ const ciphertext = stream.encrypt(data);
 const plaintext = stream.decrypt(ciphertext); // bytesToUtf8(plaintext)
 ```
 
-- [Modules](#modules)
-  - [Salsa](#salsa)
-  - [ChaCha](#chacha)
-  - [Poly1305](#poly1305)
-  - [AES](#aes)
-  - [FF1](#ff1)
+- [Implementations](#implementations)
+  - [salsa: Salsa20 cipher](#salsa)
+  - [chacha: ChaCha cipher](#chacha)
+  - [webcrypto/aes: friendly wrapper over webcrypto AES](#aes)
+  - [ff1: format-preserving encryption](#ff1)
 - [Guidance](#guidance)
   - [How to encrypt properly](#how-to-encrypt-properly)
   - [Nonces](#nonces)
@@ -69,7 +70,7 @@ const plaintext = stream.decrypt(ciphertext); // bytesToUtf8(plaintext)
 - [Contributing & testing](#contributing--testing)
 - [Resources](#resources)
 
-## Modules
+## Implementations
 
 ### Salsa
 
