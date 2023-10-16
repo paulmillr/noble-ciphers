@@ -16,6 +16,8 @@ export async function crossValidate(buffers, ciphers) {
     const b = buf.slice();
     // ciphers
     for (let [k, libs] of Object.entries(ciphers)) {
+      // Skip some buffers for block ciphers without padding
+      if (libs.opts.blockSize && b.length % libs.opts.blockSize) continue;
       let encrypted;
       for (const [lib, fn] of Object.entries(libs)) {
         if (lib === 'opts') continue;

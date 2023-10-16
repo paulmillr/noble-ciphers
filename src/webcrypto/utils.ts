@@ -4,7 +4,7 @@
 // from `crypto` to `cryptoNode`, which imports native module.
 // Makes the utils un-importable in browsers without a bundler.
 // Once node.js 18 is deprecated, we can just drop the import.
-import { crypto } from '@noble/ciphers/webcrypto/crypto';
+import { crypto } from './crypto.js';
 
 /**
  * Secure PRNG. Uses `crypto.getRandomValues`, which defers to OS.

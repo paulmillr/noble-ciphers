@@ -1,5 +1,4 @@
-import type { AsyncCipher } from '../utils.js';
-import { bytesToNumberBE, numberToBytesBE } from '../utils.js';
+import { AsyncCipher, bytesToNumberBE, numberToBytesBE } from '../utils.js';
 import { cryptoSubtleUtils } from './utils.js';
 
 // Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publication 800-38G.

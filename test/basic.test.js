@@ -23,7 +23,7 @@ const stable_poly1305 = require('./vectors/stablelib_poly1305.json');
 // Wycheproof
 const wycheproof_chacha20_poly1305 = require('./wycheproof/chacha20_poly1305_test.json');
 const wycheproof_xchacha20_poly1305 = require('./wycheproof/xchacha20_poly1305_test.json');
-
+const aes = require('../aes.js');
 // getKey for hsalsa/hchacha
 const utils = require('../utils.js');
 const sigma16 = utils.utf8ToBytes('expand 16-byte k');

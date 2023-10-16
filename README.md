@@ -299,22 +299,19 @@ of a random function. See [RFC draft](https://datatracker.ietf.org/doc/draft-irt
 For non-deterministic (not ECB) schemes, initialization vector (IV) is mixed to block/key;
 and each new round either depends on previous block's key, or on some counter.
 
-As for block modes: we only expose GCM & SIV for now.
-
 - ECB — simple deterministic replacement. Dangerous: always map x to y. See [AES Penguin](https://words.filippo.io/the-ecb-penguin/)
 - CBC — key is previous round’s block. Hard to use: need proper padding, also needs MAC
 - CTR — counter, allows to create streaming cipher. Requires good IV. Parallelizable. OK, but no MAC
-- GCM — modern CTR, parallel, with MAC. Not ideal:
-  - Conservative key wear-out is `2**32` (4B) msgs
-  - MAC can be forged: see Poly1305 section above
-- SIV — synthetic initialization vector, nonce-misuse-resistant
-  - Can be 1.5-2x slower than GCM by itself
-  - nonce misuse-resistant schemes guarantee that if a
-    nonce repeats, then the only security loss is that identical
-    plaintexts will produce identical ciphertexts
-  - MAC can be forged: see Poly1305 section above
+- GCM — modern CTR, parallel, with MAC
+- SIV — synthetic initialization vector, nonce-misuse-resistant, 1.5-2x slower than GCM.
+  Guarantees that, when a nonce is repeated, the only security loss is that identical
+  plaintexts will produce identical ciphertexts.
 - XTS — used in hard drives. Similar to ECB (deterministic), but has `[i][j]`
   tweak arguments corresponding to sector i and 16-byte block (part of sector) j. Not authenticated!
+
+GCM / SIV are not ideal:
+  - Conservative key wear-out is `2**32` (4B) msgs
+  - MAC can be forged: see Poly1305 section above. Same for SIV
 
 ## Security
 
@@ -369,19 +366,27 @@ Benchmark results on Apple M2 with node v20:
 encrypt (64B)
 ├─xsalsa20poly1305 x 484,966 ops/sec @ 2μs/op
 ├─chacha20poly1305 x 442,282 ops/sec @ 2μs/op
-└─xchacha20poly1305 x 300,842 ops/sec @ 3μs/op
+├─xchacha20poly1305 x 300,842 ops/sec @ 3μs/op
+├─aes-gcm-256 x 93,144 ops/sec @ 10μs/op
+└─aes-gcm-siv-256 x 79,339 ops/sec @ 12μs/op
 encrypt (1KB)
 ├─xsalsa20poly1305 x 143,905 ops/sec @ 6μs/op
 ├─chacha20poly1305 x 141,663 ops/sec @ 7μs/op
-└─xchacha20poly1305 x 122,639 ops/sec @ 8μs/op
+├─xchacha20poly1305 x 122,639 ops/sec @ 8μs/op
+├─aes-gcm-256 x 25,685 ops/sec @ 38μs/op
+└─aes-gcm-siv-256 x 24,762 ops/sec @ 40μs/op
 encrypt (8KB)
 ├─xsalsa20poly1305 x 23,373 ops/sec @ 42μs/op
 ├─chacha20poly1305 x 23,683 ops/sec @ 42μs/op
-└─xchacha20poly1305 x 23,066 ops/sec @ 43μs/op
+├─xchacha20poly1305 x 23,066 ops/sec @ 43μs/op
+├─aes-gcm-256 x 4,067 ops/sec @ 245μs/op
+└─aes-gcm-siv-256 x 4,128 ops/sec @ 242μs/op
 encrypt (1MB)
 ├─xsalsa20poly1305 x 193 ops/sec @ 5ms/op
 ├─chacha20poly1305 x 196 ops/sec @ 5ms/op
-└─xchacha20poly1305 x 195 ops/sec @ 5ms/op
+├─xchacha20poly1305 x 195 ops/sec @ 5ms/op
+├─aes-gcm-256 x 33 ops/sec @ 30ms/op
+└─aes-gcm-siv-256 x 33 ops/sec @ 29ms/op
 ```
 
 Unauthenticated encryption:
@@ -407,6 +412,24 @@ encrypt (1MB)
 ├─chacha x 474 ops/sec @ 2ms/op
 ├─xsalsa x 466 ops/sec @ 2ms/op
 └─xchacha x 476 ops/sec @ 2ms/op
+
+AES
+encrypt (64B)
+├─ctr-256 x 689,179 ops/sec @ 1μs/op
+├─cbc-256 x 639,795 ops/sec @ 1μs/op
+└─ecb-256 x 668,449 ops/sec @ 1μs/op
+encrypt (1KB)
+├─ctr-256 x 93,668 ops/sec @ 10μs/op
+├─cbc-256 x 94,428 ops/sec @ 10μs/op
+└─ecb-256 x 151,699 ops/sec @ 6μs/op
+encrypt (8KB)
+├─ctr-256 x 13,342 ops/sec @ 74μs/op
+├─cbc-256 x 13,664 ops/sec @ 73μs/op
+└─ecb-256 x 22,426 ops/sec @ 44μs/op
+encrypt (1MB)
+├─ctr-256 x 106 ops/sec @ 9ms/op
+├─cbc-256 x 109 ops/sec @ 9ms/op
+└─ecb-256 x 179 ops/sec @ 5ms/op
 ```
 
 Compare to other implementations:
@@ -414,20 +437,27 @@ Compare to other implementations:
 ```
 xsalsa20poly1305 (encrypt, 1MB)
 ├─tweetnacl x 108 ops/sec @ 9ms/op
-├─noble x 190 ops/sec @ 5ms/op
-└─micro x 21 ops/sec @ 47ms/op
+└─noble x 190 ops/sec @ 5ms/op
 
 chacha20poly1305 (encrypt, 1MB)
 ├─node x 1,360 ops/sec @ 735μs/op
 ├─stablelib x 117 ops/sec @ 8ms/op
-├─noble x 193 ops/sec @ 5ms/op
-└─micro x 19 ops/sec @ 50ms/op
+└─noble x 193 ops/sec @ 5ms/op
 
 chacha (encrypt, 1MB)
 ├─node x 2,035 ops/sec @ 491μs/op
 ├─stablelib x 206 ops/sec @ 4ms/op
-├─noble x 474 ops/sec @ 2ms/op
-└─micro x 61 ops/sec @ 16ms/op
+└─noble x 474 ops/sec @ 2ms/op
+
+ctr-256 (encrypt, 64B)
+├─node x 640,204 ops/sec @ 1μs/op ± 1.67% (min: 1μs, max: 1ms)
+├─stablelib x 484,261 ops/sec @ 2μs/op
+└─noble x 685,871 ops/sec @ 1μs/op
+
+cbc-256 (encrypt, 64B)
+├─node x 549,450 ops/sec @ 1μs/op ± 2.47% (min: 1μs, max: 3ms)
+├─stablelib x 407,166 ops/sec @ 2μs/op ± 1.02% (min: 2μs, max: 3ms)
+└─noble x 616,142 ops/sec @ 1μs/op ± 1.19% (min: 1μs, max: 2ms)
 ```
 
 ## Contributing & testing

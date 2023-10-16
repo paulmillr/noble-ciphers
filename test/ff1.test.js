@@ -1,8 +1,12 @@
+const { webcrypto } = require('node:crypto');
+if (!globalThis.crypto) globalThis.crypto = webcrypto;
+
 const assert = require('assert');
 const { should } = require('micro-should');
 const { FF1, BinaryFF1 } = require('../webcrypto/ff1.js');
 const v = require('./vectors/ff1.json');
 const BIN_VECTORS = v.v;
+// @ts-ignore
 
 const fromHex = (hex) =>
   hex ? Uint8Array.from(Buffer.from(hex.replace(/ /g, ''), 'hex')) : new Uint8Array([]);

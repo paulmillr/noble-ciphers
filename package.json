@@ -63,6 +63,16 @@
       "import": "./esm/_poly1305.js",
       "default": "./_poly1305.js"
     },
+    "./_polyval": {
+      "types": "./_polyval.d.ts",
+      "import": "./esm/_polyval.js",
+      "default": "./_polyval.js"
+    },
+    "./aes": {
+      "types": "./aes.d.ts",
+      "import": "./esm/aes.js",
+      "default": "./aes.js"
+    },
     "./chacha": {
       "types": "./chacha.d.ts",
       "import": "./esm/chacha.js",
@@ -87,11 +97,6 @@
       "types": "./webcrypto/aes.d.ts",
       "import": "./esm/webcrypto/aes.js",
       "default": "./webcrypto/aes.js"
-    },
-    "./webcrypto/siv": {
-      "types": "./webcrypto/siv.d.ts",
-      "import": "./esm/webcrypto/siv.js",
-      "default": "./webcrypto/siv.js"
     },
     "./webcrypto/ff1": {
       "types": "./webcrypto/ff1.d.ts",
