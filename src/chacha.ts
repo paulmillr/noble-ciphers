@@ -1,5 +1,6 @@
 import {
   CipherWithOutput,
+  XorStream,
   createView,
   ensureBytes,
   equalBytes,
@@ -7,7 +8,7 @@ import {
   u32,
 } from './utils.js';
 import { poly1305 } from './_poly1305.js';
-import { salsaBasic } from './_salsa.js';
+import { createCipher } from './_arx.js';
 
 // ChaCha20 stream cipher was released in 2008. ChaCha aims to increase
 // the diffusion per round, but had slightly less cryptanalysis.
@@ -21,9 +22,9 @@ const rotl = (a: number, b: number) => (a << b) | (a >>> (32 - b));
  */
 // prettier-ignore
 function chachaCore(
-  c: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32Array, cnt: number, rounds = 20
+  s: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32Array, cnt: number, rounds = 20
 ): void {
-  let y00 = c[0], y01 = c[1], y02 = c[2], y03 = c[3]; // "expa"   "nd 3"  "2-by"  "te k"
+  let y00 = s[0], y01 = s[1], y02 = s[2], y03 = s[3]; // "expa"   "nd 3"  "2-by"  "te k"
   let y04 = k[0], y05 = k[1], y06 = k[2], y07 = k[3]; // Key      Key     Key     Key
   let y08 = k[4], y09 = k[5], y10 = k[6], y11 = k[7]; // Key      Key     Key     Key
   let y12 = cnt,  y13 = n[0], y14 = n[1], y15 = n[2]; // Counter  Counter	Nonce   Nonce
@@ -93,12 +94,12 @@ function chachaCore(
  */
 // prettier-ignore
 export function hchacha(
-  c: Uint32Array, key: Uint8Array, src: Uint8Array, out: Uint8Array
+  s: Uint32Array, key: Uint8Array, src: Uint8Array, out: Uint8Array
 ): Uint8Array {
   const k32 = u32(key);
   const i32 = u32(src);
   const o32 = u32(out);
-  let x00 = c[0],   x01 = c[1],   x02 = c[2],   x03 = c[3];
+  let x00 = s[0],   x01 = s[1],   x02 = s[2],   x03 = s[3];
   let x04 = k32[0], x05 = k32[1], x06 = k32[2], x07 = k32[3];
   let x08 = k32[4], x09 = k32[5], x10 = k32[6], x11 = k32[7]
   let x12 = i32[0], x13 = i32[1], x14 = i32[2], x15 = i32[3];
@@ -156,20 +157,19 @@ export function hchacha(
 /**
  * Original, non-RFC chacha20 from DJB. 8-byte nonce, 8-byte counter.
  */
-export const chacha20orig = /* @__PURE__ */ salsaBasic({
-  core: chachaCore,
+export const chacha20orig = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
-  counterLen: 8,
+  counterLength: 8,
+  allowShortKeys: true,
 });
 /**
  * ChaCha stream cipher. Conforms to RFC 8439 (IETF, TLS). 12-byte nonce, 4-byte counter.
  * With 12-byte nonce, it's not safe to use fill it with random (CSPRNG), due to collision chance.
  */
-export const chacha20 = /* @__PURE__ */ salsaBasic({
-  core: chachaCore,
+export const chacha20 = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
-  counterLen: 4,
-  allow128bitKeys: false,
+  counterLength: 4,
+  allowShortKeys: false,
 });
 
 /**
@@ -177,50 +177,48 @@ export const chacha20 = /* @__PURE__ */ salsaBasic({
  * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
  * https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha
  */
-export const xchacha20 = /* @__PURE__ */ salsaBasic({
-  core: chachaCore,
+export const xchacha20 = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
-  counterLen: 8,
+  counterLength: 8,
   extendNonceFn: hchacha,
-  allow128bitKeys: false,
+  allowShortKeys: false,
 });
 
 /**
  * Reduced 8-round chacha, described in original paper.
  */
-export const chacha8 = /* @__PURE__ */ salsaBasic({
-  core: chachaCore,
+export const chacha8 = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
-  counterLen: 4,
+  counterLength: 4,
   rounds: 8,
 });
 
 /**
  * Reduced 12-round chacha, described in original paper.
  */
-export const chacha12 = /* @__PURE__ */ salsaBasic({
-  core: chachaCore,
+export const chacha12 = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
-  counterLen: 4,
+  counterLength: 4,
   rounds: 12,
 });
 
-const ZERO = /* @__PURE__ */ new Uint8Array(16);
+const ZEROS16 = /* @__PURE__ */ new Uint8Array(16);
 // Pad to digest size with zeros
 const updatePadded = (h: ReturnType<typeof poly1305.create>, msg: Uint8Array) => {
   h.update(msg);
   const left = msg.length % 16;
-  if (left) h.update(ZERO.subarray(left));
+  if (left) h.update(ZEROS16.subarray(left));
 };
 
-const computeTag = (
-  fn: typeof chacha20,
+const ZEROS32 = /* @__PURE__ */ new Uint8Array(32);
+function computeTag(
+  fn: XorStream,
   key: Uint8Array,
   nonce: Uint8Array,
   data: Uint8Array,
   AAD?: Uint8Array
-) => {
-  const authKey = fn(key, nonce, new Uint8Array(32));
+): Uint8Array {
+  const authKey = fn(key, nonce, ZEROS32);
   const h = poly1305.create(authKey);
   if (AAD) updatePadded(h, AAD);
   updatePadded(h, data);
@@ -232,7 +230,7 @@ const computeTag = (
   const res = h.digest();
   authKey.fill(0);
   return res;
-};
+}
 
 /**
  * AEAD algorithm from RFC 8439.
@@ -244,7 +242,7 @@ const computeTag = (
  * In chacha, authKey can't be computed inside computeTag, it modifies the counter.
  */
 export const _poly1305_aead =
-  (xorStream: typeof chacha20) =>
+  (xorStream: XorStream) =>
   (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): CipherWithOutput => {
     const tagLength = 16;
     ensureBytes(key, 32);

@@ -4,16 +4,20 @@
 // Implements the same algorithms that are present in other files,
 // but without unrolled loops (https://en.wikipedia.org/wiki/Loop_unrolling).
 
-import * as u from './utils.js';
-import { salsaBasic } from './_salsa.js';
+// prettier-ignore
+import {
+  Cipher, XorStream, createView, setBigUint64,
+  bytesToNumberLE, concatBytes, ensureBytes, equalBytes, numberToBytesBE, u32, u8,
+} from './utils.js';
+import { createCipher } from './_arx.js';
 
 // Utils
-function bytesToNumberLE(bytes: Uint8Array): bigint {
-  return u.hexToNumber(u.bytesToHex(Uint8Array.from(bytes).reverse()));
-}
+// function bytesToNumberLE(bytes: Uint8Array): bigint {
+//   return hexToNumber(bytesToHex(Uint8Array.from(bytes).reverse()));
+// }
 
 function numberToBytesLE(n: number | bigint, len: number): Uint8Array {
-  return u.numberToBytesBE(n, len).reverse();
+  return numberToBytesBE(n, len).reverse();
 }
 
 const rotl = (a: number, b: number) => (a << b) | (a >>> (32 - b));
@@ -80,8 +84,8 @@ function salsaCore(
 }
 
 export function hsalsa(c: Uint32Array, key: Uint8Array, nonce: Uint8Array): Uint8Array {
-  const k = u.u32(key);
-  const i = u.u32(nonce);
+  const k = u32(key);
+  const i = u32(nonce);
   // prettier-ignore
   const x = new Uint32Array([
     c[0], k[0], k[1], k[2],
@@ -90,7 +94,7 @@ export function hsalsa(c: Uint32Array, key: Uint8Array, nonce: Uint8Array): Uint
     k[5], k[6], k[7], c[3]
   ]);
   salsaRound(x);
-  return u.u8(new Uint32Array([x[0], x[5], x[10], x[15], x[6], x[7], x[8], x[9]]));
+  return u8(new Uint32Array([x[0], x[5], x[10], x[15], x[6], x[7], x[8], x[9]]));
 }
 
 function chachaCore(
@@ -114,8 +118,8 @@ function chachaCore(
 }
 
 export function hchacha(c: Uint32Array, key: Uint8Array, nonce: Uint8Array): Uint8Array {
-  const k = u.u32(key);
-  const i = u.u32(nonce);
+  const k = u32(key);
+  const i = u32(nonce);
   // prettier-ignore
   const x = new Uint32Array([
     c[0], c[1], c[2], c[3],
@@ -124,66 +128,62 @@ export function hchacha(c: Uint32Array, key: Uint8Array, nonce: Uint8Array): Uin
     i[0], i[1], i[2], i[3],
   ]);
   chachaRound(x);
-  return u.u8(new Uint32Array([x[0], x[1], x[2], x[3], x[12], x[13], x[14], x[15]]));
+  return u8(new Uint32Array([x[0], x[1], x[2], x[3], x[12], x[13], x[14], x[15]]));
 }
 
 /**
  * salsa20, 12-byte nonce.
  */
-export const salsa20 = salsaBasic({ core: salsaCore, counterRight: true });
+export const salsa20 = createCipher(salsaCore, { allowShortKeys: true, counterRight: true });
 
 /**
  * xsalsa20, 24-byte nonce.
  */
-export const xsalsa20 = salsaBasic({
-  core: salsaCore,
+export const xsalsa20 = createCipher(salsaCore, {
   counterRight: true,
   extendNonceFn: hsalsa,
-  allow128bitKeys: false,
 });
 
 /**
  * chacha20 non-RFC, original version by djb. 8-byte nonce, 8-byte counter.
  */
-export const chacha20orig = salsaBasic({ core: chachaCore, counterRight: false, counterLen: 8 });
+export const chacha20orig = createCipher(chachaCore, {
+  allowShortKeys: true,
+  counterRight: false,
+  counterLength: 8,
+});
 /**
  * chacha20 RFC 8439 (IETF / TLS). 12-byte nonce, 4-byte counter.
  */
-export const chacha20 = salsaBasic({
-  core: chachaCore,
+export const chacha20 = createCipher(chachaCore, {
   counterRight: false,
-  counterLen: 4,
-  allow128bitKeys: false,
+  counterLength: 4,
 });
 
 /**
  * xchacha20 eXtended-nonce. https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha
  */
-export const xchacha20 = salsaBasic({
-  core: chachaCore,
+export const xchacha20 = createCipher(chachaCore, {
   counterRight: false,
-  counterLen: 8,
+  counterLength: 8,
   extendNonceFn: hchacha,
-  allow128bitKeys: false,
 });
 
 /**
  * 8-round chacha from the original paper.
  */
-export const chacha8 = salsaBasic({
-  core: chachaCore,
+export const chacha8 = createCipher(chachaCore, {
   counterRight: false,
-  counterLen: 4,
+  counterLength: 4,
   rounds: 8,
 });
 
 /**
  * 12-round chacha from the original paper.
  */
-export const chacha12 = salsaBasic({
-  core: chachaCore,
+export const chacha12 = createCipher(chachaCore, {
   counterRight: false,
-  counterLen: 4,
+  counterLength: 4,
   rounds: 12,
 });
 
@@ -191,8 +191,8 @@ const POW_2_130_5 = 2n ** 130n - 5n;
 const POW_2_128_1 = 2n ** (16n * 8n) - 1n;
 // Can be speed-up using BigUint64Array, but would be more complicated
 export function poly1305(msg: Uint8Array, key: Uint8Array): Uint8Array {
-  u.ensureBytes(msg);
-  u.ensureBytes(key);
+  ensureBytes(msg);
+  ensureBytes(key);
   let acc = 0n;
   const r = bytesToNumberLE(key.subarray(0, 16)) & 0x0ffffffc0ffffffc0ffffffc0fffffffn;
   const s = bytesToNumberLE(key.subarray(16));
@@ -207,7 +207,7 @@ export function poly1305(msg: Uint8Array, key: Uint8Array): Uint8Array {
 }
 
 function computeTag(
-  fn: typeof chacha20,
+  fn: XorStream,
   key: Uint8Array,
   nonce: Uint8Array,
   ciphertext: Uint8Array,
@@ -224,37 +224,37 @@ function computeTag(
   if (leftover > 0) res.push(new Uint8Array(16 - leftover));
   // Lengths
   const num = new Uint8Array(16);
-  const view = u.createView(num);
-  u.setBigUint64(view, 0, BigInt(AAD ? AAD.length : 0), true);
-  u.setBigUint64(view, 8, BigInt(ciphertext.length), true);
+  const view = createView(num);
+  setBigUint64(view, 0, BigInt(AAD ? AAD.length : 0), true);
+  setBigUint64(view, 8, BigInt(ciphertext.length), true);
   res.push(num);
   const authKey = fn(key, nonce, new Uint8Array(32));
-  return poly1305(u.concatBytes(...res), authKey);
+  return poly1305(concatBytes(...res), authKey);
 }
 
 /**
  * xsalsa20-poly1305 eXtended-nonce (24 bytes) salsa.
  */
 export function xsalsa20poly1305(key: Uint8Array, nonce: Uint8Array) {
-  u.ensureBytes(key);
-  u.ensureBytes(nonce);
+  ensureBytes(key);
+  ensureBytes(nonce);
   return {
     encrypt: (plaintext: Uint8Array) => {
-      u.ensureBytes(plaintext);
-      const m = u.concatBytes(new Uint8Array(32), plaintext);
+      ensureBytes(plaintext);
+      const m = concatBytes(new Uint8Array(32), plaintext);
       const c = xsalsa20(key, nonce, m);
       const authKey = c.subarray(0, 32);
       const data = c.subarray(32);
       const tag = poly1305(data, authKey);
-      return u.concatBytes(tag, data);
+      return concatBytes(tag, data);
     },
     decrypt: (ciphertext: Uint8Array) => {
-      u.ensureBytes(ciphertext);
+      ensureBytes(ciphertext);
       if (ciphertext.length < 16) throw new Error('encrypted data must be at least 16 bytes');
-      const c = u.concatBytes(new Uint8Array(16), ciphertext);
+      const c = concatBytes(new Uint8Array(16), ciphertext);
       const authKey = xsalsa20(key, nonce, new Uint8Array(32));
       const tag = poly1305(c.subarray(32), authKey);
-      if (!u.equalBytes(c.subarray(16, 32), tag)) throw new Error('invalid poly1305 tag');
+      if (!equalBytes(c.subarray(16, 32), tag)) throw new Error('invalid poly1305 tag');
       return xsalsa20(key, nonce, c).subarray(32);
     },
   };
@@ -264,35 +264,33 @@ export function xsalsa20poly1305(key: Uint8Array, nonce: Uint8Array) {
  * Alias to xsalsa20-poly1305
  */
 export function secretbox(key: Uint8Array, nonce: Uint8Array) {
-  u.ensureBytes(key);
-  u.ensureBytes(nonce);
   const xs = xsalsa20poly1305(key, nonce);
   return { seal: xs.encrypt, open: xs.decrypt };
 }
 
 export const _poly1305_aead =
-  (fn: typeof chacha20) =>
-  (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): u.Cipher => {
+  (fn: XorStream) =>
+  (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher => {
     const tagLength = 16;
     const keyLength = 32;
-    u.ensureBytes(key, keyLength);
-    u.ensureBytes(nonce);
+    ensureBytes(key, keyLength);
+    ensureBytes(nonce);
     return {
       tagLength,
       encrypt: (plaintext: Uint8Array) => {
-        u.ensureBytes(plaintext);
+        ensureBytes(plaintext);
         const res = fn(key, nonce, plaintext, undefined, 1);
         const tag = computeTag(fn, key, nonce, res, AAD);
-        return u.concatBytes(res, tag);
+        return concatBytes(res, tag);
       },
       decrypt: (ciphertext: Uint8Array) => {
-        u.ensureBytes(ciphertext);
+        ensureBytes(ciphertext);
         if (ciphertext.length < tagLength)
           throw new Error(`encrypted data must be at least ${tagLength} bytes`);
         const passedTag = ciphertext.subarray(-tagLength);
         const data = ciphertext.subarray(0, -tagLength);
         const tag = computeTag(fn, key, nonce, data, AAD);
-        if (!u.equalBytes(passedTag, tag)) throw new Error('invalid poly1305 tag');
+        if (!equalBytes(passedTag, tag)) throw new Error('invalid poly1305 tag');
         return fn(key, nonce, data, undefined, 1);
       },
     };

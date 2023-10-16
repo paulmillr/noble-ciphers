@@ -78,6 +78,10 @@ export function bytesToNumberBE(bytes: Uint8Array): bigint {
   return hexToNumber(bytesToHex(bytes));
 }
 
+export function bytesToNumberLE(bytes: Uint8Array): bigint {
+  return hexToNumber(bytesToHex(Uint8Array.from(bytes).reverse()));
+}
+
 export function numberToBytesBE(n: number | bigint, len: number): Uint8Array {
   return hexToBytes(n.toString(16).padStart(len * 2, '0'));
 }
@@ -193,6 +197,7 @@ export abstract class Hash<T extends Hash<T>> {
 // Also, we probably can make tags composable
 export type Cipher = {
   tagLength?: number;
+  nonceLength?: number;
   encrypt(plaintext: Uint8Array): Uint8Array;
   decrypt(ciphertext: Uint8Array): Uint8Array;
 };
@@ -207,6 +212,14 @@ export type CipherWithOutput = Cipher & {
   encrypt(plaintext: Uint8Array, output?: Uint8Array): Uint8Array;
   decrypt(ciphertext: Uint8Array, output?: Uint8Array): Uint8Array;
 };
+
+export type XorStream = (
+  key: Uint8Array,
+  nonce: Uint8Array,
+  data: Uint8Array,
+  output?: Uint8Array,
+  counter?: number
+) => Uint8Array;
 
 // Polyfill for Safari 14
 export function setBigUint64(
@@ -224,4 +237,12 @@ export function setBigUint64(
   const l = isLE ? 0 : 4;
   view.setUint32(byteOffset + h, wh, isLE);
   view.setUint32(byteOffset + l, wl, isLE);
+}
+
+export function u64Lengths(ciphertext: Uint8Array, AAD?: Uint8Array) {
+  const num = new Uint8Array(16);
+  const view = createView(num);
+  setBigUint64(view, 0, BigInt(AAD ? AAD.length : 0), true);
+  setBigUint64(view, 8, BigInt(ciphertext.length), true);
+  return num;
 }

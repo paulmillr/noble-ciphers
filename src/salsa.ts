@@ -1,6 +1,6 @@
 import { Cipher, ensureBytes, equalBytes, u32 } from './utils.js';
 import { poly1305 } from './_poly1305.js';
-import { salsaBasic } from './_salsa.js';
+import { createCipher } from './_arx.js';
 
 // Salsa20 stream cipher was released in 2005.
 // Salsa's goal was to implement AES replacement that does not rely on S-Boxes,
@@ -15,13 +15,13 @@ const rotl = (a: number, b: number) => (a << b) | (a >>> (32 - b));
  */
 // prettier-ignore
 function salsaCore(
-  c: Uint32Array, k: Uint32Array, i: Uint32Array, out: Uint32Array, cnt: number, rounds = 20
+  s: Uint32Array, k: Uint32Array, i: Uint32Array, out: Uint32Array, cnt: number, rounds = 20
 ): void {
   // Based on https://cr.yp.to/salsa20.html
-  let y00 = c[0], y01 = k[0], y02 = k[1], y03 = k[2]; // "expa" Key     Key     Key
-  let y04 = k[3], y05 = c[1], y06 = i[0], y07 = i[1]; // Key    "nd 3"  Nonce   Nonce
-  let y08 = cnt,  y09 = 0   , y10 = c[2], y11 = k[4]; // Pos.   Pos.    "2-by"	Key
-  let y12 = k[5], y13 = k[6], y14 = k[7], y15 = c[3]; // Key    Key     Key     "te k"
+  let y00 = s[0], y01 = k[0], y02 = k[1], y03 = k[2]; // "expa" Key     Key     Key
+  let y04 = k[3], y05 = s[1], y06 = i[0], y07 = i[1]; // Key    "nd 3"  Nonce   Nonce
+  let y08 = cnt,  y09 = 0   , y10 = s[2], y11 = k[4]; // Pos.   Pos.    "2-by"	Key
+  let y12 = k[5], y13 = k[6], y14 = k[7], y15 = s[3]; // Key    Key     Key     "te k"
   // Save state to temporary variables
   let x00 = y00, x01 = y01, x02 = y02, x03 = y03,
       x04 = y04, x05 = y05, x06 = y06, x07 = y07,
@@ -66,15 +66,15 @@ function salsaCore(
  */
 // prettier-ignore
 export function hsalsa(
-  c: Uint32Array, key: Uint8Array, nonce: Uint8Array, out: Uint8Array
+  s: Uint32Array, key: Uint8Array, nonce: Uint8Array, out: Uint8Array
 ): Uint8Array {
   const k32 = u32(key);
   const i32 = u32(nonce);
   const o32 = u32(out);
-  let x00 = c[0], x01 = k32[0], x02 = k32[1], x03 = k32[2], x04 = k32[3];
-  let x05 = c[1], x06 = i32[0], x07 = i32[1], x08 = i32[2], x09 = i32[3];
-  let x10 = c[2], x11 = k32[4], x12 = k32[5], x13 = k32[6], x14 = k32[7];
-  let x15 = c[3];
+  let x00 = s[0], x01 = k32[0], x02 = k32[1], x03 = k32[2], x04 = k32[3];
+  let x05 = s[1], x06 = i32[0], x07 = i32[1], x08 = i32[2], x09 = i32[3];
+  let x10 = s[2], x11 = k32[4], x12 = k32[5], x13 = k32[6], x14 = k32[7];
+  let x15 = s[3];
   // Main loop
   for (let i = 0; i < 20; i += 2) {
     x04 ^= rotl(x00 + x12 | 0,  7); x08 ^= rotl(x04 + x00 | 0,  9);
@@ -109,17 +109,18 @@ export function hsalsa(
  * Salsa20 from original paper.
  * With 12-byte nonce, it's not safe to use fill it with random (CSPRNG), due to collision chance.
  */
-export const salsa20 = /* @__PURE__ */ salsaBasic({ core: salsaCore, counterRight: true });
+export const salsa20 = /* @__PURE__ */ createCipher(salsaCore, {
+  allowShortKeys: true,
+  counterRight: true,
+});
 
 /**
  * xsalsa20 eXtended-nonce salsa.
  * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
  */
-export const xsalsa20 = /* @__PURE__ */ salsaBasic({
-  core: salsaCore,
+export const xsalsa20 = /* @__PURE__ */ createCipher(salsaCore, {
   counterRight: true,
   extendNonceFn: hsalsa,
-  allow128bitKeys: false,
 });
 
 /**

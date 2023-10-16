@@ -1,5 +1,5 @@
 import { exists as aexists, output as aoutput } from './_assert.js';
-import { toBytes, Input, ensureBytes, Hash } from './utils.js';
+import { Input, ensureBytes, toBytes, Hash } from './utils.js';
 
 // Poly1305 is a fast and parallel secret-key message-authentication code.
 // https://cr.yp.to/mac.html, https://cr.yp.to/mac/poly1305-20050329.pdf
