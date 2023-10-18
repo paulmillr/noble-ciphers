@@ -26,6 +26,7 @@
     "@stablelib/xchacha20": "1.0.1",
     "@stablelib/xchacha20poly1305": "1.0.1",
     "@stablelib/xsalsa20": "1.0.2",
+    "aes-js": "^3.1.2",
     "libsodium-wrappers": "0.7.11",
     "tweetnacl": "1.0.3"
   }

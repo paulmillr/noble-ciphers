@@ -1,7 +1,7 @@
 import { utils as butils } from 'micro-bmark';
 import { createCipheriv, createDecipheriv } from 'node:crypto';
 
-import { aes_256_gcm, aes_128_gcm } from '@noble/ciphers/webcrypto/aes';
+import * as webcrypto from '@noble/ciphers/webcrypto/aes';
 import { concatBytes } from '@noble/ciphers/utils';
 import * as aes from '@noble/ciphers/aes';
 import {
@@ -14,6 +14,7 @@ import {
 import { CTR as STABLE_CTR } from '@stablelib/ctr';
 import { AES as STABLE_AES } from '@stablelib/aes';
 import { GCM as STABLE_GCM } from '@stablelib/gcm';
+import { default as aesjs } from 'aes-js';
 
 // Works for gcm only?
 const nodeGCM = (name) => {
@@ -157,6 +158,14 @@ export const CIPHERS = {
     opts: { key: buf(16), iv: buf(16) },
     node: nodeAES('aes-128-ctr'),
     stablelib: stableCTR,
+    aesjs: {
+      encrypt: (buf, opts) => new aesjs.ModeOfOperation.ctr(opts.key, opts.iv).encrypt(buf),
+      decrypt: (buf, opts) => new aesjs.ModeOfOperation.ctr(opts.key, opts.iv).decrypt(buf),
+    },
+    nobleOld: {
+      encrypt: (buf, opts) => webcrypto.ctr(opts.key, opts.iv).encrypt(buf),
+      decrypt: (buf, opts) => webcrypto.ctr(opts.key, opts.iv).decrypt(buf),
+    },
     noble: {
       encrypt: (buf, opts) => aes.ctr(opts.key, opts.iv).encrypt(buf),
       decrypt: (buf, opts) => aes.ctr(opts.key, opts.iv).decrypt(buf),
@@ -166,6 +175,14 @@ export const CIPHERS = {
     opts: { key: buf(32), iv: buf(16) },
     node: nodeAES('aes-256-ctr'),
     stablelib: stableCTR,
+    aesjs: {
+      encrypt: (buf, opts) => new aesjs.ModeOfOperation.ctr(opts.key, opts.iv).encrypt(buf),
+      decrypt: (buf, opts) => new aesjs.ModeOfOperation.ctr(opts.key, opts.iv).decrypt(buf),
+    },
+    nobleOld: {
+      encrypt: (buf, opts) => webcrypto.ctr(opts.key, opts.iv).encrypt(buf),
+      decrypt: (buf, opts) => webcrypto.ctr(opts.key, opts.iv).decrypt(buf),
+    },
     noble: {
       encrypt: (buf, opts) => aes.ctr(opts.key, opts.iv).encrypt(buf),
       decrypt: (buf, opts) => aes.ctr(opts.key, opts.iv).decrypt(buf),
@@ -175,6 +192,16 @@ export const CIPHERS = {
     opts: { key: buf(16), iv: buf(16) },
     node: nodeAES('aes-128-cbc'),
     stablelib: stableCBC,
+    aesjs: {
+      encrypt: (buf, opts) =>
+        new aesjs.ModeOfOperation.cbc(opts.key, opts.iv).encrypt(aesjs.padding.pkcs7.pad(buf)),
+      decrypt: (buf, opts) =>
+        aesjs.padding.pkcs7.strip(new aesjs.ModeOfOperation.cbc(opts.key, opts.iv).decrypt(buf)),
+    },
+    nobleOld: {
+      encrypt: (buf, opts) => webcrypto.cbc(opts.key, opts.iv).encrypt(buf),
+      decrypt: (buf, opts) => webcrypto.cbc(opts.key, opts.iv).decrypt(buf),
+    },
     noble: {
       encrypt: (buf, opts) => aes.cbc(opts.key, opts.iv).encrypt(buf),
       decrypt: (buf, opts) => aes.cbc(opts.key, opts.iv).decrypt(buf),
@@ -184,6 +211,16 @@ export const CIPHERS = {
     opts: { key: buf(32), iv: buf(16) },
     node: nodeAES('aes-256-cbc'),
     stablelib: stableCBC,
+    aesjs: {
+      encrypt: (buf, opts) =>
+        new aesjs.ModeOfOperation.cbc(opts.key, opts.iv).encrypt(aesjs.padding.pkcs7.pad(buf)),
+      decrypt: (buf, opts) =>
+        aesjs.padding.pkcs7.strip(new aesjs.ModeOfOperation.cbc(opts.key, opts.iv).decrypt(buf)),
+    },
+    nobleOld: {
+      encrypt: (buf, opts) => webcrypto.cbc(opts.key, opts.iv).encrypt(buf),
+      decrypt: (buf, opts) => webcrypto.cbc(opts.key, opts.iv).decrypt(buf),
+    },
     noble: {
       encrypt: (buf, opts) => aes.cbc(opts.key, opts.iv).encrypt(buf),
       decrypt: (buf, opts) => aes.cbc(opts.key, opts.iv).decrypt(buf),
@@ -193,6 +230,12 @@ export const CIPHERS = {
     opts: { key: buf(16), iv: null },
     node: nodeAES('aes-128-ecb'),
     stablelib: stableECB,
+    aesjs: {
+      encrypt: (buf, opts) =>
+        new aesjs.ModeOfOperation.ecb(opts.key).encrypt(aesjs.padding.pkcs7.pad(buf)),
+      decrypt: (buf, opts) =>
+        aesjs.padding.pkcs7.strip(new aesjs.ModeOfOperation.ecb(opts.key).decrypt(buf)),
+    },
     noble: {
       encrypt: (buf, opts) => aes.ecb(opts.key).encrypt(buf),
       decrypt: (buf, opts) => aes.ecb(opts.key).decrypt(buf),
@@ -202,44 +245,66 @@ export const CIPHERS = {
     opts: { key: buf(32), iv: null },
     node: nodeAES('aes-256-ecb'),
     stablelib: stableECB,
+    aesjs: {
+      encrypt: (buf, opts) =>
+        new aesjs.ModeOfOperation.ecb(opts.key).encrypt(aesjs.padding.pkcs7.pad(buf)),
+      decrypt: (buf, opts) =>
+        aesjs.padding.pkcs7.strip(new aesjs.ModeOfOperation.ecb(opts.key).decrypt(buf)),
+    },
     noble: {
       encrypt: (buf, opts) => aes.ecb(opts.key).encrypt(buf),
       decrypt: (buf, opts) => aes.ecb(opts.key).decrypt(buf),
     },
   },
   // Not very important, but useful (also cross-test)
-  'cbc-128-no-padding': {
-    opts: { key: buf(16), iv: buf(16), blockSize: 16 },
-    node: nodeAES('aes-128-cbc', false),
-    noble: {
-      encrypt: (buf, opts) => aes.cbc(opts.key, opts.iv, { disablePadding: true }).encrypt(buf),
-      decrypt: (buf, opts) => aes.cbc(opts.key, opts.iv, { disablePadding: true }).decrypt(buf),
-    },
-  },
-  'cbc-256-no-padding': {
-    opts: { key: buf(32), iv: buf(16), blockSize: 16 },
-    node: nodeAES('aes-256-cbc', false),
-    noble: {
-      encrypt: (buf, opts) => aes.cbc(opts.key, opts.iv, { disablePadding: true }).encrypt(buf),
-      decrypt: (buf, opts) => aes.cbc(opts.key, opts.iv, { disablePadding: true }).decrypt(buf),
-    },
-  },
-  'ecb-128-no-padding': {
-    opts: { key: buf(16), iv: null, blockSize: 16 },
-    node: nodeAES('aes-128-ecb', false),
-    noble: {
-      encrypt: (buf, opts) => aes.ecb(opts.key, { disablePadding: true }).encrypt(buf),
-      decrypt: (buf, opts) => aes.ecb(opts.key, { disablePadding: true }).decrypt(buf),
-    },
-  },
-  'ecb-256-no-padding': {
-    opts: { key: buf(32), iv: null, blockSize: 16 },
-    node: nodeAES('aes-256-ecb', false),
-    noble: {
-      encrypt: (buf, opts) => aes.ecb(opts.key, { disablePadding: true }).encrypt(buf),
-      decrypt: (buf, opts) => aes.ecb(opts.key, { disablePadding: true }).decrypt(buf),
-    },
-  },
+  // 'cbc-128-no-padding': {
+  //   opts: { key: buf(16), iv: buf(16), blockSize: 16 },
+  //   node: nodeAES('aes-128-cbc', false),
+  //   aesjs: {
+  //     encrypt: (buf, opts) => new aesjs.ModeOfOperation.cbc(opts.key, opts.iv).encrypt(buf),
+  //     decrypt: (buf, opts) => new aesjs.ModeOfOperation.cbc(opts.key, opts.iv).decrypt(buf),
+  //   },
+  //   noble: {
+  //     encrypt: (buf, opts) => aes.cbc(opts.key, opts.iv, { disablePadding: true }).encrypt(buf),
+  //     decrypt: (buf, opts) => aes.cbc(opts.key, opts.iv, { disablePadding: true }).decrypt(buf),
+  //   },
+  // },
+  // 'cbc-256-no-padding': {
+  //   opts: { key: buf(32), iv: buf(16), blockSize: 16 },
+  //   node: nodeAES('aes-256-cbc', false),
+  //   aesjs: {
+  //     encrypt: (buf, opts) => new aesjs.ModeOfOperation.cbc(opts.key, opts.iv).encrypt(buf),
+  //     decrypt: (buf, opts) => new aesjs.ModeOfOperation.cbc(opts.key, opts.iv).decrypt(buf),
+  //   },
+  //   noble: {
+  //     encrypt: (buf, opts) => aes.cbc(opts.key, opts.iv, { disablePadding: true }).encrypt(buf),
+  //     decrypt: (buf, opts) => aes.cbc(opts.key, opts.iv, { disablePadding: true }).decrypt(buf),
+  //   },
+  // },
+  // 'ecb-128-no-padding': {
+  //   opts: { key: buf(16), iv: null, blockSize: 16 },
+  //   node: nodeAES('aes-128-ecb', false),
+  //   aesjs: {
+  //     encrypt: (buf, opts) => new aesjs.ModeOfOperation.ecb(opts.key).encrypt(buf),
+  //     decrypt: (buf, opts) => new aesjs.ModeOfOperation.ecb(opts.key).decrypt(buf),
+  //   },
+  //   noble: {
+  //     encrypt: (buf, opts) => aes.ecb(opts.key, { disablePadding: true }).encrypt(buf),
+  //     decrypt: (buf, opts) => aes.ecb(opts.key, { disablePadding: true }).decrypt(buf),
+  //   },
+  // },
+  // 'ecb-256-no-padding': {
+  //   opts: { key: buf(32), iv: null, blockSize: 16 },
+  //   node: nodeAES('aes-256-ecb', false),
+  //   aesjs: {
+  //     encrypt: (buf, opts) => new aesjs.ModeOfOperation.ecb(opts.key).encrypt(buf),
+  //     decrypt: (buf, opts) => new aesjs.ModeOfOperation.ecb(opts.key).decrypt(buf),
+  //   },
+  //   noble: {
+  //     encrypt: (buf, opts) => aes.ecb(opts.key, { disablePadding: true }).encrypt(buf),
+  //     decrypt: (buf, opts) => aes.ecb(opts.key, { disablePadding: true }).decrypt(buf),
+  //   },
+  // },
   // GCM related (slow)
   'gcm-128': {
     opts: { key: buf(16), iv: buf(12) },
@@ -249,8 +314,8 @@ export const CIPHERS = {
       decrypt: (buf, opts) => new STABLE_GCM(new STABLE_AES(opts.key)).open(opts.iv, buf),
     },
     nobleOld: {
-      encrypt: (buf, opts) => aes_128_gcm(opts.key, opts.iv).encrypt(buf),
-      decrypt: (buf, opts) => aes_128_gcm(opts.key, opts.iv).decrypt(buf),
+      encrypt: (buf, opts) => webcrypto.gcm(opts.key, opts.iv).encrypt(buf),
+      decrypt: (buf, opts) => webcrypto.gcm(opts.key, opts.iv).decrypt(buf),
     },
     noble: {
       encrypt: (buf, opts) => aes.gcm(opts.key, opts.iv).encrypt(buf),
@@ -265,8 +330,8 @@ export const CIPHERS = {
       decrypt: (buf, opts) => new STABLE_GCM(new STABLE_AES(opts.key)).open(opts.iv, buf),
     },
     nobleOld: {
-      encrypt: (buf, opts) => aes_256_gcm(opts.key, opts.iv).encrypt(buf),
-      decrypt: (buf, opts) => aes_256_gcm(opts.key, opts.iv).decrypt(buf),
+      encrypt: (buf, opts) => webcrypto.gcm(opts.key, opts.iv).encrypt(buf),
+      decrypt: (buf, opts) => webcrypto.gcm(opts.key, opts.iv).decrypt(buf),
     },
     noble: {
       encrypt: (buf, opts) => aes.gcm(opts.key, opts.iv).encrypt(buf),
@@ -291,9 +356,11 @@ export const CIPHERS = {
 
 // buffer title, sample count, data
 const buffers = [
-  { size: '64B', samples: 50_000, data: buf(64) },
-  { size: '1KB', samples: 15_000, data: buf(1024) },
-  { size: '8KB', samples: 2_000, data: buf(1024 * 8) },
+  // { size: '16B', samples: 1_500_000, data: buf(16) }, // common block size
+  // { size: '32B', samples: 1_500_000, data: buf(32) },
+  { size: '64B', samples: 1_000_000, data: buf(64) },
+  { size: '1KB', samples: 50_000, data: buf(1024) },
+  { size: '8KB', samples: 10_000, data: buf(1024 * 8) },
   { size: '1MB', samples: 100, data: buf(1024 * 1024) },
 ];
 

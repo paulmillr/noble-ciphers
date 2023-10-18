@@ -6,7 +6,7 @@
 
 // prettier-ignore
 import {
-  Cipher, XorStream, createView, setBigUint64,
+  Cipher, XorStream, createView, setBigUint64, wrapCipher,
   bytesToNumberLE, concatBytes, ensureBytes, equalBytes, numberToBytesBE, u32, u8,
 } from './utils.js';
 import { createCipher } from './_arx.js';
@@ -235,30 +235,33 @@ function computeTag(
 /**
  * xsalsa20-poly1305 eXtended-nonce (24 bytes) salsa.
  */
-export function xsalsa20poly1305(key: Uint8Array, nonce: Uint8Array) {
-  ensureBytes(key);
-  ensureBytes(nonce);
-  return {
-    encrypt: (plaintext: Uint8Array) => {
-      ensureBytes(plaintext);
-      const m = concatBytes(new Uint8Array(32), plaintext);
-      const c = xsalsa20(key, nonce, m);
-      const authKey = c.subarray(0, 32);
-      const data = c.subarray(32);
-      const tag = poly1305(data, authKey);
-      return concatBytes(tag, data);
-    },
-    decrypt: (ciphertext: Uint8Array) => {
-      ensureBytes(ciphertext);
-      if (ciphertext.length < 16) throw new Error('encrypted data must be at least 16 bytes');
-      const c = concatBytes(new Uint8Array(16), ciphertext);
-      const authKey = xsalsa20(key, nonce, new Uint8Array(32));
-      const tag = poly1305(c.subarray(32), authKey);
-      if (!equalBytes(c.subarray(16, 32), tag)) throw new Error('invalid poly1305 tag');
-      return xsalsa20(key, nonce, c).subarray(32);
-    },
-  };
-}
+export const xsalsa20poly1305 = wrapCipher(
+  { blockSize: 64, nonceLength: 24, tagLength: 16 },
+  function xsalsa20poly1305(key: Uint8Array, nonce: Uint8Array) {
+    ensureBytes(key);
+    ensureBytes(nonce);
+    return {
+      encrypt: (plaintext: Uint8Array) => {
+        ensureBytes(plaintext);
+        const m = concatBytes(new Uint8Array(32), plaintext);
+        const c = xsalsa20(key, nonce, m);
+        const authKey = c.subarray(0, 32);
+        const data = c.subarray(32);
+        const tag = poly1305(data, authKey);
+        return concatBytes(tag, data);
+      },
+      decrypt: (ciphertext: Uint8Array) => {
+        ensureBytes(ciphertext);
+        if (ciphertext.length < 16) throw new Error('encrypted data must be at least 16 bytes');
+        const c = concatBytes(new Uint8Array(16), ciphertext);
+        const authKey = xsalsa20(key, nonce, new Uint8Array(32));
+        const tag = poly1305(c.subarray(32), authKey);
+        if (!equalBytes(c.subarray(16, 32), tag)) throw new Error('invalid poly1305 tag');
+        return xsalsa20(key, nonce, c).subarray(32);
+      },
+    };
+  }
+);
 
 /**
  * Alias to xsalsa20-poly1305
@@ -276,7 +279,6 @@ export const _poly1305_aead =
     ensureBytes(key, keyLength);
     ensureBytes(nonce);
     return {
-      tagLength,
       encrypt: (plaintext: Uint8Array) => {
         ensureBytes(plaintext);
         const res = fn(key, nonce, plaintext, undefined, 1);
@@ -299,10 +301,16 @@ export const _poly1305_aead =
 /**
  * chacha20-poly1305 12-byte-nonce chacha.
  */
-export const chacha20poly1305 = _poly1305_aead(chacha20);
+export const chacha20poly1305 = wrapCipher(
+  { blockSize: 64, nonceLength: 12, tagLength: 16 },
+  _poly1305_aead(chacha20)
+);
 
 /**
  * xchacha20-poly1305 eXtended-nonce (24 bytes) chacha.
  * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
  */
-export const xchacha20poly1305 = _poly1305_aead(xchacha20);
+export const xchacha20poly1305 = wrapCipher(
+  { blockSize: 64, nonceLength: 24, tagLength: 16 },
+  _poly1305_aead(xchacha20)
+);

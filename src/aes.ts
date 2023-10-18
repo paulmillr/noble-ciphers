@@ -1,4 +1,4 @@
-import { equalBytes, u32, u8, ensureBytes, Cipher, CipherWithOutput } from './utils.js';
+import { wrapCipher, Cipher, CipherWithOutput, equalBytes, u32, u8, ensureBytes } from './utils.js';
 import { createView, setBigUint64 } from './utils.js';
 import { ghash, polyval } from './_polyval.js';
 
@@ -94,7 +94,7 @@ const POWX = /* @__PURE__ */ (() => {
   return p;
 })();
 
-function expandKeyLE(key: Uint8Array): Uint32Array {
+export function expandKeyLE(key: Uint8Array): Uint32Array {
   ensureBytes(key);
   const len = key.length;
   if (![16, 24, 32].includes(len))
@@ -115,7 +115,7 @@ function expandKeyLE(key: Uint8Array): Uint32Array {
   return xk;
 }
 
-function expandKeyDecLE(key: Uint8Array): Uint32Array {
+export function expandKeyDecLE(key: Uint8Array): Uint32Array {
   const encKey = expandKeyLE(key);
   const xk = encKey.slice();
   const Nk = encKey.length;
@@ -290,20 +290,23 @@ function ctr32(
  * CTR: counter mode. Creates stream cipher.
  * Requires good IV. Parallelizable. OK, but no MAC.
  */
-export function ctr(key: Uint8Array, nonce: Uint8Array): CipherWithOutput {
-  ensureBytes(key);
-  ensureBytes(nonce, BLOCK_SIZE);
-  function processCtr(buf: Uint8Array, dst?: Uint8Array) {
-    const xk = expandKeyLE(key);
-    const out = ctrCounter(xk, nonce, buf, dst);
-    xk.fill(0);
-    return out;
+export const ctr = wrapCipher(
+  { blockSize: 16, nonceLength: 16 },
+  function ctr(key: Uint8Array, nonce: Uint8Array): CipherWithOutput {
+    ensureBytes(key);
+    ensureBytes(nonce, BLOCK_SIZE);
+    function processCtr(buf: Uint8Array, dst?: Uint8Array) {
+      const xk = expandKeyLE(key);
+      const out = ctrCounter(xk, nonce, buf, dst);
+      xk.fill(0);
+      return out;
+    }
+    return {
+      encrypt: (plaintext: Uint8Array, dst?: Uint8Array) => processCtr(plaintext, dst),
+      decrypt: (ciphertext: Uint8Array, dst?: Uint8Array) => processCtr(ciphertext, dst),
+    };
   }
-  return {
-    encrypt: (plaintext: Uint8Array, dst?: Uint8Array) => processCtr(plaintext, dst),
-    decrypt: (ciphertext: Uint8Array, dst?: Uint8Array) => processCtr(ciphertext, dst),
-  };
-}
+);
 
 function validateBlockDecrypt(data: Uint8Array) {
   ensureBytes(data);
@@ -357,94 +360,100 @@ export type BlockOpts = { disablePadding?: boolean };
  * ECB: Electronic CodeBook. Simple deterministic replacement.
  * Dangerous: always map x to y. See [AES Penguin](https://words.filippo.io/the-ecb-penguin/).
  */
-export function ecb(key: Uint8Array, opts: BlockOpts = {}): Cipher {
-  ensureBytes(key);
-  const pcks5 = !opts.disablePadding;
-  return {
-    encrypt: (plaintext: Uint8Array, dst?: Uint8Array) => {
-      ensureBytes(plaintext);
-      const { b, o, out: _out } = validateBlockEncrypt(plaintext, pcks5, dst);
-      const xk = expandKeyLE(key);
-      let i = 0;
-      for (; i + 4 <= b.length; ) {
-        const { s0, s1, s2, s3 } = encrypt(xk, b[i + 0], b[i + 1], b[i + 2], b[i + 3]);
-        (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
-      }
-      if (pcks5) {
-        const tmp32 = padPCKS(plaintext.subarray(i * 4));
-        const { s0, s1, s2, s3 } = encrypt(xk, tmp32[0], tmp32[1], tmp32[2], tmp32[3]);
-        (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
-      }
-      xk.fill(0);
-      return _out;
-    },
-    decrypt: (ciphertext: Uint8Array) => {
-      validateBlockDecrypt(ciphertext);
-      const xk = expandKeyDecLE(key);
-      const out = ciphertext.slice();
-      const b = u32(ciphertext);
-      const o = u32(out);
-      for (let i = 0; i + 4 <= b.length; ) {
-        const { s0, s1, s2, s3 } = decrypt(xk, b[i + 0], b[i + 1], b[i + 2], b[i + 3]);
-        (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
-      }
-      xk.fill(0);
-      return validatePCKS(out, pcks5);
-    },
-  };
-}
+export const ecb = wrapCipher(
+  { blockSize: 16 },
+  function ecb(key: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
+    ensureBytes(key);
+    const pcks5 = !opts.disablePadding;
+    return {
+      encrypt: (plaintext: Uint8Array, dst?: Uint8Array) => {
+        ensureBytes(plaintext);
+        const { b, o, out: _out } = validateBlockEncrypt(plaintext, pcks5, dst);
+        const xk = expandKeyLE(key);
+        let i = 0;
+        for (; i + 4 <= b.length; ) {
+          const { s0, s1, s2, s3 } = encrypt(xk, b[i + 0], b[i + 1], b[i + 2], b[i + 3]);
+          (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
+        }
+        if (pcks5) {
+          const tmp32 = padPCKS(plaintext.subarray(i * 4));
+          const { s0, s1, s2, s3 } = encrypt(xk, tmp32[0], tmp32[1], tmp32[2], tmp32[3]);
+          (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
+        }
+        xk.fill(0);
+        return _out;
+      },
+      decrypt: (ciphertext: Uint8Array, dst?: Uint8Array) => {
+        validateBlockDecrypt(ciphertext);
+        const xk = expandKeyDecLE(key);
+        const out = getDst(ciphertext.length, dst);
+        const b = u32(ciphertext);
+        const o = u32(out);
+        for (let i = 0; i + 4 <= b.length; ) {
+          const { s0, s1, s2, s3 } = decrypt(xk, b[i + 0], b[i + 1], b[i + 2], b[i + 3]);
+          (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
+        }
+        xk.fill(0);
+        return validatePCKS(out, pcks5);
+      },
+    };
+  }
+);
 
 /**
  * CBC: Cipher-Block-Chaining. Key is previous round’s block.
  * Fragile: needs proper padding. Unauthenticated: needs MAC.
  */
-export function cbc(key: Uint8Array, iv: Uint8Array, opts: BlockOpts = {}): Cipher {
-  ensureBytes(key);
-  ensureBytes(iv, 16);
-  const pcks5 = !opts.disablePadding;
-  return {
-    encrypt: (plaintext: Uint8Array) => {
-      const xk = expandKeyLE(key);
-      const { b, o, out: _out } = validateBlockEncrypt(plaintext, pcks5);
-      const n32 = u32(iv);
-      // prettier-ignore
-      let s0 = n32[0], s1 = n32[1],  s2 = n32[2], s3 = n32[3];
-      let i = 0;
-      for (; i + 4 <= b.length; ) {
-        (s0 ^= b[i + 0]), (s1 ^= b[i + 1]), (s2 ^= b[i + 2]), (s3 ^= b[i + 3]);
-        ({ s0, s1, s2, s3 } = encrypt(xk, s0, s1, s2, s3));
-        (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
-      }
-      if (pcks5) {
-        const tmp32 = padPCKS(plaintext.subarray(i * 4));
-        (s0 ^= tmp32[0]), (s1 ^= tmp32[1]), (s2 ^= tmp32[2]), (s3 ^= tmp32[3]);
-        ({ s0, s1, s2, s3 } = encrypt(xk, s0, s1, s2, s3));
-        (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
-      }
-      xk.fill(0);
-      return _out;
-    },
-    decrypt: (ciphertext: Uint8Array) => {
-      validateBlockDecrypt(ciphertext);
-      const xk = expandKeyDecLE(key);
-      const n32 = u32(iv);
-      const out = ciphertext.slice();
-      const b = u32(ciphertext);
-      const o = u32(out);
-      // prettier-ignore
-      let s0 = n32[0], s1 = n32[1],  s2 = n32[2], s3 = n32[3];
-      for (let i = 0; i + 4 <= b.length; ) {
+export const cbc = wrapCipher(
+  { blockSize: 16, nonceLength: 16 },
+  function cbc(key: Uint8Array, iv: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
+    ensureBytes(key);
+    ensureBytes(iv, 16);
+    const pcks5 = !opts.disablePadding;
+    return {
+      encrypt: (plaintext: Uint8Array, dst?: Uint8Array) => {
+        const xk = expandKeyLE(key);
+        const { b, o, out: _out } = validateBlockEncrypt(plaintext, pcks5, dst);
+        const n32 = u32(iv);
         // prettier-ignore
-        const ps0 = s0, ps1 = s1, ps2 = s2, ps3 = s3;
-        (s0 = b[i + 0]), (s1 = b[i + 1]), (s2 = b[i + 2]), (s3 = b[i + 3]);
-        const { s0: o0, s1: o1, s2: o2, s3: o3 } = decrypt(xk, s0, s1, s2, s3);
-        (o[i++] = o0 ^ ps0), (o[i++] = o1 ^ ps1), (o[i++] = o2 ^ ps2), (o[i++] = o3 ^ ps3);
-      }
-      xk.fill(0);
-      return validatePCKS(out, pcks5);
-    },
-  };
-}
+        let s0 = n32[0], s1 = n32[1], s2 = n32[2], s3 = n32[3];
+        let i = 0;
+        for (; i + 4 <= b.length; ) {
+          (s0 ^= b[i + 0]), (s1 ^= b[i + 1]), (s2 ^= b[i + 2]), (s3 ^= b[i + 3]);
+          ({ s0, s1, s2, s3 } = encrypt(xk, s0, s1, s2, s3));
+          (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
+        }
+        if (pcks5) {
+          const tmp32 = padPCKS(plaintext.subarray(i * 4));
+          (s0 ^= tmp32[0]), (s1 ^= tmp32[1]), (s2 ^= tmp32[2]), (s3 ^= tmp32[3]);
+          ({ s0, s1, s2, s3 } = encrypt(xk, s0, s1, s2, s3));
+          (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
+        }
+        xk.fill(0);
+        return _out;
+      },
+      decrypt: (ciphertext: Uint8Array, dst?: Uint8Array) => {
+        validateBlockDecrypt(ciphertext);
+        const xk = expandKeyDecLE(key);
+        const n32 = u32(iv);
+        const out = getDst(ciphertext.length, dst);
+        const b = u32(ciphertext);
+        const o = u32(out);
+        // prettier-ignore
+        let s0 = n32[0], s1 = n32[1], s2 = n32[2], s3 = n32[3];
+        for (let i = 0; i + 4 <= b.length; ) {
+          // prettier-ignore
+          const ps0 = s0, ps1 = s1, ps2 = s2, ps3 = s3;
+          (s0 = b[i + 0]), (s1 = b[i + 1]), (s2 = b[i + 2]), (s3 = b[i + 3]);
+          const { s0: o0, s1: o1, s2: o2, s3: o3 } = decrypt(xk, s0, s1, s2, s3);
+          (o[i++] = o0 ^ ps0), (o[i++] = o1 ^ ps1), (o[i++] = o2 ^ ps2), (o[i++] = o3 ^ ps3);
+        }
+        xk.fill(0);
+        return validatePCKS(out, pcks5);
+      },
+    };
+  }
+);
 
 // TODO: merge with chacha, however gcm has bitLen while chacha has byteLen
 function computeTag(
@@ -454,7 +463,7 @@ function computeTag(
   data: Uint8Array,
   AAD?: Uint8Array
 ) {
-  const h = fn.create(key);
+  const h = fn.create(key, data.length + (AAD?.length || 0));
   if (AAD) h.update(AAD);
   h.update(data);
   const num = new Uint8Array(16);
@@ -470,64 +479,66 @@ function computeTag(
  * Good, modern version of CTR, parallel, with MAC.
  * Be careful: MACs can be forged.
  */
-export function gcm(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
-  ensureBytes(nonce);
-  // Nonce can be pretty much anything (even 1 byte). But smaller nonces less secure.
-  if (nonce.length === 0) throw new Error('aes/gcm: empty nonce');
-  const tagLength = 16;
-  function _computeTag(authKey: Uint8Array, tagMask: Uint8Array, data: Uint8Array) {
-    const tag = computeTag(ghash, false, authKey, data, AAD);
-    for (let i = 0; i < tagMask.length; i++) tag[i] ^= tagMask[i];
-    return tag;
-  }
-  function deriveKeys() {
-    const xk = expandKeyLE(key);
-    const authKey = EMPTY_BLOCK.slice();
-    const counter = EMPTY_BLOCK.slice();
-    ctr32(xk, false, counter, counter, authKey);
-    if (nonce.length === 12) {
-      counter.set(nonce);
-    } else {
-      // Spec (NIST 800-38d) supports variable size nonce.
-      // Not supported for now, but can be useful.
-      const nonceLen = EMPTY_BLOCK.slice();
-      const view = createView(nonceLen);
-      setBigUint64(view, 8, BigInt(nonce.length * 8), false);
-      // ghash(nonce || u64be(0) || u64be(nonceLen*8))
-      ghash.create(authKey).update(nonce).update(nonceLen).digestInto(counter);
+export const gcm = wrapCipher(
+  { blockSize: 16, nonceLength: 12, tagLength: 16 },
+  function gcm(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
+    ensureBytes(nonce);
+    // Nonce can be pretty much anything (even 1 byte). But smaller nonces less secure.
+    if (nonce.length === 0) throw new Error('aes/gcm: empty nonce');
+    const tagLength = 16;
+    function _computeTag(authKey: Uint8Array, tagMask: Uint8Array, data: Uint8Array) {
+      const tag = computeTag(ghash, false, authKey, data, AAD);
+      for (let i = 0; i < tagMask.length; i++) tag[i] ^= tagMask[i];
+      return tag;
     }
-    const tagMask = ctr32(xk, false, counter, EMPTY_BLOCK);
-    return { xk, authKey, counter, tagMask };
+    function deriveKeys() {
+      const xk = expandKeyLE(key);
+      const authKey = EMPTY_BLOCK.slice();
+      const counter = EMPTY_BLOCK.slice();
+      ctr32(xk, false, counter, counter, authKey);
+      if (nonce.length === 12) {
+        counter.set(nonce);
+      } else {
+        // Spec (NIST 800-38d) supports variable size nonce.
+        // Not supported for now, but can be useful.
+        const nonceLen = EMPTY_BLOCK.slice();
+        const view = createView(nonceLen);
+        setBigUint64(view, 8, BigInt(nonce.length * 8), false);
+        // ghash(nonce || u64be(0) || u64be(nonceLen*8))
+        ghash.create(authKey).update(nonce).update(nonceLen).digestInto(counter);
+      }
+      const tagMask = ctr32(xk, false, counter, EMPTY_BLOCK);
+      return { xk, authKey, counter, tagMask };
+    }
+    return {
+      encrypt: (plaintext: Uint8Array) => {
+        ensureBytes(plaintext);
+        const { xk, authKey, counter, tagMask } = deriveKeys();
+        const out = new Uint8Array(plaintext.length + tagLength);
+        ctr32(xk, false, counter, plaintext, out);
+        const tag = _computeTag(authKey, tagMask, out.subarray(0, out.length - tagLength));
+        out.set(tag, plaintext.length);
+        xk.fill(0);
+        return out;
+      },
+      decrypt: (ciphertext: Uint8Array) => {
+        ensureBytes(ciphertext);
+        if (ciphertext.length < tagLength)
+          throw new Error(`aes/gcm: ciphertext less than tagLen (${tagLength})`);
+        const { xk, authKey, counter, tagMask } = deriveKeys();
+        const data = ciphertext.subarray(0, -tagLength);
+        const passedTag = ciphertext.subarray(-tagLength);
+        const tag = _computeTag(authKey, tagMask, data);
+        if (!equalBytes(tag, passedTag)) throw new Error('aes/gcm: invalid ghash tag');
+        const out = ctr32(xk, false, counter, data);
+        authKey.fill(0);
+        tagMask.fill(0);
+        xk.fill(0);
+        return out;
+      },
+    };
   }
-  return {
-    tagLength,
-    encrypt: (plaintext: Uint8Array) => {
-      ensureBytes(plaintext);
-      const { xk, authKey, counter, tagMask } = deriveKeys();
-      const out = new Uint8Array(plaintext.length + tagLength);
-      ctr32(xk, false, counter, plaintext, out);
-      const tag = _computeTag(authKey, tagMask, out.subarray(0, out.length - tagLength));
-      out.set(tag, plaintext.length);
-      xk.fill(0);
-      return out;
-    },
-    decrypt: (ciphertext: Uint8Array) => {
-      ensureBytes(ciphertext);
-      if (ciphertext.length < tagLength)
-        throw new Error(`aes/gcm: ciphertext less than tagLen (${tagLength})`);
-      const { xk, authKey, counter, tagMask } = deriveKeys();
-      const data = ciphertext.subarray(0, -tagLength);
-      const passedTag = ciphertext.subarray(-tagLength);
-      const tag = _computeTag(authKey, tagMask, data);
-      if (!equalBytes(tag, passedTag)) throw new Error('aes/gcm: invalid ghash tag');
-      const out = ctr32(xk, false, counter, data);
-      authKey.fill(0);
-      tagMask.fill(0);
-      xk.fill(0);
-      return out;
-    },
-  };
-}
+);
 
 const limit = (name: string, min: number, max: number) => (value: number) => {
   if (!Number.isSafeInteger(value) || min > value || value > max)
@@ -540,89 +551,113 @@ const limit = (name: string, min: number, max: number) => (value: number) => {
  * plaintexts will produce identical ciphertexts.
  * RFC 8452, https://datatracker.ietf.org/doc/html/rfc8452
  */
-export function siv(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
-  const tagLength = 16;
-  // From RFC 8452: Section 6
-  const AAD_LIMIT = limit('AAD', 0, 2 ** 36);
-  const PLAIN_LIMIT = limit('plaintext', 0, 2 ** 36);
-  const NONCE_LIMIT = limit('nonce', 12, 12);
-  const CIPHER_LIMIT = limit('ciphertext', 16, 2 ** 36 + 16);
-  ensureBytes(nonce);
-  NONCE_LIMIT(nonce.length);
-  if (AAD) {
-    ensureBytes(AAD);
-    AAD_LIMIT(AAD.length);
-  }
-  function deriveKeys() {
-    const len = key.length;
-    if (len !== 16 && len !== 32)
-      throw new Error(`key length must be 16 or 32 bytes, got: ${len} bytes`);
-    const xk = expandKeyLE(key);
-    const encKey = new Uint8Array(len);
-    const authKey = new Uint8Array(16);
-    const n32 = u32(nonce);
-    // prettier-ignore
-    let s0 = 0, s1 = n32[0], s2 = n32[1], s3 = n32[2];
-    let counter = 0;
-    for (const derivedKey of [authKey, encKey].map(u32)) {
-      const d32 = u32(derivedKey);
-      for (let i = 0; i < d32.length; i += 2) {
-        // aes(u32le(0) || nonce)[:8] || aes(u32le(1) || nonce)[:8] ...
-        const { s0: o0, s1: o1 } = encrypt(xk, s0, s1, s2, s3);
-        d32[i + 0] = o0;
-        d32[i + 1] = o1;
-        s0 = ++counter; // increment counter inside state
-      }
+export const siv = wrapCipher(
+  { blockSize: 16, nonceLength: 12, tagLength: 16 },
+  function siv(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
+    const tagLength = 16;
+    // From RFC 8452: Section 6
+    const AAD_LIMIT = limit('AAD', 0, 2 ** 36);
+    const PLAIN_LIMIT = limit('plaintext', 0, 2 ** 36);
+    const NONCE_LIMIT = limit('nonce', 12, 12);
+    const CIPHER_LIMIT = limit('ciphertext', 16, 2 ** 36 + 16);
+    ensureBytes(nonce);
+    NONCE_LIMIT(nonce.length);
+    if (AAD) {
+      ensureBytes(AAD);
+      AAD_LIMIT(AAD.length);
     }
-    xk.fill(0);
-    return { authKey, encKey: expandKeyLE(encKey) };
+    function deriveKeys() {
+      const len = key.length;
+      if (len !== 16 && len !== 24 && len !== 32)
+        throw new Error(`key length must be 16, 24 or 32 bytes, got: ${len} bytes`);
+      const xk = expandKeyLE(key);
+      const encKey = new Uint8Array(len);
+      const authKey = new Uint8Array(16);
+      const n32 = u32(nonce);
+      // prettier-ignore
+      let s0 = 0, s1 = n32[0], s2 = n32[1], s3 = n32[2];
+      let counter = 0;
+      for (const derivedKey of [authKey, encKey].map(u32)) {
+        const d32 = u32(derivedKey);
+        for (let i = 0; i < d32.length; i += 2) {
+          // aes(u32le(0) || nonce)[:8] || aes(u32le(1) || nonce)[:8] ...
+          const { s0: o0, s1: o1 } = encrypt(xk, s0, s1, s2, s3);
+          d32[i + 0] = o0;
+          d32[i + 1] = o1;
+          s0 = ++counter; // increment counter inside state
+        }
+      }
+      xk.fill(0);
+      return { authKey, encKey: expandKeyLE(encKey) };
+    }
+    function _computeTag(encKey: Uint32Array, authKey: Uint8Array, data: Uint8Array) {
+      const tag = computeTag(polyval, true, authKey, data, AAD);
+      // Compute the expected tag by XORing S_s and the nonce, clearing the
+      // most significant bit of the last byte and encrypting with the
+      // message-encryption key.
+      for (let i = 0; i < 12; i++) tag[i] ^= nonce[i];
+      tag[15] &= 0x7f; // Clear the highest bit
+      // encrypt tag as block
+      const t32 = u32(tag);
+      // prettier-ignore
+      let s0 = t32[0], s1 = t32[1], s2 = t32[2], s3 = t32[3];
+      ({ s0, s1, s2, s3 } = encrypt(encKey, s0, s1, s2, s3));
+      (t32[0] = s0), (t32[1] = s1), (t32[2] = s2), (t32[3] = s3);
+      return tag;
+    }
+    // actual decrypt/encrypt of message.
+    function processSiv(encKey: Uint32Array, tag: Uint8Array, input: Uint8Array) {
+      let block = tag.slice();
+      block[15] |= 0x80; // Force highest bit
+      return ctr32(encKey, true, block, input);
+    }
+    return {
+      encrypt: (plaintext: Uint8Array) => {
+        ensureBytes(plaintext);
+        PLAIN_LIMIT(plaintext.length);
+        const { encKey, authKey } = deriveKeys();
+        const tag = _computeTag(encKey, authKey, plaintext);
+        const out = new Uint8Array(plaintext.length + tagLength);
+        out.set(tag, plaintext.length);
+        out.set(processSiv(encKey, tag, plaintext));
+        encKey.fill(0);
+        authKey.fill(0);
+        return out;
+      },
+      decrypt: (ciphertext: Uint8Array) => {
+        ensureBytes(ciphertext);
+        CIPHER_LIMIT(ciphertext.length);
+        const tag = ciphertext.subarray(-tagLength);
+        const { encKey, authKey } = deriveKeys();
+        const plaintext = processSiv(encKey, tag, ciphertext.subarray(0, -tagLength));
+        const expectedTag = _computeTag(encKey, authKey, plaintext);
+        encKey.fill(0);
+        authKey.fill(0);
+        if (!equalBytes(tag, expectedTag)) throw new Error('invalid polyval tag');
+        return plaintext;
+      },
+    };
   }
-  function _computeTag(encKey: Uint32Array, authKey: Uint8Array, data: Uint8Array) {
-    const tag = computeTag(polyval, true, authKey, data, AAD);
-    // Compute the expected tag by XORing S_s and the nonce, clearing the
-    // most significant bit of the last byte and encrypting with the
-    // message-encryption key.
-    for (let i = 0; i < 12; i++) tag[i] ^= nonce[i];
-    tag[15] &= 0x7f; // Clear the highest bit
-    // encrypt tag as block
-    const t32 = u32(tag);
-    // prettier-ignore
-    let s0 = t32[0], s1 = t32[1], s2 = t32[2], s3 = t32[3];
-    ({ s0, s1, s2, s3 } = encrypt(encKey, s0, s1, s2, s3));
-    (t32[0] = s0), (t32[1] = s1), (t32[2] = s2), (t32[3] = s3);
-    return tag;
-  }
-  // actual decrypt/encrypt of message.
-  function processSiv(encKey: Uint32Array, tag: Uint8Array, input: Uint8Array) {
-    let block = tag.slice();
-    block[15] |= 0x80; // Force highest bit
-    return ctr32(encKey, true, block, input);
-  }
-  return {
-    tagLength,
-    encrypt: (plaintext: Uint8Array) => {
-      ensureBytes(plaintext);
-      PLAIN_LIMIT(plaintext.length);
-      const { encKey, authKey } = deriveKeys();
-      const tag = _computeTag(encKey, authKey, plaintext);
-      const out = new Uint8Array(plaintext.length + tagLength);
-      out.set(tag, plaintext.length);
-      out.set(processSiv(encKey, tag, plaintext));
-      encKey.fill(0);
-      authKey.fill(0);
-      return out;
-    },
-    decrypt: (ciphertext: Uint8Array) => {
-      ensureBytes(ciphertext);
-      CIPHER_LIMIT(ciphertext.length);
-      const tag = ciphertext.subarray(-tagLength);
-      const { encKey, authKey } = deriveKeys();
-      const plaintext = processSiv(encKey, tag, ciphertext.subarray(0, -tagLength));
-      const expectedTag = _computeTag(encKey, authKey, plaintext);
-      encKey.fill(0);
-      authKey.fill(0);
-      if (!equalBytes(tag, expectedTag)) throw new Error('invalid polyval tag');
-      return plaintext;
-    },
-  };
+);
+
+function encryptBlock(xk: Uint32Array, block: Uint8Array) {
+  ensureBytes(block, 16);
+  if (!(xk instanceof Uint32Array)) throw new Error('_encryptBlock accepts result of expandKeyLE');
+  const b32 = u32(block);
+  let { s0, s1, s2, s3 } = encrypt(xk, b32[0], b32[1], b32[2], b32[3]);
+  (b32[0] = s0), (b32[1] = s1), (b32[2] = s2), (b32[3] = s3);
+  return block;
 }
+
+function decryptBlock(xk: Uint32Array, block: Uint8Array) {
+  ensureBytes(block, 16);
+  if (!(xk instanceof Uint32Array)) throw new Error('_decryptBlock accepts result of expandKeyLE');
+  const b32 = u32(block);
+  let { s0, s1, s2, s3 } = decrypt(xk, b32[0], b32[1], b32[2], b32[3]);
+  (b32[0] = s0), (b32[1] = s1), (b32[2] = s2), (b32[3] = s3);
+  return block;
+}
+
+// Highly unsafe private functions for implementing new modes or ciphers based on AES
+// Can change at any time, no API guarantees
+export const unsafe = { expandKeyLE, expandKeyDecLE, encrypt, decrypt, encryptBlock, decryptBlock };

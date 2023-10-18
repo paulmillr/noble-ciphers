@@ -2,12 +2,17 @@
   "compilerOptions": {
     "outDir": ".",
     "target": "es2020",
-    "lib": ["es2020", "dom"], // Set explicitly to remove DOM
+    "lib": [
+      "es2020",
+      "dom"
+    ], // Set explicitly to remove DOM
     "module": "commonjs",
     "moduleResolution": "node",
     "baseUrl": ".",
     "paths": {
-      "@noble/ciphers/webcrypto/crypto": [ "src/webcrypto/crypto" ]
+      "@noble/ciphers/webcrypto/crypto": [
+        "src/webcrypto/crypto"
+      ]
     },
     "sourceMap": true,
     "declaration": true,
@@ -22,7 +27,9 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
   },
-  "include": ["src"],
+  "include": [
+    "src"
+  ],
   "exclude": [
     "node_modules",
     "*.d.ts"

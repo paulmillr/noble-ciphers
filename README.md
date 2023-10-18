@@ -1,12 +1,12 @@
 # noble-ciphers
 
-Auditable & minimal JS implementation of Salsa20, ChaCha, Poly1305 & AES-SIV
+Auditable & minimal JS implementation of Salsa20, ChaCha & AES
 
 - 🔒 Auditable
 - 🔻 Tree-shaking-friendly: use only what's necessary, other code won't be included
 - 🏎 [Ultra-fast](#speed), hand-optimized for caveats of JS engines
 - 🔍 Unique tests ensure correctness: property-based, cross-library and Wycheproof vectors
-- 💼 AES: SIV (Nonce Misuse-Resistant encryption), simple GCM/CTR/CBC webcrypto wrapper
+- 💼 AES: very fast ECB, CBC, CTR, GCM, SIV (nonce misuse-resistant)
 - 💃 Salsa20, ChaCha, XSalsa20, XChaCha, Poly1305, ChaCha8, ChaCha12
 - ✍️ FF1 format-preserving encryption
 - 🧂 Compatible with NaCl / libsodium secretbox
@@ -44,21 +44,17 @@ A standalone file
 // import * from '@noble/ciphers'; // Error: use sub-imports, to ensure small app size
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 // import { xchacha20poly1305 } from 'npm:@noble/ciphers@0.2.0/chacha'; // Deno
-import { randomBytes } from '@noble/ciphers/webcrypto/utils';
-const key = randomBytes(32);
-const nonce = randomBytes(24);
-const stream = xchacha20poly1305(key, nonce);
-
-import { utf8ToBytes } from '@noble/ciphers/utils';
-const data = utf8ToBytes('hello, noble'); // strings must become Uint8Array
-const ciphertext = stream.encrypt(data);
-const plaintext = stream.decrypt(ciphertext); // bytesToUtf8(plaintext)
 ```
 
+- [Examples](#examples)
+  - [Encrypt and decrypt with ChaCha20-Poly1305](#encrypt-and-decrypt-with-chacha20-poly1305)
+  - [Encrypt and decrypt text with AES-GCM-256](#encrypt-and-decrypt-text-with-aes-gcm-256)
+  - [Securely generate random key and nonce](#securely-generate-random-key-and-nonce)
+  - [Use managed nonce](#use-managed-nonce)
 - [Implementations](#implementations)
   - [salsa: Salsa20 cipher](#salsa)
   - [chacha: ChaCha cipher](#chacha)
-  - [webcrypto/aes: friendly wrapper over webcrypto AES](#aes)
+  - [aes: AES cipher](#aes)
   - [ff1: format-preserving encryption](#ff1)
 - [Guidance](#guidance)
   - [How to encrypt properly](#how-to-encrypt-properly)
@@ -69,6 +65,60 @@ const plaintext = stream.decrypt(ciphertext); // bytesToUtf8(plaintext)
 - [Speed](#speed)
 - [Contributing & testing](#contributing--testing)
 - [Resources](#resources)
+
+## Examples
+
+#### Encrypt and decrypt with ChaCha20-Poly1305
+
+```js
+import { xchacha20poly1305 } from '@noble/ciphers/chacha';
+import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils';
+const key = hexToBytes('4b7f89bac90a1086fef73f5da2cbe93b2fae9dfbf7678ae1f3e75fd118ddf999');
+const nonce = hexToBytes('9610467513de0bbd7c4cc2c3c64069f1802086fbd3232b13');
+const chacha = xchacha20poly1305(key, nonce);
+const data = utf8ToBytes('hello, noble');
+const ciphertext = chacha.encrypt(data);
+const data_ = chacha.decrypt(ciphertext); // bytesToUtf8(data_) === data
+```
+
+#### Encrypt and decrypt text with AES-GCM-256
+
+```js
+import { gcm } from '@noble/ciphers/aes';
+import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils';
+const key = hexToBytes('5296fb2c5ceab0f59367994e5d81d9014027255f12336fabcd29596c2e9ecd87');
+const nonce = hexToBytes('9610467513de0bbd7c4cc2c3c64069f1802086fbd3232b13');
+const aes = gcm(key, nonce);
+const data = utf8ToBytes('hello, noble');
+const ciphertext = aes.encrypt(data);
+const data_ = aes.decrypt(ciphertext); // bytesToUtf8(data_) === data
+```
+
+#### Use managed nonce
+
+```js
+import { xchacha20poly1305 } from '@noble/ciphers/chacha';
+import { managedNonce } from '@noble/ciphers/webcrypto/utils'
+import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/ciphers/utils';
+const key = hexToBytes('fa686bfdffd3758f6377abbc23bf3d9bdc1a0dda4a6e7f8dbdd579fa1ff6d7e1');
+const chacha = managedNonce(xchacha20poly1305)(key); // manages nonces for you
+const data = utf8ToBytes('hello, noble');
+const ciphertext = chacha.encrypt(data);
+const data_ = chacha.decrypt(ciphertext);
+```
+
+#### Securely generate random key and nonce
+
+```js
+import { xchacha20poly1305 } from '@noble/ciphers/chacha';
+import { randomBytes } from '@noble/ciphers/webcrypto/utils';
+const rkey = randomBytes(32);
+const rnonce = randomBytes(24);
+const chacha = xchacha20poly1305(rkey, rnonce);
+const data = utf8ToBytes('hello, noble');
+const ciphertext = chacha.encrypt(data);
+const plaintext = chacha.decrypt(ciphertext);
+```
 
 ## Implementations
 
@@ -183,31 +233,66 @@ using chacha-poly or xsalsa-poly.
 ### AES
 
 ```js
-import { aes_128_gcm, aes_128_ctr, aes_128_cbc } from '@noble/ciphers/webcrypto/aes';
-import { aes_256_gcm, aes_256_ctr, aes_256_cbc } from '@noble/ciphers/webcrypto/aes';
+import { gcm, siv, ctr, cbc, ecb } from '@noble/ciphers/aes';
 
-for (let cipher of [aes_256_gcm, aes_256_ctr, aes_256_cbc]) {
-  const stream_new = cipher(key, nonce);
-  const ciphertext_new = await stream_new.encrypt(plaintext);
-  const plaintext_new = await stream_new.decrypt(ciphertext);
+for (let cipher of [gcm, siv, ctr, cbc]) {
+  const stream = cipher(key, nonce);
+  const ciphertext_ = stream.encrypt(plaintext);
+  const plaintext_ = stream.decrypt(ciphertext_);
 }
-
-import { aes_256_gcm_siv } from '@noble/ciphers/webcrypto/siv';
-const stream_siv = aes_256_gcm_siv(key, nonce);
-await stream_siv.encrypt(plaintext, AAD);
 ```
 
 AES ([wiki](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard))
 is a variant of Rijndael block cipher, standardized by NIST.
 
-We don't implement AES in pure JS for now: instead, we wrap WebCrypto built-in
-and provide an improved, simple API. There is a reason for this:
-webcrypto API is terrible: different block modes require different params.
+We provide the fastest available pure JS implementation of AES.
 
 Optional [AES-GCM-SIV](https://en.wikipedia.org/wiki/AES-GCM-SIV)
-synthetic initialization vector nonce-misuse-resistant mode is also provided.
+nonce-misuse-resistant mode is also provided.
 
 Check out [AES internals and block modes](#aes-internals-and-block-modes).
+
+### Webcrypto AES
+
+```js
+// Wrapper over built-in webcrypto. Same API, but async
+import { gcm, ctr, cbc } from '@noble/ciphers/webcrypto/aes';
+for (let cipher of [gcm, siv, ctr, cbc]) {
+  const stream = cipher(key, nonce);
+  const ciphertext_ = await stream.encrypt(plaintext);
+  const plaintext_ = await stream.decrypt(ciphertext_);
+}
+```
+
+We also have separate wrapper over asynchronous WebCrypto built-in.
+
+It's the same as using `crypto.subtle`, but with massively simplified API.
+
+### Managed nonces
+
+```js
+import { managedNonce } from '@noble/ciphers/webcrypto/utils';
+import { gcm, siv, ctr, cbc, ecb } from '@noble/ciphers/aes';
+import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
+import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
+
+const wgcm = managedNonce(gcm);
+const wsiv = managedNonce(siv);
+const wcbc = managedNonce(cbc);
+const wctr = managedNonce(ctr);
+const wsalsapoly = managedNonce(xsalsa20poly1305);
+const wchacha = managedNonce(chacha20poly1305);
+const wxchacha = managedNonce(xchacha20poly1305);
+
+// Now:
+const encrypted = wgcm(key).encrypt(data); // no nonces
+```
+
+We provide API that manages nonce internally instead of exposing them to library's user.
+
+For `encrypt`, a `nonceBytes`-length buffer is fetched from CSPRNG and prenended to encrypted ciphertext.
+
+For `decrypt`, first `nonceBytes` of ciphertext are treated as nonce.
 
 ### FF1
 
@@ -367,26 +452,26 @@ encrypt (64B)
 ├─xsalsa20poly1305 x 484,966 ops/sec @ 2μs/op
 ├─chacha20poly1305 x 442,282 ops/sec @ 2μs/op
 ├─xchacha20poly1305 x 300,842 ops/sec @ 3μs/op
-├─aes-gcm-256 x 93,144 ops/sec @ 10μs/op
-└─aes-gcm-siv-256 x 79,339 ops/sec @ 12μs/op
+├─gcm-256 x 148,522 ops/sec @ 6μs/op
+└─gcm-siv-256 x 118,399 ops/sec @ 8μs/op
 encrypt (1KB)
 ├─xsalsa20poly1305 x 143,905 ops/sec @ 6μs/op
 ├─chacha20poly1305 x 141,663 ops/sec @ 7μs/op
 ├─xchacha20poly1305 x 122,639 ops/sec @ 8μs/op
-├─aes-gcm-256 x 25,685 ops/sec @ 38μs/op
-└─aes-gcm-siv-256 x 24,762 ops/sec @ 40μs/op
+├─gcm-256 x 42,645 ops/sec @ 23μs/op
+└─gcm-siv-256 x 40,112 ops/sec @ 24μs/op
 encrypt (8KB)
 ├─xsalsa20poly1305 x 23,373 ops/sec @ 42μs/op
 ├─chacha20poly1305 x 23,683 ops/sec @ 42μs/op
 ├─xchacha20poly1305 x 23,066 ops/sec @ 43μs/op
-├─aes-gcm-256 x 4,067 ops/sec @ 245μs/op
-└─aes-gcm-siv-256 x 4,128 ops/sec @ 242μs/op
+├─gcm-256 x 8,381 ops/sec @ 119μs/op
+└─gcm-siv-256 x 8,020 ops/sec @ 124μs/op
 encrypt (1MB)
 ├─xsalsa20poly1305 x 193 ops/sec @ 5ms/op
 ├─chacha20poly1305 x 196 ops/sec @ 5ms/op
 ├─xchacha20poly1305 x 195 ops/sec @ 5ms/op
-├─aes-gcm-256 x 33 ops/sec @ 30ms/op
-└─aes-gcm-siv-256 x 33 ops/sec @ 29ms/op
+├─gcm-256 x 75 ops/sec @ 13ms/op
+└─gcm-siv-256 x 72 ops/sec @ 13ms/op
 ```
 
 Unauthenticated encryption:

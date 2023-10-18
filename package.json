@@ -1,7 +1,7 @@
 {
   "name": "@noble/ciphers",
   "version": "0.3.0",
-  "description": "Auditable & minimal JS implementation of Salsa20, ChaCha, Poly1305 & AES-SIV",
+  "description": "Auditable & minimal JS implementation of Salsa20, ChaCha & AES",
   "files": [
     "esm",
     "src",
@@ -83,6 +83,11 @@
       "import": "./esm/salsa.js",
       "default": "./salsa.js"
     },
+    "./ff1": {
+      "types": "./ff1.d.ts",
+      "import": "./esm/ff1.js",
+      "default": "./ff1.js"
+    },
     "./utils": {
       "types": "./utils.d.ts",
       "import": "./esm/utils.js",
@@ -97,11 +102,6 @@
       "types": "./webcrypto/aes.d.ts",
       "import": "./esm/webcrypto/aes.js",
       "default": "./webcrypto/aes.js"
-    },
-    "./webcrypto/ff1": {
-      "types": "./webcrypto/ff1.d.ts",
-      "import": "./esm/webcrypto/ff1.js",
-      "default": "./webcrypto/ff1.js"
     },
     "./webcrypto/utils": {
       "types": "./webcrypto/utils.d.ts",

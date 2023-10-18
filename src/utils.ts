@@ -196,14 +196,11 @@ export abstract class Hash<T extends Hash<T>> {
 // This will allow to re-use with composable things like packed & base encoders
 // Also, we probably can make tags composable
 export type Cipher = {
-  tagLength?: number;
-  nonceLength?: number;
   encrypt(plaintext: Uint8Array): Uint8Array;
   decrypt(ciphertext: Uint8Array): Uint8Array;
 };
 
 export type AsyncCipher = {
-  tagLength?: number;
   encrypt(plaintext: Uint8Array): Promise<Uint8Array>;
   decrypt(ciphertext: Uint8Array): Promise<Uint8Array>;
 };
@@ -211,6 +208,18 @@ export type AsyncCipher = {
 export type CipherWithOutput = Cipher & {
   encrypt(plaintext: Uint8Array, output?: Uint8Array): Uint8Array;
   decrypt(ciphertext: Uint8Array, output?: Uint8Array): Uint8Array;
+};
+
+// Params is outside return type, so it is accessible before calling constructor
+// If function support multiple nonceLength's, we return best one
+export type CipherParams = { blockSize: number; nonceLength?: number; tagLength?: number };
+export type CipherCons<T extends any[]> = (key: Uint8Array, ...args: T) => Cipher;
+export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
+  params: P,
+  c: C
+): C & P => {
+  Object.assign(c, params);
+  return c as C & P;
 };
 
 export type XorStream = (

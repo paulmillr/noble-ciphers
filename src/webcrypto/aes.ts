@@ -1,64 +1,60 @@
-import { ensureBytes } from '../utils.js';
-import { cryptoSubtleUtils } from './utils.js';
+import { getWebcryptoSubtle } from './utils.js';
+import { ensureBytes, AsyncCipher } from '../utils.js';
 
-/**
- * AAD is only effective on AES-256-GCM or AES-128-GCM. Otherwise it'll be ignored
- */
-export type Cipher = (
-  key: Uint8Array,
-  nonce: Uint8Array,
-  AAD?: Uint8Array
-) => {
-  keyLength: number;
-  encrypt(plaintext: Uint8Array): Promise<Uint8Array>;
-  decrypt(ciphertext: Uint8Array): Promise<Uint8Array>;
+// Overridable
+export const utils = {
+  async encrypt(key: Uint8Array, keyParams: any, cryptParams: any, plaintext: Uint8Array) {
+    const cr = getWebcryptoSubtle();
+    const iKey = await cr.importKey('raw', key, keyParams, true, ['encrypt']);
+    const ciphertext = await cr.encrypt(cryptParams, iKey, plaintext);
+    return new Uint8Array(ciphertext);
+  },
+  async decrypt(key: Uint8Array, keyParams: any, cryptParams: any, ciphertext: Uint8Array) {
+    const cr = getWebcryptoSubtle();
+    const iKey = await cr.importKey('raw', key, keyParams, true, ['decrypt']);
+    const plaintext = await cr.decrypt(cryptParams, iKey, ciphertext);
+    return new Uint8Array(plaintext);
+  },
 };
 
-enum AesBlockMode {
+const enum BlockMode {
   CBC = 'AES-CBC',
   CTR = 'AES-CTR',
   GCM = 'AES-GCM',
 }
 
-type BitLength = 128 | 256;
-
 function getCryptParams(
-  algo: AesBlockMode,
+  algo: BlockMode,
   nonce: Uint8Array,
   AAD?: Uint8Array
 ): AesCbcParams | AesCtrParams | AesGcmParams {
-  if (algo === AesBlockMode.CBC) return { name: AesBlockMode.CBC, iv: nonce };
-  if (algo === AesBlockMode.CTR) return { name: AesBlockMode.CTR, counter: nonce, length: 64 };
-  if (algo === AesBlockMode.GCM) return { name: AesBlockMode.GCM, iv: nonce, additionalData: AAD };
-  throw new Error('unknown aes cipher');
+  if (algo === BlockMode.CBC) return { name: BlockMode.CBC, iv: nonce };
+  if (algo === BlockMode.CTR) return { name: BlockMode.CTR, counter: nonce, length: 64 };
+  if (algo === BlockMode.GCM) return { name: BlockMode.GCM, iv: nonce, additionalData: AAD };
+  throw new Error('unknown aes block mode');
 }
 
-function generate(algo: AesBlockMode, length: BitLength): Cipher {
-  const keyLength = length / 8;
-  const keyParams = { name: algo, length };
-
-  return (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => {
-    ensureBytes(key, keyLength);
+function generate(algo: BlockMode) {
+  return (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): AsyncCipher => {
+    ensureBytes(key);
+    ensureBytes(nonce);
+    // const keyLength = key.length;
+    const keyParams = { name: algo, length: key.length * 8 };
     const cryptParams = getCryptParams(algo, nonce, AAD);
     return {
-      keyLength,
+      // keyLength,
       encrypt(plaintext: Uint8Array) {
         ensureBytes(plaintext);
-        return cryptoSubtleUtils.aesEncrypt(key, keyParams, cryptParams, plaintext);
+        return utils.encrypt(key, keyParams, cryptParams, plaintext);
       },
       decrypt(ciphertext: Uint8Array) {
         ensureBytes(ciphertext);
-        return cryptoSubtleUtils.aesDecrypt(key, keyParams, cryptParams, ciphertext);
+        return utils.decrypt(key, keyParams, cryptParams, ciphertext);
       },
     };
   };
 }
 
-export const aes_128_ctr = generate(AesBlockMode.CTR, 128);
-export const aes_256_ctr = generate(AesBlockMode.CTR, 256);
-
-export const aes_128_cbc = generate(AesBlockMode.CBC, 128);
-export const aes_256_cbc = generate(AesBlockMode.CBC, 256);
-
-export const aes_128_gcm = generate(AesBlockMode.GCM, 128);
-export const aes_256_gcm = generate(AesBlockMode.GCM, 256);
+export const cbc = generate(BlockMode.CBC);
+export const ctr = generate(BlockMode.CTR);
+export const gcm = generate(BlockMode.GCM);

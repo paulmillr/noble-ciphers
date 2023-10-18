@@ -1,5 +1,7 @@
-import { AsyncCipher, bytesToNumberBE, numberToBytesBE } from '../utils.js';
-import { cryptoSubtleUtils } from './utils.js';
+import { Cipher, bytesToNumberBE, numberToBytesBE } from './utils.js';
+import { unsafe } from './aes.js';
+// NOTE: no point in inlining encrypt instead encryptBlock, since BigInt stuff will be slow
+const { expandKeyLE, encryptBlock } = unsafe;
 
 // Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publication 800-38G.
 // https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf
@@ -20,7 +22,7 @@ function NUMradix(radix: number, data: number[]): bigint {
   return res;
 }
 
-async function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: number[]) {
+function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: number[]) {
   if (radix > 2 ** 16 - 1) throw new Error(`Invalid radix: ${radix}`);
   // radix**minlen ≥ 100
   const minLen = Math.ceil(Math.log(100) / Math.log(radix));
@@ -45,7 +47,8 @@ async function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: nu
   PQ.set(P);
   P.fill(0);
   PQ.set(tweak, P.length);
-  const round = async (A: number[], B: number[], i: number, decrypt = false) => {
+  const xk = expandKeyLE(key);
+  const round = (A: number[], B: number[], i: number, decrypt = false) => {
     // Q = ... || [i]1 || [NUMradix(B)]b.
     PQ[PQ.length - b - 1] = i;
     if (b) PQ.set(numberToBytesBE(NUMradix(radix, B), b), PQ.length - b);
@@ -53,7 +56,7 @@ async function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: nu
     let r = new Uint8Array(16);
     for (let j = 0; j < PQ.length / BLOCK_LEN; j++) {
       for (let i = 0; i < BLOCK_LEN; i++) r[i] ^= PQ[j * BLOCK_LEN + i];
-      r.set(await cryptoSubtleUtils.aesEncryptBlock(r, key));
+      encryptBlock(xk, r);
     }
     // Let S be the first d bytes of the following string of ⎡d/16⎤ blocks:
     // R || CIPHK(R ⊕[1]16) || CIPHK(R ⊕[2]16) ...CIPHK(R ⊕[⎡d / 16⎤ – 1]16).
@@ -61,7 +64,7 @@ async function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: nu
     for (let j = 1; s.length < d; j++) {
       const block = numberToBytesBE(BigInt(j), 16);
       for (let k = 0; k < BLOCK_LEN; k++) block[k] ^= r[k];
-      s.push(...Array.from(await cryptoSubtleUtils.aesEncryptBlock(block, key)));
+      s.push(...Array.from(encryptBlock(xk, block)));
     }
     let y = bytesToNumberBE(Uint8Array.from(s.slice(0, d)));
     s.fill(0);
@@ -76,7 +79,10 @@ async function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: nu
     B = C;
     return [A, B];
   };
-  const destroy = () => PQ.fill(0);
+  const destroy = () => {
+    xk.fill(0);
+    PQ.fill(0);
+  };
   return { u, round, destroy };
 }
 
@@ -85,25 +91,25 @@ const EMPTY_BUF = new Uint8Array([]);
 export function FF1(radix: number, key: Uint8Array, tweak: Uint8Array = EMPTY_BUF) {
   const PQ = getRound.bind(null, radix, key, tweak);
   return {
-    async encrypt(x: number[]) {
-      const { u, round, destroy } = await PQ(x);
+    encrypt(x: number[]) {
+      const { u, round, destroy } = PQ(x);
       let [A, B] = [x.slice(0, u), x.slice(u)];
-      for (let i = 0; i < 10; i++) [A, B] = await round(A, B, i);
+      for (let i = 0; i < 10; i++) [A, B] = round(A, B, i);
       destroy();
       const res = A.concat(B);
       A.fill(0);
       B.fill(0);
       return res;
     },
-    async decrypt(x: number[]) {
-      const { u, round, destroy } = await PQ(x);
+    decrypt(x: number[]) {
+      const { u, round, destroy } = PQ(x);
       // The FF1.Decrypt algorithm is similar to the FF1.Encrypt algorithm;
       // the differences are in Step 6, where:
       // 1) the order of the indices is reversed,
       // 2) the roles of A and B are swapped
       // 3) modular addition is replaced by modular subtraction, in Step 6vi.
       let [B, A] = [x.slice(0, u), x.slice(u)];
-      for (let i = 9; i >= 0; i--) [A, B] = await round(A, B, i, true);
+      for (let i = 9; i >= 0; i--) [A, B] = round(A, B, i, true);
       destroy();
       const res = B.concat(A);
       A.fill(0);
@@ -132,10 +138,10 @@ const binLE = {
   },
 };
 
-export function BinaryFF1(key: Uint8Array, tweak: Uint8Array = EMPTY_BUF): AsyncCipher {
+export function BinaryFF1(key: Uint8Array, tweak: Uint8Array = EMPTY_BUF): Cipher {
   const ff1 = FF1(2, key, tweak);
   return {
-    encrypt: async (x: Uint8Array) => binLE.decode(await ff1.encrypt(binLE.encode(x))),
-    decrypt: async (x: Uint8Array) => binLE.decode(await ff1.decrypt(binLE.encode(x))),
+    encrypt: (x: Uint8Array) => binLE.decode(ff1.encrypt(binLE.encode(x))),
+    decrypt: (x: Uint8Array) => binLE.decode(ff1.decrypt(binLE.encode(x))),
   };
 }

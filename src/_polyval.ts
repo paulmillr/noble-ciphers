@@ -1,4 +1,4 @@
-import { createView, toBytes, Input, Hash, u32 } from './utils.js';
+import { createView, toBytes, Input, Hash, u32, ensureBytes } from './utils.js';
 import { exists as aexists, output as aoutput } from './_assert.js';
 
 // GHash from AES-GCM and its little-endian "mirror image" Polyval from AES-SIV.
@@ -16,25 +16,25 @@ const ZEROS16 = /* @__PURE__ */ new Uint8Array(16);
 const ZEROS32 = u32(ZEROS16);
 const POLY = 0xe1; // v = 2*v % POLY
 
-// 128x128 multiplication table for key. Same as noble-curves, but window size=1.
-// TODO: investigate perf boost using bigger window size.
-function genMulTable(s0: number, s1: number, s2: number, s3: number): Uint32Array {
-  const t = new Uint32Array(128 * 4); // 128x128 multiplication table for key
-  for (let i = 0, pos = 0, t0, t1, t2, t3; i < 128; i++) {
-    (t[pos++] = s0), (t[pos++] = s1), (t[pos++] = s2), (t[pos++] = s3);
-    const hiBit = s3 & 1;
-    t3 = (s2 << 31) | (s3 >>> 1);
-    t2 = (s1 << 31) | (s2 >>> 1);
-    t1 = (s0 << 31) | (s1 >>> 1);
-    t0 = (s0 >>> 1) ^ ((POLY << 24) & -(hiBit & 1)); // reduce % poly
-    s0 = t0;
-    s1 = t1;
-    s2 = t2;
-    s3 = t3;
-    // ({ s0, s1, s2, s3 } = mul2(s0, s1, s2, s3));
-  }
-  return t.map(swapLE); // convert to LE, so we can use u32
-}
+// v = 2*v % POLY
+// NOTE: because x + x = 0 (add/sub is same), mul2(x) != x+x
+// We can multiply any number using montgomery ladder and this function (works as double, add is simple xor)
+const mul2 = (s0: number, s1: number, s2: number, s3: number) => {
+  const hiBit = s3 & 1;
+  return {
+    s3: (s2 << 31) | (s3 >>> 1),
+    s2: (s1 << 31) | (s2 >>> 1),
+    s1: (s0 << 31) | (s1 >>> 1),
+    s0: (s0 >>> 1) ^ ((POLY << 24) & -(hiBit & 1)), // reduce % poly
+  };
+};
+
+const swapLE = (n: number) =>
+  (((n >>> 0) & 0xff) << 24) |
+  (((n >>> 8) & 0xff) << 16) |
+  (((n >>> 16) & 0xff) << 8) |
+  ((n >>> 24) & 0xff) |
+  0;
 
 /**
  * `mulX_POLYVAL(ByteReverse(H))` from spec
@@ -54,12 +54,13 @@ export function _toGHASHKey(k: Uint8Array): Uint8Array {
   return k;
 }
 
-const swapLE = (n: number) =>
-  ((((n >>> 0) & 0xff) << 24) |
-    (((n >>> 8) & 0xff) << 16) |
-    (((n >>> 16) & 0xff) << 8) |
-    ((n >>> 24) & 0xff)) >>>
-  0;
+type Value = { s0: number; s1: number; s2: number; s3: number };
+
+const estimateWindow = (bytes: number) => {
+  if (bytes > 64 * 1024) return 8;
+  if (bytes > 1024) return 4;
+  return 2;
+};
 
 class GHASH implements Hash<GHASH> {
   readonly blockLen = BLOCK_SIZE;
@@ -68,46 +69,72 @@ class GHASH implements Hash<GHASH> {
   protected s1 = 0;
   protected s2 = 0;
   protected s3 = 0;
-  protected mulTable: Uint32Array; // 128x128 multiplication table for key
   protected finished = false;
-
-  constructor(key: Input) {
+  protected t: Value[];
+  private W: number;
+  private windowSize: number;
+  // We select bits per window adaptively based on expectedLength
+  constructor(key: Input, expectedLength?: number) {
     key = toBytes(key);
-    const v = createView(key);
-    let k0 = v.getUint32(0, false);
-    let k1 = v.getUint32(4, false);
-    let k2 = v.getUint32(8, false);
-    let k3 = v.getUint32(12, false);
-    this.mulTable = genMulTable(k0, k1, k2, k3);
+    ensureBytes(key, 16);
+    const kView = createView(key);
+    let k0 = kView.getUint32(0, false);
+    let k1 = kView.getUint32(4, false);
+    let k2 = kView.getUint32(8, false);
+    let k3 = kView.getUint32(12, false);
+    // generate table of doubled keys (half of montgomery ladder)
+    const doubles: Value[] = [];
+    for (let i = 0; i < 128; i++) {
+      doubles.push({ s0: swapLE(k0), s1: swapLE(k1), s2: swapLE(k2), s3: swapLE(k3) });
+      ({ s0: k0, s1: k1, s2: k2, s3: k3 } = mul2(k0, k1, k2, k3));
+    }
+    const W = estimateWindow(expectedLength || 1024);
+    if (![1, 2, 4, 8].includes(W))
+      throw new Error(`ghash: wrong window size=${W}, should be 2, 4 or 8`);
+    this.W = W;
+    const bits = 128; // always 128 bits;
+    const windows = bits / W;
+    const windowSize = (this.windowSize = 2 ** W);
+    const items: Value[] = [];
+    // Create precompute table for window of W bits
+    for (let w = 0; w < windows; w++) {
+      // truth table: 00, 01, 10, 11
+      for (let byte = 0; byte < windowSize; byte++) {
+        // prettier-ignore
+        let s0 = 0, s1 = 0, s2 = 0, s3 = 0;
+        for (let j = 0; j < W; j++) {
+          const bit = (byte >>> (W - j - 1)) & 1;
+          if (!bit) continue;
+          const { s0: d0, s1: d1, s2: d2, s3: d3 } = doubles[W * w + j];
+          (s0 ^= d0), (s1 ^= d1), (s2 ^= d2), (s3 ^= d3);
+        }
+        items.push({ s0, s1, s2, s3 });
+      }
+    }
+    this.t = items;
   }
   protected _updateBlock(s0: number, s1: number, s2: number, s3: number) {
     (s0 ^= this.s0), (s1 ^= this.s1), (s2 ^= this.s2), (s3 ^= this.s3);
-    const { mulTable } = this;
-    const mulNum = (num: number, pos: number, o0: number, o1: number, o2: number, o3: number) => {
-      for (let bytePos = 0; bytePos < 4; bytePos++) {
-        const byte = (num >>> (8 * bytePos)) & 0xff;
-        for (let bitPos = 7; bitPos >= 0; bitPos--) {
-          const bit = (byte >>> bitPos) & 1;
-          const mask = ~(bit - 1);
-          // const-time addition regardless of bit value
-          o0 ^= mulTable[pos++] & mask;
-          o1 ^= mulTable[pos++] & mask;
-          o2 ^= mulTable[pos++] & mask;
-          o3 ^= mulTable[pos++] & mask;
-        }
-      }
-      return { o0, o1, o2, o3 };
-    };
+    const { W, t, windowSize } = this;
     // prettier-ignore
     let o0 = 0, o1 = 0, o2 = 0, o3 = 0;
-    ({ o0, o1, o2, o3 } = mulNum(s0, 0, o0, o1, o2, o3));
-    ({ o0, o1, o2, o3 } = mulNum(s1, 128, o0, o1, o2, o3));
-    ({ o0, o1, o2, o3 } = mulNum(s2, 256, o0, o1, o2, o3));
-    ({ o0: s0, o1: s1, o2: s2, o3: s3 } = mulNum(s3, 384, o0, o1, o2, o3));
-    this.s0 = s0;
-    this.s1 = s1;
-    this.s2 = s2;
-    this.s3 = s3;
+    const mask = (1 << W) - 1; // 2**W will kill performance.
+    let w = 0;
+    for (const num of [s0, s1, s2, s3]) {
+      for (let bytePos = 0; bytePos < 4; bytePos++) {
+        const byte = (num >>> (8 * bytePos)) & 0xff;
+        for (let bitPos = 8 / W - 1; bitPos >= 0; bitPos--) {
+          const bit = (byte >>> (W * bitPos)) & mask;
+          const { s0: e0, s1: e1, s2: e2, s3: e3 } = t[w * windowSize + bit];
+          (o0 ^= e0), (o1 ^= e1), (o2 ^= e2), (o3 ^= e3);
+          w += 1;
+        }
+      }
+    }
+    this.s0 = o0;
+    this.s1 = o1;
+    this.s2 = o2;
+    this.s3 = o3;
   }
   update(data: Input): this {
     data = toBytes(data);
@@ -125,7 +152,13 @@ class GHASH implements Hash<GHASH> {
     }
     return this;
   }
-  destroy() {}
+  destroy() {
+    const { t } = this;
+    // clean precompute table
+    for (const elm of t) {
+      (elm.s0 = 0), (elm.s1 = 0), (elm.s2 = 0), (elm.s3 = 0);
+    }
+  }
   digestInto(out: Uint8Array) {
     aexists(this);
     aoutput(out, this);
@@ -147,10 +180,10 @@ class GHASH implements Hash<GHASH> {
 }
 
 class Polyval extends GHASH {
-  constructor(key: Input) {
+  constructor(key: Input, expectedLength?: number) {
     key = toBytes(key);
     const ghKey = _toGHASHKey(key.slice());
-    super(ghKey);
+    super(ghKey, expectedLength);
     ghKey.fill(0);
   }
   update(data: Input): this {
@@ -195,14 +228,21 @@ class Polyval extends GHASH {
 }
 
 export type CHash = ReturnType<typeof wrapConstructorWithKey>;
-export function wrapConstructorWithKey<H extends Hash<H>>(hashCons: (key: Input) => Hash<H>) {
-  const hashC = (msg: Input, key: Input): Uint8Array => hashCons(key).update(toBytes(msg)).digest();
-  const tmp = hashCons(new Uint8Array(32));
+function wrapConstructorWithKey<H extends Hash<H>>(
+  hashCons: (key: Input, expectedLength?: number) => Hash<H>
+) {
+  const hashC = (msg: Input, key: Input): Uint8Array =>
+    hashCons(key, msg.length).update(toBytes(msg)).digest();
+  const tmp = hashCons(new Uint8Array(16), 0);
   hashC.outputLen = tmp.outputLen;
   hashC.blockLen = tmp.blockLen;
-  hashC.create = (key: Input) => hashCons(key);
+  hashC.create = (key: Input, expectedLength?: number) => hashCons(key, expectedLength);
   return hashC;
 }
 
-export const ghash = wrapConstructorWithKey((key) => new GHASH(key));
-export const polyval = wrapConstructorWithKey((key) => new Polyval(key));
+export const ghash = wrapConstructorWithKey(
+  (key, expectedLength) => new GHASH(key, expectedLength)
+);
+export const polyval = wrapConstructorWithKey(
+  (key, expectedLength) => new Polyval(key, expectedLength)
+);
