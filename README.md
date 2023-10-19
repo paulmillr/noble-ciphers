@@ -68,6 +68,7 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
   - [AES internals and block modes](#aes-internals-and-block-modes)
 - [Security](#security)
 - [Speed](#speed)
+- [Upgrading](#upgrading)
 - [Contributing & testing](#contributing--testing)
 - [Resources](#resources)
 
@@ -447,9 +448,9 @@ Use low-level libraries & languages. Nonetheless we're targetting algorithmic co
 We're deferring to built-in
 [crypto.getRandomValues](https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues)
 which is considered cryptographically secure (CSPRNG).
-In the past, browsers had bugs that made it weak: it may happen again.
 
-Implementing a userspace CSPRNG to get resilient to getRandomValues weakness
+In the past, browsers had bugs that made it weak: it may happen again.
+Implementing a userspace CSPRNG to get resilient to the weakness
 is even worse: there is no reliable userspace source of quality entropy.
 
 ## Speed
@@ -568,6 +569,36 @@ gcm-256 (encrypt, 1MB)
 ├─stablelib x 27 ops/sec @ 36ms/op
 ├─noble-webcrypto x 4,059 ops/sec @ 246μs/op
 └─noble x 74 ops/sec @ 13ms/op
+```
+
+## Upgrading
+
+Upgrade from `micro-aes-gcm` package is simple:
+
+```js
+// prepare
+const key = Uint8Array.from([
+  64, 196, 127, 247, 172, 2, 34, 159, 6, 241, 30,
+  174, 183, 229, 41, 114, 253, 122, 119, 168, 177,
+  243, 155, 236, 164, 159, 98, 72, 162, 243, 224, 195,
+]);
+const message = 'Hello world';
+
+// previous
+import * as aes from 'micro-aes-gcm';
+const ciphertext = await aes.encrypt(key, aes.utils.utf8ToBytes(message));
+const plaintext = await aes.decrypt(key, ciphertext);
+console.log(aes.utils.bytesToUtf8(plaintext) === message);
+
+// became =>
+
+import { gcm } from '@noble/ciphers/aes';
+import { bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils';
+import { managedNonce } from '@noble/ciphers/webcrypto/utils';
+const aes = managedNonce(gcm)(key);
+const ciphertext = aes.encrypt(utf8ToBytes(message));
+const plaintext = aes.decrypt(key, ciphertext);
+console.log(bytesToUtf8(plaintext) === message);
 ```
 
 ## Contributing & testing
