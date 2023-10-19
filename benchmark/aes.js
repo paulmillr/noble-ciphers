@@ -162,7 +162,7 @@ export const CIPHERS = {
       encrypt: (buf, opts) => new aesjs.ModeOfOperation.ctr(opts.key, opts.iv).encrypt(buf),
       decrypt: (buf, opts) => new aesjs.ModeOfOperation.ctr(opts.key, opts.iv).decrypt(buf),
     },
-    nobleOld: {
+    'noble-webcrypto': {
       encrypt: (buf, opts) => webcrypto.ctr(opts.key, opts.iv).encrypt(buf),
       decrypt: (buf, opts) => webcrypto.ctr(opts.key, opts.iv).decrypt(buf),
     },
@@ -179,7 +179,7 @@ export const CIPHERS = {
       encrypt: (buf, opts) => new aesjs.ModeOfOperation.ctr(opts.key, opts.iv).encrypt(buf),
       decrypt: (buf, opts) => new aesjs.ModeOfOperation.ctr(opts.key, opts.iv).decrypt(buf),
     },
-    nobleOld: {
+    'noble-webcrypto': {
       encrypt: (buf, opts) => webcrypto.ctr(opts.key, opts.iv).encrypt(buf),
       decrypt: (buf, opts) => webcrypto.ctr(opts.key, opts.iv).decrypt(buf),
     },
@@ -198,7 +198,7 @@ export const CIPHERS = {
       decrypt: (buf, opts) =>
         aesjs.padding.pkcs7.strip(new aesjs.ModeOfOperation.cbc(opts.key, opts.iv).decrypt(buf)),
     },
-    nobleOld: {
+    'noble-webcrypto': {
       encrypt: (buf, opts) => webcrypto.cbc(opts.key, opts.iv).encrypt(buf),
       decrypt: (buf, opts) => webcrypto.cbc(opts.key, opts.iv).decrypt(buf),
     },
@@ -217,7 +217,7 @@ export const CIPHERS = {
       decrypt: (buf, opts) =>
         aesjs.padding.pkcs7.strip(new aesjs.ModeOfOperation.cbc(opts.key, opts.iv).decrypt(buf)),
     },
-    nobleOld: {
+    'noble-webcrypto': {
       encrypt: (buf, opts) => webcrypto.cbc(opts.key, opts.iv).encrypt(buf),
       decrypt: (buf, opts) => webcrypto.cbc(opts.key, opts.iv).decrypt(buf),
     },
@@ -313,7 +313,7 @@ export const CIPHERS = {
       encrypt: (buf, opts) => new STABLE_GCM(new STABLE_AES(opts.key)).seal(opts.iv, buf),
       decrypt: (buf, opts) => new STABLE_GCM(new STABLE_AES(opts.key)).open(opts.iv, buf),
     },
-    nobleOld: {
+    'noble-webcrypto': {
       encrypt: (buf, opts) => webcrypto.gcm(opts.key, opts.iv).encrypt(buf),
       decrypt: (buf, opts) => webcrypto.gcm(opts.key, opts.iv).decrypt(buf),
     },
@@ -329,7 +329,7 @@ export const CIPHERS = {
       encrypt: (buf, opts) => new STABLE_GCM(new STABLE_AES(opts.key)).seal(opts.iv, buf),
       decrypt: (buf, opts) => new STABLE_GCM(new STABLE_AES(opts.key)).open(opts.iv, buf),
     },
-    nobleOld: {
+    'noble-webcrypto': {
       encrypt: (buf, opts) => webcrypto.gcm(opts.key, opts.iv).encrypt(buf),
       decrypt: (buf, opts) => webcrypto.gcm(opts.key, opts.iv).decrypt(buf),
     },

@@ -553,7 +553,6 @@ ctr-256 (encrypt, 1MB)
 ├─noble-webcrypto x 4,589 ops/sec @ 217μs/op
 └─noble x 107 ops/sec @ 9ms/op
 
-==== cbc-256 ====
 cbc-256 (encrypt, 1MB)
 ├─node x 993 ops/sec @ 1ms/op
 ├─stablelib x 63 ops/sec @ 15ms/op
