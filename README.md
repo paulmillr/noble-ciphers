@@ -181,9 +181,7 @@ import { secretbox } from '@noble/ciphers/salsa'; // == xsalsa20poly1305
 import { salsa20, xsalsa20 } from '@noble/ciphers/salsa';
 ```
 
-Salsa20 stream cipher ([website](https://cr.yp.to/snuffle.html),
-[PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf),
-[wiki](https://en.wikipedia.org/wiki/Salsa20)) was released in 2005.
+[Salsa20](https://cr.yp.to/snuffle.html) stream cipher was released in 2005.
 Salsa's goal was to implement AES replacement that does not rely on S-Boxes,
 which are hard to implement in a constant-time manner.
 Salsa20 is usually faster than AES, a big deal on slow, budget mobile phones.
@@ -196,6 +194,9 @@ Nacl / Libsodium popularized term "secretbox", a simple black-box
 authenticated encryption. Secretbox is just xsalsa20-poly1305. We provide the
 alias and corresponding seal / open methods.
 
+Check out [PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf) and
+[wiki](https://en.wikipedia.org/wiki/Salsa20)).
+
 ### ChaCha
 
 ```js
@@ -203,16 +204,16 @@ import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
 import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha';
 ```
 
-ChaCha20 stream cipher ([website](https://cr.yp.to/chacha.html),
-[PDF](http://cr.yp.to/chacha/chacha-20080128.pdf),
-[wiki](https://en.wikipedia.org/wiki/Salsa20)) was released
+[ChaCha20](https://cr.yp.to/chacha.html) stream cipher was released
 in 2008. ChaCha aims to increase the diffusion per round, but had slightly less
 cryptanalysis. It was standardized in
 [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3.
 
-XChaCha20 ([draft RFC](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha))
+XChaCha20 ([draft](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha))
 extended-nonce variant is also provided. Similar to XSalsa, it's safe to use with
 randomly-generated nonces.
+
+Check out [PDF](http://cr.yp.to/chacha/chacha-20080128.pdf) and [wiki](https://en.wikipedia.org/wiki/Salsa20)).
 
 ### AES
 
@@ -226,14 +227,12 @@ for (let cipher of [gcm, siv, ctr, cbc]) {
 }
 ```
 
-AES ([wiki](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard))
-is a variant of Rijndael block cipher, standardized by NIST.
-
-We provide the fastest available pure JS implementation of AES.
+[AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard)
+is a variant of Rijndael block cipher, standardized by NIST in 2001.
+We provide the fastest available pure JS implementation.
 
 Optional [AES-GCM-SIV](https://en.wikipedia.org/wiki/AES-GCM-SIV)
 nonce-misuse-resistant mode is also provided.
-
 Check out [AES internals and block modes](#aes-internals-and-block-modes).
 
 ### Webcrypto AES
@@ -545,15 +544,26 @@ chacha (encrypt, 1MB)
 ├─stablelib x 206 ops/sec @ 4ms/op
 └─noble x 474 ops/sec @ 2ms/op
 
-ctr-256 (encrypt, 64B)
-├─node x 640,204 ops/sec @ 1μs/op ± 1.67% (min: 1μs, max: 1ms)
-├─stablelib x 484,261 ops/sec @ 2μs/op
-└─noble x 685,871 ops/sec @ 1μs/op
+ctr-256 (encrypt, 1MB)
+├─node x 3,530 ops/sec @ 283μs/op
+├─stablelib x 70 ops/sec @ 14ms/op
+├─aesjs x 31 ops/sec @ 32ms/op
+├─noble-webcrypto x 4,589 ops/sec @ 217μs/op
+└─noble x 107 ops/sec @ 9ms/op
 
-cbc-256 (encrypt, 64B)
-├─node x 549,450 ops/sec @ 1μs/op ± 2.47% (min: 1μs, max: 3ms)
-├─stablelib x 407,166 ops/sec @ 2μs/op ± 1.02% (min: 2μs, max: 3ms)
-└─noble x 616,142 ops/sec @ 1μs/op ± 1.19% (min: 1μs, max: 2ms)
+==== cbc-256 ====
+cbc-256 (encrypt, 1MB)
+├─node x 993 ops/sec @ 1ms/op
+├─stablelib x 63 ops/sec @ 15ms/op
+├─aesjs x 29 ops/sec @ 34ms/op
+├─noble-webcrypto x 1,087 ops/sec @ 919μs/op
+└─noble x 110 ops/sec @ 9ms/op
+
+gcm-256 (encrypt, 1MB)
+├─node x 3,196 ops/sec @ 312μs/op
+├─stablelib x 27 ops/sec @ 36ms/op
+├─noble-webcrypto x 4,059 ops/sec @ 246μs/op
+└─noble x 74 ops/sec @ 13ms/op
 ```
 
 ## Contributing & testing
