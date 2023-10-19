@@ -470,54 +470,54 @@ Benchmark results on Apple M2 with node v20:
 
 ```
 encrypt (64B)
-├─xsalsa20poly1305 x 484,966 ops/sec @ 2μs/op
-├─chacha20poly1305 x 442,282 ops/sec @ 2μs/op
-├─xchacha20poly1305 x 300,842 ops/sec @ 3μs/op
-├─gcm-256 x 148,522 ops/sec @ 6μs/op
-└─gcm-siv-256 x 118,399 ops/sec @ 8μs/op
+├─xsalsa20poly1305 x 485,672 ops/sec @ 2μs/op
+├─chacha20poly1305 x 466,200 ops/sec @ 2μs/op
+├─xchacha20poly1305 x 312,500 ops/sec @ 3μs/op
+├─aes-256-gcm x 151,057 ops/sec @ 6μs/op
+└─aes-256-gcm-siv x 124,984 ops/sec @ 8μs/op
 encrypt (1KB)
-├─xsalsa20poly1305 x 143,905 ops/sec @ 6μs/op
-├─chacha20poly1305 x 141,663 ops/sec @ 7μs/op
-├─xchacha20poly1305 x 122,639 ops/sec @ 8μs/op
-├─gcm-256 x 42,645 ops/sec @ 23μs/op
-└─gcm-siv-256 x 40,112 ops/sec @ 24μs/op
+├─xsalsa20poly1305 x 146,477 ops/sec @ 6μs/op
+├─chacha20poly1305 x 145,518 ops/sec @ 6μs/op
+├─xchacha20poly1305 x 126,119 ops/sec @ 7μs/op
+├─aes-256-gcm x 43,207 ops/sec @ 23μs/op
+└─aes-256-gcm-siv x 39,363 ops/sec @ 25μs/op
 encrypt (8KB)
-├─xsalsa20poly1305 x 23,373 ops/sec @ 42μs/op
-├─chacha20poly1305 x 23,683 ops/sec @ 42μs/op
-├─xchacha20poly1305 x 23,066 ops/sec @ 43μs/op
-├─gcm-256 x 8,381 ops/sec @ 119μs/op
-└─gcm-siv-256 x 8,020 ops/sec @ 124μs/op
+├─xsalsa20poly1305 x 23,773 ops/sec @ 42μs/op
+├─chacha20poly1305 x 24,134 ops/sec @ 41μs/op
+├─xchacha20poly1305 x 23,520 ops/sec @ 42μs/op
+├─aes-256-gcm x 8,420 ops/sec @ 118μs/op
+└─aes-256-gcm-siv x 8,126 ops/sec @ 123μs/op
 encrypt (1MB)
-├─xsalsa20poly1305 x 193 ops/sec @ 5ms/op
-├─chacha20poly1305 x 196 ops/sec @ 5ms/op
-├─xchacha20poly1305 x 195 ops/sec @ 5ms/op
-├─gcm-256 x 75 ops/sec @ 13ms/op
-└─gcm-siv-256 x 72 ops/sec @ 13ms/op
+├─xsalsa20poly1305 x 195 ops/sec @ 5ms/op
+├─chacha20poly1305 x 199 ops/sec @ 5ms/op
+├─xchacha20poly1305 x 198 ops/sec @ 5ms/op
+├─aes-256-gcm x 76 ops/sec @ 13ms/op
+└─aes-256-gcm-siv x 78 ops/sec @ 12ms/op
 ```
 
 Unauthenticated encryption:
 
 ```
 encrypt (64B)
-├─salsa x 1,272,264 ops/sec @ 786ns/op
-├─chacha x 1,526,717 ops/sec @ 655ns/op
-├─xsalsa x 847,457 ops/sec @ 1μs/op
-└─xchacha x 848,896 ops/sec @ 1μs/op
+├─salsa x 1,287,001 ops/sec @ 777ns/op
+├─chacha x 1,555,209 ops/sec @ 643ns/op
+├─xsalsa x 868,055 ops/sec @ 1μs/op
+└─xchacha x 862,068 ops/sec @ 1μs/op
 encrypt (1KB)
-├─salsa x 355,492 ops/sec @ 2μs/op
-├─chacha x 377,358 ops/sec @ 2μs/op
-├─xsalsa x 311,915 ops/sec @ 3μs/op
-└─xchacha x 315,457 ops/sec @ 3μs/op
+├─salsa x 360,100 ops/sec @ 2μs/op
+├─chacha x 386,697 ops/sec @ 2μs/op
+├─xsalsa x 317,762 ops/sec @ 3μs/op
+└─xchacha x 319,897 ops/sec @ 3μs/op
 encrypt (8KB)
-├─salsa x 56,063 ops/sec @ 17μs/op
-├─chacha x 57,359 ops/sec @ 17μs/op
-├─xsalsa x 54,848 ops/sec @ 18μs/op
-└─xchacha x 55,475 ops/sec @ 18μs/op
+├─salsa x 58,068 ops/sec @ 17μs/op
+├─chacha x 59,898 ops/sec @ 16μs/op
+├─xsalsa x 56,756 ops/sec @ 17μs/op
+└─xchacha x 57,920 ops/sec @ 17μs/op
 encrypt (1MB)
-├─salsa x 465 ops/sec @ 2ms/op
-├─chacha x 474 ops/sec @ 2ms/op
-├─xsalsa x 466 ops/sec @ 2ms/op
-└─xchacha x 476 ops/sec @ 2ms/op
+├─salsa x 481 ops/sec @ 2ms/op
+├─chacha x 489 ops/sec @ 2ms/op
+├─xsalsa x 480 ops/sec @ 2ms/op
+└─xchacha x 487 ops/sec @ 2ms/op
 
 AES
 encrypt (64B)
