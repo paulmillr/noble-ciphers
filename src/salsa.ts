@@ -1,4 +1,4 @@
-import { wrapCipher, Cipher, ensureBytes, equalBytes, u32 } from './utils.js';
+import { wrapCipher, Cipher, ensureBytes, equalBytes } from './utils.js';
 import { poly1305 } from './_poly1305.js';
 import { createCipher, rotl } from './_arx.js';
 
@@ -62,11 +62,8 @@ function salsaCore(
  */
 // prettier-ignore
 export function hsalsa(
-  s: Uint32Array, key: Uint8Array, input: Uint8Array, out: Uint8Array
+  s: Uint32Array, k: Uint32Array, i: Uint32Array, o32: Uint32Array
 ) {
-  const k = u32(key);
-  const i = u32(input);
-  const o32 = u32(out);
   let x00 = s[0], x01 = k[0], x02 = k[1], x03 = k[2],
       x04 = k[3], x05 = s[1], x06 = i[0], x07 = i[1],
       x08 = i[2], x09 = i[3], x10 = s[2], x11 = k[4],

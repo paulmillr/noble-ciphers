@@ -28,6 +28,7 @@ const sigma16 = utils.utf8ToBytes('expand 16-byte k');
 const sigma32 = utils.utf8ToBytes('expand 32-byte k');
 const sigma16_32 = utils.u32(sigma16);
 const sigma32_32 = utils.u32(sigma32);
+const { u32 } = utils;
 
 const getKey = (key) => {
   if (key.length === 32) return { key, sigma: sigma32_32 };
@@ -60,12 +61,13 @@ describe('Salsa20', () => {
     const src = hex.decode('fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0');
     const good = 'c6cb53882782b5b86df1ab2ed9b810ec8a88c0a7f29211e693f0019fe0728858';
     const dst = new Uint8Array(32);
+
     const { key, sigma } = getKey(
       hex.decode('000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f')
     );
-    hsalsa(sigma, key, src, dst);
+    hsalsa(sigma, u32(key), u32(src), u32(dst));
     deepStrictEqual(hex.encode(dst), good);
-    slow.hsalsa(sigma, key, src, dst);
+    slow.hsalsa(sigma, u32(key), u32(src), u32(dst));
     deepStrictEqual(hex.encode(dst), good);
   });
   should('xsalsa20', () => {
@@ -112,10 +114,10 @@ describe('chacha', () => {
     const nonce = hex.decode('000000090000004a0000000031415927');
     const good = '82413b4227b27bfed30e42508a877d73a0f9e4d58a74a853c12ec41326d3ecdc';
     const subkey = new Uint8Array(32);
-    hchacha(sigma, key, nonce.subarray(0, 16), subkey);
+    hchacha(sigma, u32(key), u32(nonce.subarray(0, 16)), u32(subkey));
     deepStrictEqual(hex.encode(subkey), good);
     const subkeySlow = new Uint8Array(32);
-    slow.hchacha(sigma, key, nonce.subarray(0, 16), subkeySlow);
+    slow.hchacha(sigma, u32(key), u32(nonce.subarray(0, 16)), u32(subkeySlow));
     deepStrictEqual(hex.encode(subkeySlow), good);
   });
 

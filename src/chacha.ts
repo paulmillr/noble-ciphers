@@ -6,7 +6,6 @@ import {
   ensureBytes,
   equalBytes,
   setBigUint64,
-  u32,
 } from './utils.js';
 import { poly1305 } from './_poly1305.js';
 import { createCipher, rotl } from './_arx.js';
@@ -91,11 +90,8 @@ function chachaCore(
  */
 // prettier-ignore
 export function hchacha(
-  s: Uint32Array, key: Uint8Array, input: Uint8Array, out: Uint8Array
+  s: Uint32Array, k: Uint32Array, i: Uint32Array, o32: Uint32Array
 ) {
-  const k = u32(key);
-  const i = u32(input);
-  const o32 = u32(out);
   let x00 = s[0], x01 = s[1], x02 = s[2], x03 = s[3],
       x04 = k[0], x05 = k[1], x06 = k[2], x07 = k[3],
       x08 = k[4], x09 = k[5], x10 = k[6], x11 = k[7],

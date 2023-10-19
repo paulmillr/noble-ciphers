@@ -6,7 +6,7 @@
 
 // prettier-ignore
 import {
-  Cipher, XorStream, createView, setBigUint64, wrapCipher, u32,
+  Cipher, XorStream, createView, setBigUint64, wrapCipher,
   bytesToHex, concatBytes, ensureBytes, equalBytes, hexToNumber, numberToBytesBE,
 } from './utils.js';
 import { createCipher, rotl } from './_arx.js';
@@ -80,10 +80,7 @@ function salsaCore(
 }
 
 // prettier-ignore
-export function hsalsa(s: Uint32Array, key: Uint8Array, input: Uint8Array, output: Uint8Array) {
-  const k = u32(key);
-  const i = u32(input);
-  const o32 = u32(output);
+export function hsalsa(s: Uint32Array, k: Uint32Array, i: Uint32Array, o32: Uint32Array) {
   const x = new Uint32Array([
     s[0], k[0], k[1], k[2],
     k[3], s[1], i[0], i[1],
@@ -119,10 +116,7 @@ function chachaCore(
 }
 
 // prettier-ignore
-export function hchacha(s: Uint32Array, key: Uint8Array, input: Uint8Array, output: Uint8Array) {
-  const k = u32(key);
-  const i = u32(input);
-  const o32 = u32(output);
+export function hchacha(s: Uint32Array, k: Uint32Array, i: Uint32Array, o32: Uint32Array) {
   const x = new Uint32Array([
     s[0], s[1], s[2], s[3],
     k[0], k[1], k[2], k[3],

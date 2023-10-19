@@ -4,6 +4,7 @@ import { createCipheriv, createDecipheriv } from 'node:crypto';
 import { concatBytes } from '@noble/ciphers/utils';
 import { xchacha20poly1305, chacha20poly1305 } from '@noble/ciphers/chacha';
 import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
+import { gcm, siv } from '@noble/ciphers/aes';
 import * as micro from '@noble/ciphers/_micro';
 
 import { ChaCha20Poly1305 as StableChachaPoly } from '@stablelib/chacha20poly1305';
@@ -31,7 +32,7 @@ const buffers = [
 let chainsafe_chacha_poly;
 
 export const ciphers = {
-  xsalsa20_poly1305: {
+  xsalsa20poly1305: {
     opts: { key: buf(32), nonce: buf(24) },
     tweetnacl: {
       encrypt: (buf, opts) => tweetnacl.secretbox(buf, opts.nonce, opts.key),
@@ -46,7 +47,7 @@ export const ciphers = {
       decrypt: (buf, opts) => micro.xsalsa20poly1305(opts.key, opts.nonce).decrypt(buf),
     },
   },
-  chacha20_poly1305: {
+  chacha20poly1305: {
     opts: { key: buf(32), nonce: buf(12) },
     node: {
       encrypt: (buf, opts) => {
@@ -103,6 +104,20 @@ export const ciphers = {
       decrypt: (buf, opts) => micro.xchacha20poly1305(opts.key, opts.nonce).decrypt(buf),
     },
   },
+  'aes-256-gcm': {
+    opts: { key: buf(32), nonce: buf(12) },
+    noble: {
+      encrypt: (buf, opts) => gcm(opts.key, opts.nonce).encrypt(buf),
+      decrypt: (buf, opts) => gcm(opts.key, opts.nonce).decrypt(buf),
+    },
+  },
+  'aes-256-gcm-siv': {
+    opts: { key: buf(32), nonce: buf(12) },
+    noble: {
+      encrypt: (buf, opts) => siv(opts.key, opts.nonce).encrypt(buf),
+      decrypt: (buf, opts) => siv(opts.key, opts.nonce).decrypt(buf),
+    },
+  }
 };
 
 export async function main() {

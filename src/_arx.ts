@@ -57,9 +57,9 @@ export type CipherCoreFn = (
 
 export type ExtendNonceFn = (
   sigma: Uint32Array,
-  key: Uint8Array,
-  input: Uint8Array,
-  output: Uint8Array
+  key: Uint32Array,
+  input: Uint32Array,
+  output: Uint32Array
 ) => void;
 
 export type CipherOpts = {
@@ -87,15 +87,13 @@ const U32_EMPTY = new Uint32Array();
 function runCipher(
   core: CipherCoreFn,
   sigma: Uint32Array,
-  key: Uint8Array,
-  nonce: Uint8Array,
+  key: Uint32Array,
+  nonce: Uint32Array,
   data: Uint8Array,
   output: Uint8Array,
   counter: number,
   rounds: number
 ): void {
-  const key32 = u32(key);
-  const nonce32 = u32(nonce);
   const len = data.length;
   const block = new Uint8Array(BLOCK_LEN);
   const b32 = u32(block);
@@ -104,7 +102,7 @@ function runCipher(
   const d32 = isAligned ? u32(data) : U32_EMPTY;
   const o32 = isAligned ? u32(output) : U32_EMPTY;
   for (let pos = 0; pos < len; counter++) {
-    core(sigma, key32, nonce32, b32, counter, rounds);
+    core(sigma, key, nonce, b32, counter, rounds);
     if (counter >= MAX_COUNTER) throw new Error('arx: counter overflow');
     const take = Math.min(BLOCK_LEN, len - pos);
     // aligned to 4 bytes
@@ -158,23 +156,21 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
     // Key & sigma
     // key=16 -> sigma16, k=key|key
     // key=32 -> sigma32, k=key
-    let k: Uint8Array, sigma: Uint32Array;
-    if (key.length === 32) {
-      if (isAligned32(key)) k = key;
-      else {
-        // Align key to 4 bytes
-        k = key.slice();
-        toClean.push(k);
-      }
+    let l = key.length,
+      k: Uint8Array,
+      sigma: Uint32Array;
+    if (l === 32) {
+      k = key.slice();
+      toClean.push(k);
       sigma = sigma32_32;
-    } else if (key.length === 16 && allowShortKeys) {
+    } else if (l === 16 && allowShortKeys) {
       k = new Uint8Array(32);
       k.set(key);
       k.set(key, 16);
       sigma = sigma16_32;
       toClean.push(k);
     } else {
-      throw new Error(`arx: invalid 32-byte key, got length=${key.length}`);
+      throw new Error(`arx: invalid 32-byte key, got length=${l}`);
     }
 
     // Nonce
@@ -189,13 +185,11 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
       toClean.push(nonce);
     }
 
+    const k32 = u32(k);
     // hsalsa & hchacha: handle extended nonce
     if (extendNonceFn) {
       if (nonce.length !== 24) throw new Error(`arx: extended nonce must be 24 bytes`);
-      let _k = new Uint8Array(32);
-      extendNonceFn(sigma, k, nonce.subarray(0, 16), _k);
-      // toClean.push(k);
-      k = _k;
+      extendNonceFn(sigma, k32, u32(nonce.subarray(0, 16)), k32);
       nonce = nonce.subarray(16);
     }
 
@@ -211,7 +205,8 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
       nonce = nc;
       toClean.push(nonce);
     }
-    runCipher(core, sigma, k, nonce, data, output, counter, rounds);
+    const n32 = u32(nonce);
+    runCipher(core, sigma, k32, n32, data, output, counter, rounds);
     while (toClean.length > 0) toClean.pop()!.fill(0);
     return output;
   };
