@@ -62,6 +62,7 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
   - [FF1 format-preserving encryption](#ff1)
   - [Managed nonces](#managed-nonces)
 - [Guidance](#guidance)
+  - [Which cipher should I pick?](#which-cipher-should-i-pick)
   - [How to encrypt properly](#how-to-encrypt-properly)
   - [Nonces](#nonces)
   - [Encryption limits](#encryption-limits)
@@ -337,6 +338,12 @@ For `encrypt`, a `nonceBytes`-length buffer is fetched from CSPRNG and prenended
 For `decrypt`, first `nonceBytes` of ciphertext are treated as nonce.
 
 ## Guidance
+
+### Which cipher should I pick?
+
+XChaCha20-Poly1305 is the safest bet these days.
+AES-GCM-SIV is the second safest.
+AES-GCM is the third.
 
 ### How to encrypt properly
 
