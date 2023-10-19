@@ -210,7 +210,7 @@ in 2008. ChaCha aims to increase the diffusion per round, but had slightly less
 cryptanalysis. It was standardized in
 [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3.
 
-XChaCha20 ([draft](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha))
+[XChaCha20](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha)
 extended-nonce variant is also provided. Similar to XSalsa, it's safe to use with
 randomly-generated nonces.
 
@@ -395,7 +395,7 @@ algorithms, key rotation is advised. hkdf would work great for this case.
 
 A "protected message" would mean a probability of `2**-50` that a passive attacker
 successfully distinguishes the ciphertext outputs of the AEAD scheme from the outputs
-of a random function. See [RFC draft](https://datatracker.ietf.org/doc/draft-irtf-cfrg-aead-limits/) for details.
+of a random function. See [draft-irtf-cfrg-aead-limits](https://datatracker.ietf.org/doc/draft-irtf-cfrg-aead-limits/) for details.
 
 - Max message size:
   - AES-GCM: ~68GB, `2**36-256`
