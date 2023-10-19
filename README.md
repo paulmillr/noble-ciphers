@@ -233,7 +233,8 @@ We provide the fastest available pure JS implementation.
 
 [AES-GCM-SIV](https://en.wikipedia.org/wiki/AES-GCM-SIV)
 nonce-misuse-resistant mode is also provided. It's recommended to use it,
-to prevent catastrophic consequences of nonce reuse.
+to prevent catastrophic consequences of nonce reuse. Our implementation of SIV
+has the same speed as GCM: there is no performance hit.
 
 Check out [AES internals and block modes](#aes-internals-and-block-modes).
 
