@@ -195,7 +195,7 @@ authenticated encryption. Secretbox is just xsalsa20-poly1305. We provide the
 alias and corresponding seal / open methods.
 
 Check out [PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf) and
-[wiki](https://en.wikipedia.org/wiki/Salsa20)).
+[wiki](https://en.wikipedia.org/wiki/Salsa20).
 
 ### ChaCha
 
@@ -213,7 +213,7 @@ XChaCha20 ([draft](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha
 extended-nonce variant is also provided. Similar to XSalsa, it's safe to use with
 randomly-generated nonces.
 
-Check out [PDF](http://cr.yp.to/chacha/chacha-20080128.pdf) and [wiki](https://en.wikipedia.org/wiki/Salsa20)).
+Check out [PDF](http://cr.yp.to/chacha/chacha-20080128.pdf) and [wiki](https://en.wikipedia.org/wiki/Salsa20).
 
 ### AES
 
@@ -231,8 +231,10 @@ for (let cipher of [gcm, siv, ctr, cbc]) {
 is a variant of Rijndael block cipher, standardized by NIST in 2001.
 We provide the fastest available pure JS implementation.
 
-Optional [AES-GCM-SIV](https://en.wikipedia.org/wiki/AES-GCM-SIV)
-nonce-misuse-resistant mode is also provided.
+[AES-GCM-SIV](https://en.wikipedia.org/wiki/AES-GCM-SIV)
+nonce-misuse-resistant mode is also provided. It's recommended to use it,
+to prevent catastrophic consequences of nonce reuse.
+
 Check out [AES internals and block modes](#aes-internals-and-block-modes).
 
 ### Webcrypto AES
