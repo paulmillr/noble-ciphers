@@ -239,7 +239,6 @@ Check out [AES internals and block modes](#aes-internals-and-block-modes).
 ### Webcrypto AES
 
 ```js
-// Wrapper over built-in webcrypto. Same API, but async
 import { gcm, ctr, cbc } from '@noble/ciphers/webcrypto/aes';
 for (let cipher of [gcm, siv, ctr, cbc]) {
   const stream = cipher(key, nonce);
@@ -248,9 +247,11 @@ for (let cipher of [gcm, siv, ctr, cbc]) {
 }
 ```
 
-We also have separate wrapper over asynchronous WebCrypto built-in.
+We also have a separate wrapper over WebCrypto built-in.
 
 It's the same as using `crypto.subtle`, but with massively simplified API.
+
+Unlike pure js version, it's asynchronous.
 
 ### Poly1305, GHash, Polyval
 
@@ -259,10 +260,11 @@ import { poly1305 } from '@noble/ciphers/_poly1305';
 import { ghash, polyval } from '@noble/ciphers/_polyval';
 ```
 
-We expose polynomial-evaluation MACs: Poly1305, AES-GCM's GHash and AES-SIV's Polyval.
+We expose polynomial-evaluation MACs: [Poly1305](https://cr.yp.to/mac.html),
+AES-GCM's [GHash](https://en.wikipedia.org/wiki/Galois/Counter_Mode) and
+AES-SIV's [Polyval](https://en.wikipedia.org/wiki/AES-GCM-SIV).
 
-Poly1305 ([website](https://cr.yp.to/mac.html),
-[PDF](https://cr.yp.to/mac/poly1305-20050329.pdf),
+Poly1305 ([PDF](https://cr.yp.to/mac/poly1305-20050329.pdf),
 [wiki](https://en.wikipedia.org/wiki/Poly1305))
 is a fast and parallel secret-key message-authentication code suitable for
 a wide variety of applications. It was standardized in
