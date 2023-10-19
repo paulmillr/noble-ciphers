@@ -47,8 +47,8 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 ```
 
 - [Examples](#examples)
-  - [Encrypt with ChaCha20-Poly1305](#encrypt-and-decrypt-with-chacha20-poly1305)
-  - [Encrypt with AES-256-GCM](#encrypt-and-decrypt-with-aes-256-gcm)
+  - [Encrypt with XChaCha20-Poly1305](#encrypt-with-xchacha20-poly1305)
+  - [Encrypt with AES-256-GCM](#encrypt-with-aes-256-gcm)
   - [Use existing key instead of a new one](#use-existing-key-instead-of-a-new-one)
   - [Encrypt without nonce](#encrypt-without-nonce)
   - [Use same array for input and output](#use-same-array-for-input-and-output)
