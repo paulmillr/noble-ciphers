@@ -47,15 +47,20 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 ```
 
 - [Examples](#examples)
-  - [Encrypt and decrypt with ChaCha20-Poly1305](#encrypt-and-decrypt-with-chacha20-poly1305)
-  - [Encrypt and decrypt with AES-256-GCM](#encrypt-and-decrypt-with-aes-256-gcm)
-  - [Securely generate random key and nonce](#securely-generate-random-key-and-nonce)
-  - [Use managed nonce](#use-managed-nonce)
+  - [Encrypt with ChaCha20-Poly1305](#encrypt-and-decrypt-with-chacha20-poly1305)
+  - [Encrypt with AES-256-GCM](#encrypt-and-decrypt-with-aes-256-gcm)
+  - [Use existing key instead of a new one](#use-existing-key-instead-of-a-new-one)
+  - [Encrypt without nonce](#encrypt-without-nonce)
+  - [Use same array for input and output](#use-same-array-for-input-and-output)
+  - [All imports](#all-imports)
 - [Implementations](#implementations)
-  - [salsa: Salsa20 cipher](#salsa)
-  - [chacha: ChaCha cipher](#chacha)
-  - [aes: AES cipher](#aes)
-  - [ff1: format-preserving encryption](#ff1)
+  - [Salsa20](#salsa)
+  - [ChaCha](#chacha)
+  - [AES](#aes)
+  - [Webcrypto AES](#webcrypto-aes)
+  - [Poly1305, GHash, Polyval](#poly1305-ghash-polyval)
+  - [FF1 format-preserving encryption](#ff1)
+  - [Managed nonces](#managed-nonces)
 - [Guidance](#guidance)
   - [How to encrypt properly](#how-to-encrypt-properly)
   - [Nonces](#nonces)
@@ -72,7 +77,7 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 
 ```js
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
-import { hexToBytes, utf8ToBytes } from '@noble/ciphers/utils';
+import { utf8ToBytes } from '@noble/ciphers/utils';
 import { randomBytes } from '@noble/ciphers/webcrypto/utils';
 const key = randomBytes(32);
 const nonce = randomBytes(24);
@@ -86,29 +91,35 @@ const data_ = chacha.decrypt(ciphertext); // utils.bytesToUtf8(data_) === data
 
 ```js
 import { gcm } from '@noble/ciphers/aes';
-import { hexToBytes, utf8ToBytes } from '@noble/ciphers/utils';
+import { utf8ToBytes } from '@noble/ciphers/utils';
 import { randomBytes } from '@noble/ciphers/webcrypto/utils';
-const key = hexToBytes('5296fb2c5ceab0f59367994e5d81d9014027255f12336fabcd29596c2e9ecd87');
-const nonce = hexToBytes('9610467513de0bbd7c4cc2c3c64069f1802086fbd3232b13');
+const key = randomBytes(32);
+const nonce = randomBytes(24);
 const aes = gcm(key, nonce);
 const data = utf8ToBytes('hello, noble');
 const ciphertext = aes.encrypt(data);
 const data_ = aes.decrypt(ciphertext); // utils.bytesToUtf8(data_) === data
 ```
 
-#### Securely generate random key and nonce
+#### Use existing key instead of a new one
 
 ```js
-import { xchacha20poly1305 } from '@noble/ciphers/chacha';
-import { randomBytes } from '@noble/ciphers/webcrypto/utils';
-const key = hexToBytes('4b7f89bac90a1086fef73f5da2cbe93b2fae9dfbf7678ae1f3e75fd118ddf999');
-const nonce = hexToBytes('9610467513de0bbd7c4cc2c3c64069f1802086fbd3232b13');
-// const rkey = randomBytes(32);
-// const rnonce = randomBytes(24);
-const chacha = xchacha20poly1305(rkey, rnonce);
-const data = utf8ToBytes('hello, noble');
-const ciphertext = chacha.encrypt(data);
-const plaintext = chacha.decrypt(ciphertext);
+const key = new Uint8Array([
+  169,  88, 160, 139, 168,  29, 147, 196,
+   14,  88, 237,  76, 243, 177, 109, 140,
+  195, 140,  80,  10, 216, 134, 215,  71,
+  191,  48,  20, 104, 189,  37,  38,  55
+]);
+const nonce = new Uint8Array([
+  180,  90,  27, 63, 160, 191, 150,
+   33,  67, 212, 86,  71, 144,   6,
+  200, 102, 218, 32,  23, 147,   8,
+   41, 147,  11
+]);
+// or, hex:
+import { hexToBytes } from '@noble/ciphers/utils';
+const key2 = hexToBytes('4b7f89bac90a1086fef73f5da2cbe93b2fae9dfbf7678ae1f3e75fd118ddf999');
+const nonce2 = hexToBytes('9610467513de0bbd7c4cc2c3c64069f1802086fbd3232b13');
 ```
 
 #### Encrypt without nonce
@@ -122,6 +133,25 @@ const chacha = managedNonce(xchacha20poly1305)(key); // manages nonces for you
 const data = utf8ToBytes('hello, noble');
 const ciphertext = chacha.encrypt(data);
 const data_ = chacha.decrypt(ciphertext);
+```
+
+#### Use same array for input and output
+
+```js
+import { chacha20poly1305 } from '@noble/ciphers/chacha';
+import { utf8ToBytes } from '@noble/ciphers/utils';
+import { randomBytes } from '@noble/ciphers/webcrypto/utils';
+
+const key = randomBytes(32);
+const nonce = randomBytes(12);
+const buf = new Uint8Array(12 + 16);
+const _data = utf8ToBytes('hello, noble');
+buf.set(_data, 0); // first 12 bytes
+const _12b = buf.subarray(0, 12);
+
+const chacha = chacha20poly1305(key, nonce);
+chacha.encrypt(_12b, buf);
+chacha.decrypt(buf, _12b); // _12b now same as _data
 ```
 
 #### All imports
@@ -147,29 +177,8 @@ import { managedNonce, randomBytes } from '@noble/ciphers/webcrypto/utils';
 
 ```js
 import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
-import { utf8ToBytes } from '@noble/ciphers/utils';
-import { randomBytes } from '@noble/ciphers/webcrypto/utils';
-const key = randomBytes(32);
-const nonce = randomBytes(24);
-const stream_x = xsalsa20poly1305(key, nonce);
-const data = utf8ToBytes('hello, noble');
-const ciphertext = stream_x.encrypt(data);
-const plaintext = stream_x.decrypt(ciphertext);
-
-// `dst` argument to avoid memory allocations: re-use same uint8array
-stream_x.decrypt(ciphertext, ciphertext.subarray(-16)); // ciphertext became plaintext
-
-// We provide alias to sodium `secretbox`, which is identical to xsalsa20poly1305
-import { secretbox } from '@noble/ciphers/salsa';
-const box = secretbox(key, nonce);
-const ciphertext = box.seal(plaintext);
-const plaintext = box.open(ciphertext);
-
-// Standalone salsa
+import { secretbox } from '@noble/ciphers/salsa'; // == xsalsa20poly1305
 import { salsa20, xsalsa20 } from '@noble/ciphers/salsa';
-const nonce12 = randomBytes(12); // salsa uses 96-bit nonce, xsalsa uses 192-bit
-const encrypted_s = salsa20(key, nonce12, data);
-const encrypted_xs = xsalsa20(key, nonce, data);
 ```
 
 Salsa20 stream cipher ([website](https://cr.yp.to/snuffle.html),
@@ -191,32 +200,7 @@ alias and corresponding seal / open methods.
 
 ```js
 import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
-import { utf8ToBytes } from '@noble/ciphers/utils';
-import { randomBytes } from '@noble/ciphers/webcrypto/utils';
-
-const key = randomBytes(32);
-const nonce12 = randomBytes(12);
-const stream_c = chacha20poly1305(key, nonce12);
-
-const data = utf8ToBytes('hello, noble'); // strings must be converted to Uint8Array
-const ciphertext_c = stream_c.encrypt(data);
-const plaintext_c = stream_c.decrypt(ciphertext_c); // === data
-
-// `dst` argument to avoid memory allocations: re-use same uint8array
-stream_c.decrypt(ciphertext_c, ciphertext_c.subarray(-16));
-
-// xchacha: extended-nonce chacha
-const nonce24 = randomBytes(24); // 192-bit nonce
-const stream_xc = xchacha20poly1305(key, nonce24);
-const ciphertext_xc = stream_xc.encrypt(data);
-const plaintext_xc = stream_xc.decrypt(ciphertext_xc); // === data
-
-// Standalone chacha
 import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha';
-const ciphertext_pc = chacha20(key, nonce12, data);
-const ciphertext_pxc = xchacha20(key, nonce24, data);
-const ciphertext_8 = chacha8(key, nonce12, data);
-const ciphertext_12 = chacha12(key, nonce12, data);
 ```
 
 ChaCha20 stream cipher ([website](https://cr.yp.to/chacha.html),
@@ -229,27 +213,6 @@ cryptanalysis. It was standardized in
 XChaCha20 ([draft RFC](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha))
 extended-nonce variant is also provided. Similar to XSalsa, it's safe to use with
 randomly-generated nonces.
-
-### Poly1305
-
-Poly1305 ([website](https://cr.yp.to/mac.html),
-[PDF](https://cr.yp.to/mac/poly1305-20050329.pdf),
-[wiki](https://en.wikipedia.org/wiki/Poly1305))
-is a fast and parallel secret-key message-authentication code suitable for
-a wide variety of applications. It was standardized in
-[RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3.
-
-Poly1305 is polynomial-evaluation MAC, which is not perfect for every situation:
-just like GCM, it lacks Random Key Robustness: the tags can be forged, and can't
-be used in PAKE schemes. See
-[invisible salamanders attack](https://keymaterial.net/2020/09/07/invisible-salamanders-in-aes-gcm-siv/).
-To combat invisible salamanders, `hash(key)` can be included in ciphertext,
-however, this would violate ciphertext indistinguishability:
-an attacker would know which key was used - so `HKDF(key, i)`
-could be used instead.
-
-Even though poly1305 can be imported separately from the library, we suggest
-using chacha-poly or xsalsa-poly.
 
 ### AES
 
@@ -289,6 +252,36 @@ We also have separate wrapper over asynchronous WebCrypto built-in.
 
 It's the same as using `crypto.subtle`, but with massively simplified API.
 
+### Poly1305, GHash, Polyval
+
+```js
+import { poly1305 } from '@noble/ciphers/_poly1305';
+import { ghash, polyval } from '@noble/ciphers/_polyval';
+```
+
+We expose polynomial-evaluation MACs: Poly1305, AES-GCM's GHash and AES-SIV's Polyval.
+
+Poly1305 ([website](https://cr.yp.to/mac.html),
+[PDF](https://cr.yp.to/mac/poly1305-20050329.pdf),
+[wiki](https://en.wikipedia.org/wiki/Poly1305))
+is a fast and parallel secret-key message-authentication code suitable for
+a wide variety of applications. It was standardized in
+[RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3.
+
+Polynomial MACs are not perfect for every situation:
+they lack Random Key Robustness: the MAC can be forged, and can't
+be used in PAKE schemes. See
+[invisible salamanders attack](https://keymaterial.net/2020/09/07/invisible-salamanders-in-aes-gcm-siv/).
+To combat invisible salamanders, `hash(key)` can be included in ciphertext,
+however, this would violate ciphertext indistinguishability:
+an attacker would know which key was used - so `HKDF(key, i)`
+could be used instead.
+
+### FF1
+
+Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publication 800-38G.
+[See more info](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf).
+
 ### Managed nonces
 
 ```js
@@ -314,11 +307,6 @@ We provide API that manages nonce internally instead of exposing them to library
 For `encrypt`, a `nonceBytes`-length buffer is fetched from CSPRNG and prenended to encrypted ciphertext.
 
 For `decrypt`, first `nonceBytes` of ciphertext are treated as nonce.
-
-### FF1
-
-Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publication 800-38G.
-[See more info](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf).
 
 ## Guidance
 
