@@ -220,9 +220,21 @@ Check out [PDF](http://cr.yp.to/chacha/chacha-20080128.pdf) and [wiki](https://e
 
 ```js
 import { gcm, siv, ctr, cbc, ecb } from '@noble/ciphers/aes';
-
-for (let cipher of [gcm, siv, ctr, cbc]) {
-  const stream = cipher(key, nonce);
+import { randomBytes } from '@noble/ciphers/webcrypto/utils';
+const plaintext = new Uint8Array(32).fill(16);
+const key = randomBytes(32); // 24 for AES-192, 16 for AES-128
+for (let cipher of [gcm, siv]) {
+  const stream = cipher(key, randomBytes(12));
+  const ciphertext_ = stream.encrypt(plaintext);
+  const plaintext_ = stream.decrypt(ciphertext_);
+}
+for (const cipher of [ctr, cbc]) {
+  const stream = cipher(key, randomBytes(16));
+  const ciphertext_ = stream.encrypt(plaintext);
+  const plaintext_ = stream.decrypt(ciphertext_);
+}
+for (const cipher of [ecb]) {
+  const stream = cipher(key);
   const ciphertext_ = stream.encrypt(plaintext);
   const plaintext_ = stream.decrypt(ciphertext_);
 }
@@ -231,6 +243,9 @@ for (let cipher of [gcm, siv, ctr, cbc]) {
 [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard)
 is a variant of Rijndael block cipher, standardized by NIST in 2001.
 We provide the fastest available pure JS implementation.
+
+We support AES-128, AES-192 and AES-256: the mode is selected dynamically,
+based on key length (16, 24, 32).
 
 [AES-GCM-SIV](https://en.wikipedia.org/wiki/AES-GCM-SIV)
 nonce-misuse-resistant mode is also provided. It's recommended to use it,
@@ -243,8 +258,16 @@ Check out [AES internals and block modes](#aes-internals-and-block-modes).
 
 ```js
 import { gcm, ctr, cbc } from '@noble/ciphers/webcrypto/aes';
-for (let cipher of [gcm, siv, ctr, cbc]) {
-  const stream = cipher(key, nonce);
+import { randomBytes } from '@noble/ciphers/webcrypto/utils';
+const plaintext = new Uint8Array(32).fill(16);
+const key = randomBytes(32);
+for (const cipher of [gcm]) {
+  const stream = cipher(key, randomBytes(12));
+  const ciphertext_ = await stream.encrypt(plaintext);
+  const plaintext_ = await stream.decrypt(ciphertext_);
+}
+for (const cipher of [ctr, cbc]) {
+  const stream = cipher(key, randomBytes(16));
   const ciphertext_ = await stream.encrypt(plaintext);
   const plaintext_ = await stream.decrypt(ciphertext_);
 }
