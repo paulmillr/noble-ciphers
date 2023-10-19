@@ -316,18 +316,18 @@ For `decrypt`, first `nonceBytes` of ciphertext are treated as nonce.
 
 ### How to encrypt properly
 
-1. Use unpredictable key with enough entropy
+- Use unpredictable key with enough entropy
    - Random key must be using cryptographically secure random number generator (CSPRNG), not `Math.random` etc.
    - Non-random key generated from KDF is fine
    - Re-using key is fine, but be aware of rules for cryptographic key wear-out and [encryption limits](#encryption-limits)
-2. Use new nonce every time and [don't repeat it](#nonces)
+- Use new nonce every time and [don't repeat it](#nonces)
    - chacha and salsa20 are fine for sequential counters that _never_ repeat: `01, 02...`
    - xchacha and xsalsa20 should be used for random nonces instead
-3. Prefer authenticated encryption (AEAD)
+- Prefer authenticated encryption (AEAD)
    - HMAC+ChaCha / HMAC+AES / chacha20poly1305 / aes-gcm is good
    - chacha20 without poly1305 or hmac / aes-ctr / aes-cbc is bad
    - Flipping bits or ciphertext substitution won't be detected in unauthenticated ciphers
-4. Don't re-use keys between different protocols
+- Don't re-use keys between different protocols
    - For example, using secp256k1 key in AES is bad
    - Use hkdf or, at least, a hash function to create sub-key instead
 
@@ -401,9 +401,8 @@ and each new round either depends on previous block's key, or on some counter.
 - CBC — key is previous round’s block. Hard to use: need proper padding, also needs MAC
 - CTR — counter, allows to create streaming cipher. Requires good IV. Parallelizable. OK, but no MAC
 - GCM — modern CTR, parallel, with MAC
-- SIV — synthetic initialization vector, nonce-misuse-resistant, 1.5-2x slower than GCM.
-  Guarantees that, when a nonce is repeated, the only security loss is that identical
-  plaintexts will produce identical ciphertexts.
+- SIV — synthetic initialization vector, nonce-misuse-resistant. Guarantees that, when a nonce is repeated,
+  the only security loss is that identical plaintexts will produce identical ciphertexts.
 - XTS — used in hard drives. Similar to ECB (deterministic), but has `[i][j]`
   tweak arguments corresponding to sector i and 16-byte block (part of sector) j. Not authenticated!
 
