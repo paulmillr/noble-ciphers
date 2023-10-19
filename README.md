@@ -48,7 +48,7 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 
 - [Examples](#examples)
   - [Encrypt and decrypt with ChaCha20-Poly1305](#encrypt-and-decrypt-with-chacha20-poly1305)
-  - [Encrypt and decrypt text with AES-GCM-256](#encrypt-and-decrypt-text-with-aes-gcm-256)
+  - [Encrypt and decrypt with AES-256-GCM](#encrypt-and-decrypt-with-aes-256-gcm)
   - [Securely generate random key and nonce](#securely-generate-random-key-and-nonce)
   - [Use managed nonce](#use-managed-nonce)
 - [Implementations](#implementations)
@@ -68,43 +68,32 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 
 ## Examples
 
-#### Encrypt and decrypt with ChaCha20-Poly1305
+#### Encrypt with XChaCha20-Poly1305
 
 ```js
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
-import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils';
-const key = hexToBytes('4b7f89bac90a1086fef73f5da2cbe93b2fae9dfbf7678ae1f3e75fd118ddf999');
-const nonce = hexToBytes('9610467513de0bbd7c4cc2c3c64069f1802086fbd3232b13');
+import { hexToBytes, utf8ToBytes } from '@noble/ciphers/utils';
+import { randomBytes } from '@noble/ciphers/webcrypto/utils';
+const key = randomBytes(32);
+const nonce = randomBytes(24);
 const chacha = xchacha20poly1305(key, nonce);
 const data = utf8ToBytes('hello, noble');
 const ciphertext = chacha.encrypt(data);
-const data_ = chacha.decrypt(ciphertext); // bytesToUtf8(data_) === data
+const data_ = chacha.decrypt(ciphertext); // utils.bytesToUtf8(data_) === data
 ```
 
-#### Encrypt and decrypt text with AES-GCM-256
+#### Encrypt with AES-256-GCM
 
 ```js
 import { gcm } from '@noble/ciphers/aes';
-import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils';
+import { hexToBytes, utf8ToBytes } from '@noble/ciphers/utils';
+import { randomBytes } from '@noble/ciphers/webcrypto/utils';
 const key = hexToBytes('5296fb2c5ceab0f59367994e5d81d9014027255f12336fabcd29596c2e9ecd87');
 const nonce = hexToBytes('9610467513de0bbd7c4cc2c3c64069f1802086fbd3232b13');
 const aes = gcm(key, nonce);
 const data = utf8ToBytes('hello, noble');
 const ciphertext = aes.encrypt(data);
-const data_ = aes.decrypt(ciphertext); // bytesToUtf8(data_) === data
-```
-
-#### Use managed nonce
-
-```js
-import { xchacha20poly1305 } from '@noble/ciphers/chacha';
-import { managedNonce } from '@noble/ciphers/webcrypto/utils'
-import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/ciphers/utils';
-const key = hexToBytes('fa686bfdffd3758f6377abbc23bf3d9bdc1a0dda4a6e7f8dbdd579fa1ff6d7e1');
-const chacha = managedNonce(xchacha20poly1305)(key); // manages nonces for you
-const data = utf8ToBytes('hello, noble');
-const ciphertext = chacha.encrypt(data);
-const data_ = chacha.decrypt(ciphertext);
+const data_ = aes.decrypt(ciphertext); // utils.bytesToUtf8(data_) === data
 ```
 
 #### Securely generate random key and nonce
@@ -112,12 +101,44 @@ const data_ = chacha.decrypt(ciphertext);
 ```js
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 import { randomBytes } from '@noble/ciphers/webcrypto/utils';
-const rkey = randomBytes(32);
-const rnonce = randomBytes(24);
+const key = hexToBytes('4b7f89bac90a1086fef73f5da2cbe93b2fae9dfbf7678ae1f3e75fd118ddf999');
+const nonce = hexToBytes('9610467513de0bbd7c4cc2c3c64069f1802086fbd3232b13');
+// const rkey = randomBytes(32);
+// const rnonce = randomBytes(24);
 const chacha = xchacha20poly1305(rkey, rnonce);
 const data = utf8ToBytes('hello, noble');
 const ciphertext = chacha.encrypt(data);
 const plaintext = chacha.decrypt(ciphertext);
+```
+
+#### Encrypt without nonce
+
+```js
+import { xchacha20poly1305 } from '@noble/ciphers/chacha';
+import { managedNonce } from '@noble/ciphers/webcrypto/utils'
+import { hexToBytes, utf8ToBytes } from '@noble/ciphers/utils';
+const key = hexToBytes('fa686bfdffd3758f6377abbc23bf3d9bdc1a0dda4a6e7f8dbdd579fa1ff6d7e1');
+const chacha = managedNonce(xchacha20poly1305)(key); // manages nonces for you
+const data = utf8ToBytes('hello, noble');
+const ciphertext = chacha.encrypt(data);
+const data_ = chacha.decrypt(ciphertext);
+```
+
+#### All imports
+
+```js
+import { gcm, siv } from '@noble/ciphers/aes';
+import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
+import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
+
+// Unauthenticated encryption: make sure to use HMAC or similar
+import { ctr, cbc, ecb } from '@noble/ciphers/aes';
+import { salsa20, xsalsa20 } from '@noble/ciphers/salsa';
+import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha';
+
+// Utilities
+import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils';
+import { managedNonce, randomBytes } from '@noble/ciphers/webcrypto/utils';
 ```
 
 ## Implementations

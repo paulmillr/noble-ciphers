@@ -78,10 +78,6 @@ export function bytesToNumberBE(bytes: Uint8Array): bigint {
   return hexToNumber(bytesToHex(bytes));
 }
 
-export function bytesToNumberLE(bytes: Uint8Array): bigint {
-  return hexToNumber(bytesToHex(Uint8Array.from(bytes).reverse()));
-}
-
 export function numberToBytesBE(n: number | bigint, len: number): Uint8Array {
   return hexToBytes(n.toString(16).padStart(len * 2, '0'));
 }
@@ -129,7 +125,8 @@ export type Input = Uint8Array | string;
  */
 export function toBytes(data: Input): Uint8Array {
   if (typeof data === 'string') data = utf8ToBytes(data);
-  if (!u8a(data)) throw new Error(`expected Uint8Array, got ${typeof data}`);
+  else if (u8a(data)) data = data.slice();
+  else throw new Error(`expected Uint8Array, got ${typeof data}`);
   return data;
 }
 

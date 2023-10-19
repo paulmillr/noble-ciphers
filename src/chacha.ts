@@ -9,14 +9,11 @@ import {
   u32,
 } from './utils.js';
 import { poly1305 } from './_poly1305.js';
-import { createCipher } from './_arx.js';
+import { createCipher, rotl } from './_arx.js';
 
 // ChaCha20 stream cipher was released in 2008. ChaCha aims to increase
 // the diffusion per round, but had slightly less cryptanalysis.
 // https://cr.yp.to/chacha.html, http://cr.yp.to/chacha/chacha-20080128.pdf
-
-// Left rotate for uint32
-const rotl = (a: number, b: number) => (a << b) | (a >>> (32 - b));
 
 /**
  * ChaCha core function.
@@ -25,17 +22,16 @@ const rotl = (a: number, b: number) => (a << b) | (a >>> (32 - b));
 function chachaCore(
   s: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32Array, cnt: number, rounds = 20
 ): void {
-  let y00 = s[0], y01 = s[1], y02 = s[2], y03 = s[3]; // "expa"   "nd 3"  "2-by"  "te k"
-  let y04 = k[0], y05 = k[1], y06 = k[2], y07 = k[3]; // Key      Key     Key     Key
-  let y08 = k[4], y09 = k[5], y10 = k[6], y11 = k[7]; // Key      Key     Key     Key
-  let y12 = cnt,  y13 = n[0], y14 = n[1], y15 = n[2]; // Counter  Counter	Nonce   Nonce
+  let y00 = s[0], y01 = s[1], y02 = s[2], y03 = s[3], // "expa"   "nd 3"  "2-by"  "te k"
+      y04 = k[0], y05 = k[1], y06 = k[2], y07 = k[3], // Key      Key     Key     Key
+      y08 = k[4], y09 = k[5], y10 = k[6], y11 = k[7], // Key      Key     Key     Key
+      y12 = cnt,  y13 = n[0], y14 = n[1], y15 = n[2]; // Counter  Counter	Nonce   Nonce
   // Save state to temporary variables
   let x00 = y00, x01 = y01, x02 = y02, x03 = y03,
       x04 = y04, x05 = y05, x06 = y06, x07 = y07,
       x08 = y08, x09 = y09, x10 = y10, x11 = y11,
       x12 = y12, x13 = y13, x14 = y14, x15 = y15;
-  // Main loop
-  for (let i = 0; i < rounds; i += 2) {
+  for (let r = 0; r < rounds; r += 2) {
     x00 = (x00 + x04) | 0; x12 = rotl(x12 ^ x00, 16);
     x08 = (x08 + x12) | 0; x04 = rotl(x04 ^ x08, 12);
     x00 = (x00 + x04) | 0; x12 = rotl(x12 ^ x00, 8);
@@ -95,16 +91,16 @@ function chachaCore(
  */
 // prettier-ignore
 export function hchacha(
-  s: Uint32Array, key: Uint8Array, src: Uint8Array, out: Uint8Array
-): Uint8Array {
-  const k32 = u32(key);
-  const i32 = u32(src);
+  s: Uint32Array, key: Uint8Array, input: Uint8Array, out: Uint8Array
+) {
+  const k = u32(key);
+  const i = u32(input);
   const o32 = u32(out);
-  let x00 = s[0],   x01 = s[1],   x02 = s[2],   x03 = s[3];
-  let x04 = k32[0], x05 = k32[1], x06 = k32[2], x07 = k32[3];
-  let x08 = k32[4], x09 = k32[5], x10 = k32[6], x11 = k32[7]
-  let x12 = i32[0], x13 = i32[1], x14 = i32[2], x15 = i32[3];
-   for (let i = 0; i < 20; i += 2) {
+  let x00 = s[0], x01 = s[1], x02 = s[2], x03 = s[3],
+      x04 = k[0], x05 = k[1], x06 = k[2], x07 = k[3],
+      x08 = k[4], x09 = k[5], x10 = k[6], x11 = k[7],
+      x12 = i[0], x13 = i[1], x14 = i[2], x15 = i[3];
+  for (let r = 0; r < 20; r += 2) {
     x00 = (x00 + x04) | 0; x12 = rotl(x12 ^ x00, 16);
     x08 = (x08 + x12) | 0; x04 = rotl(x04 ^ x08, 12);
     x00 = (x00 + x04) | 0; x12 = rotl(x12 ^ x00, 8);
@@ -145,15 +141,11 @@ export function hchacha(
     x03 = (x03 + x04) | 0; x14 = rotl(x14 ^ x03, 8);
     x09 = (x09 + x14) | 0; x04 = rotl(x04 ^ x09, 7);
   }
-  o32[0] = x00;
-  o32[1] = x01;
-  o32[2] = x02;
-  o32[3] = x03;
-  o32[4] = x12;
-  o32[5] = x13;
-  o32[6] = x14;
-  o32[7] = x15;
-  return out;
+  let oi = 0;
+  o32[oi++] = x00; o32[oi++] = x01;
+  o32[oi++] = x02; o32[oi++] = x03;
+  o32[oi++] = x12; o32[oi++] = x13;
+  o32[oi++] = x14; o32[oi++] = x15;
 }
 /**
  * Original, non-RFC chacha20 from DJB. 8-byte nonce, 8-byte counter.

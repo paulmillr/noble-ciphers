@@ -63,8 +63,10 @@ describe('Salsa20', () => {
     const { key, sigma } = getKey(
       hex.decode('000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f')
     );
-    deepStrictEqual(hex.encode(hsalsa(sigma, key, src, dst)), good);
-    deepStrictEqual(hex.encode(slow.hsalsa(sigma, key, src, dst)), good);
+    hsalsa(sigma, key, src, dst);
+    deepStrictEqual(hex.encode(dst), good);
+    slow.hsalsa(sigma, key, src, dst);
+    deepStrictEqual(hex.encode(dst), good);
   });
   should('xsalsa20', () => {
     const key = hex.decode('000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f');
@@ -75,9 +77,11 @@ describe('Salsa20', () => {
       'de32fc544f4f95576e2614377049c258664845a93d5ff5dd479cfeb55c7' +
       '579b60d419b8a8c03da3494993577b4597dcb658be52ab7';
     const dst = new Uint8Array(good.length / 2);
-    deepStrictEqual(hex.encode(xsalsa20(key, nonce, dst)), good);
+    xsalsa20(key, nonce, dst, dst);
+    deepStrictEqual(hex.encode(dst), good);
     const dst2 = new Uint8Array(good.length / 2);
-    deepStrictEqual(hex.encode(slow.xsalsa20(key, nonce, dst2)), good);
+    slow.xsalsa20(key, nonce, dst2, dst2);
+    deepStrictEqual(hex.encode(dst2), good);
   });
 });
 
@@ -107,9 +111,11 @@ describe('chacha', () => {
     );
     const nonce = hex.decode('000000090000004a0000000031415927');
     const good = '82413b4227b27bfed30e42508a877d73a0f9e4d58a74a853c12ec41326d3ecdc';
-    const subkey = hchacha(sigma, key, nonce.subarray(0, 16), new Uint8Array(32));
+    const subkey = new Uint8Array(32);
+    hchacha(sigma, key, nonce.subarray(0, 16), subkey);
     deepStrictEqual(hex.encode(subkey), good);
-    const subkeySlow = slow.hchacha(sigma, key, nonce.subarray(0, 16), new Uint8Array(32));
+    const subkeySlow = new Uint8Array(32);
+    slow.hchacha(sigma, key, nonce.subarray(0, 16), subkeySlow);
     deepStrictEqual(hex.encode(subkeySlow), good);
   });
 

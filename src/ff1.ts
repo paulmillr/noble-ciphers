@@ -17,7 +17,7 @@ function mod(a: any, b: any): number | bigint {
 }
 
 function NUMradix(radix: number, data: number[]): bigint {
-  let res = 0n;
+  let res = BigInt(0);
   for (let i of data) res = res * BigInt(radix) + BigInt(i);
   return res;
 }

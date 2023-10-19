@@ -42,6 +42,10 @@ const sigma32 = utf8ToBytes('expand 32-byte k');
 const sigma16_32 = u32(sigma16);
 const sigma32_32 = u32(sigma32);
 
+export function rotl(a: number, b: number): number {
+  return (a << b) | (a >>> (32 - b));
+}
+
 export type CipherCoreFn = (
   sigma: Uint32Array,
   key: Uint32Array,
@@ -55,8 +59,8 @@ export type ExtendNonceFn = (
   sigma: Uint32Array,
   key: Uint8Array,
   input: Uint8Array,
-  out: Uint8Array
-) => Uint8Array;
+  output: Uint8Array
+) => void;
 
 export type CipherOpts = {
   allowShortKeys?: boolean; // Original salsa / chacha allow 16-byte keys
@@ -152,10 +156,8 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
     const toClean = [];
 
     // Key & sigma
-    //
     // key=16 -> sigma16, k=key|key
     // key=32 -> sigma32, k=key
-
     let k: Uint8Array, sigma: Uint32Array;
     if (key.length === 32) {
       if (isAligned32(key)) k = key;
@@ -171,16 +173,16 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
       k.set(key, 16);
       sigma = sigma16_32;
       toClean.push(k);
-    } else throw new Error(`arx: invalid 32-byte key, got length=${key.length}`);
+    } else {
+      throw new Error(`arx: invalid 32-byte key, got length=${key.length}`);
+    }
 
     // Nonce
-    //
     // salsa20:      8   (8-byte counter)
     // chacha20orig: 8   (8-byte counter)
     // chacha20:     12  (4-byte counter)
     // xsalsa20:     24  (16 -> hsalsa,  8 -> old nonce)
     // xchacha20:    24  (16 -> hchacha, 8 -> old nonce)
-
     // Align nonce to 4 bytes
     if (!isAligned32(nonce)) {
       nonce = nonce.slice();
@@ -190,8 +192,10 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
     // hsalsa & hchacha: handle extended nonce
     if (extendNonceFn) {
       if (nonce.length !== 24) throw new Error(`arx: extended nonce must be 24 bytes`);
-      k = extendNonceFn(sigma, k, nonce.subarray(0, 16), new Uint8Array(32));
-      toClean.push(k);
+      let _k = new Uint8Array(32);
+      extendNonceFn(sigma, k, nonce.subarray(0, 16), _k);
+      // toClean.push(k);
+      k = _k;
       nonce = nonce.subarray(16);
     }
 
