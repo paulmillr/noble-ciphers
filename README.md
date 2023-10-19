@@ -449,9 +449,12 @@ We're deferring to built-in
 which is considered cryptographically secure (CSPRNG).
 In the past, browsers had bugs that made it weak: it may happen again.
 
+Implementing a userspace CSPRNG to get resilient to getRandomValues weakness
+is even worse: there is no reliable userspace source of quality entropy.
+
 ## Speed
 
-To summarize, noble is the fastest JS implementation.
+To summarize, noble is the fastest JS implementation of Salsa, ChaCha and AES.
 
 You can gain additional speed-up and
 avoid memory allocations by passing `output`
