@@ -1,6 +1,6 @@
 # noble-ciphers
 
-Auditable & minimal JS implementation of Salsa20, ChaCha & AES
+Auditable & minimal JS implementation of Salsa20, ChaCha and AES.
 
 - 🔒 Auditable
 - 🔻 Tree-shaking-friendly: use only what's necessary, other code won't be included
