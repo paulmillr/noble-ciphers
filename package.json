@@ -1,7 +1,7 @@
 {
   "name": "@noble/ciphers",
   "version": "0.4.0",
-  "description": "Auditable & minimal JS implementation of Salsa20, ChaCha & AES",
+  "description": "Auditable & minimal JS implementation of Salsa20, ChaCha and AES",
   "files": [
     "esm",
     "src",
@@ -130,7 +130,8 @@
     "xchacha20poly1305",
     "secretbox",
     "rijndael",
-    "siv"
+    "siv",
+    "ff1"
   ],
   "funding": "https://paulmillr.com/funding/"
 }

@@ -6,10 +6,8 @@ Auditable & minimal JS implementation of Salsa20, ChaCha and AES.
 - 🔻 Tree-shaking-friendly: use only what's necessary, other code won't be included
 - 🏎 [Ultra-fast](#speed), hand-optimized for caveats of JS engines
 - 🔍 Unique tests ensure correctness: property-based, cross-library and Wycheproof vectors
-- 💼 AES: very fast ECB, CBC, CTR, GCM, SIV (nonce misuse-resistant)
+- 💼 AES: ECB, CBC, CTR, GCM, SIV (nonce misuse-resistant)
 - 💃 Salsa20, ChaCha, XSalsa20, XChaCha, Poly1305, ChaCha8, ChaCha12
-- ✍️ FF1 format-preserving encryption
-- 🧂 Compatible with NaCl / libsodium secretbox
 - 🪶 Just 500 lines / 4KB gzipped for Salsa + ChaCha + Poly build
 
 ### This library belongs to _noble_ crypto
