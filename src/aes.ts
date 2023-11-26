@@ -211,7 +211,7 @@ function ctrCounter(xk: Uint32Array, nonce: Uint8Array, src: Uint8Array, dst?: U
   ensureBytes(src);
   const srcLen = src.length;
   dst = getDst(srcLen, dst);
-  const ctr = nonce.slice();
+  const ctr = nonce;
   const c32 = u32(ctr);
   // Fill block (empty, ctr=0)
   let { s0, s1, s2, s3 } = encrypt(xk, c32[0], c32[1], c32[2], c32[3]);
@@ -297,8 +297,10 @@ export const ctr = wrapCipher(
     ensureBytes(nonce, BLOCK_SIZE);
     function processCtr(buf: Uint8Array, dst?: Uint8Array) {
       const xk = expandKeyLE(key);
-      const out = ctrCounter(xk, nonce, buf, dst);
+      const n = nonce.slice();
+      const out = ctrCounter(xk, n, buf, dst);
       xk.fill(0);
+      n.fill(0);
       return out;
     }
     return {
@@ -660,4 +662,13 @@ function decryptBlock(xk: Uint32Array, block: Uint8Array) {
 
 // Highly unsafe private functions for implementing new modes or ciphers based on AES
 // Can change at any time, no API guarantees
-export const unsafe = { expandKeyLE, expandKeyDecLE, encrypt, decrypt, encryptBlock, decryptBlock };
+export const unsafe = {
+  expandKeyLE,
+  expandKeyDecLE,
+  encrypt,
+  decrypt,
+  encryptBlock,
+  decryptBlock,
+  ctrCounter,
+  ctr32,
+};
