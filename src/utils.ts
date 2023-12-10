@@ -4,13 +4,16 @@
 export type TypedArray = Int8Array | Uint8ClampedArray | Uint8Array |
   Uint16Array | Int16Array | Uint32Array | Int32Array;
 
-const u8a = (a: any): a is Uint8Array => a instanceof Uint8Array;
 // Cast array to different type
 export const u8 = (arr: TypedArray) => new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
 export const u16 = (arr: TypedArray) =>
   new Uint16Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 2));
 export const u32 = (arr: TypedArray) =>
   new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
+
+function isBytes(a: any): a is Uint8Array {
+  return a instanceof Uint8Array || a.constructor.name === 'Uint8Array';
+}
 
 // Cast array to view
 export const createView = (arr: TypedArray) =>
@@ -21,6 +24,7 @@ export const createView = (arr: TypedArray) =>
 export const isLE = new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44;
 if (!isLE) throw new Error('Non little-endian hardware is not supported');
 
+// Array where index 0xf0 (240) is mapped to string 'f0'
 const hexes = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) =>
   i.toString(16).padStart(2, '0')
 );
@@ -28,7 +32,7 @@ const hexes = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) =>
  * @example bytesToHex(Uint8Array.from([0xca, 0xfe, 0x01, 0x23])) // 'cafe0123'
  */
 export function bytesToHex(bytes: Uint8Array): string {
-  if (!u8a(bytes)) throw new Error('Uint8Array expected');
+  if (!isBytes(bytes)) throw new Error('Uint8Array expected');
   // pre-caching improves the speed 6x
   let hex = '';
   for (let i = 0; i < bytes.length; i++) {
@@ -125,7 +129,7 @@ export type Input = Uint8Array | string;
  */
 export function toBytes(data: Input): Uint8Array {
   if (typeof data === 'string') data = utf8ToBytes(data);
-  else if (u8a(data)) data = data.slice();
+  else if (isBytes(data)) data = data.slice();
   else throw new Error(`expected Uint8Array, got ${typeof data}`);
   return data;
 }
@@ -134,14 +138,19 @@ export function toBytes(data: Input): Uint8Array {
  * Copies several Uint8Arrays into one.
  */
 export function concatBytes(...arrays: Uint8Array[]): Uint8Array {
-  const r = new Uint8Array(arrays.reduce((sum, a) => sum + a.length, 0));
-  let pad = 0; // walk through each item, ensure they have proper type
-  arrays.forEach((a) => {
-    if (!u8a(a)) throw new Error('Uint8Array expected');
-    r.set(a, pad);
+  let sum = 0;
+  for (let i = 0; i < arrays.length; i++) {
+    const a = arrays[i];
+    if (!isBytes(a)) throw new Error('Uint8Array expected');
+    sum += a.length;
+  }
+  const res = new Uint8Array(sum);
+  for (let i = 0, pad = 0; i < arrays.length; i++) {
+    const a = arrays[i];
+    res.set(a, pad);
     pad += a.length;
-  });
-  return r;
+  }
+  return res;
 }
 
 // Check if object doens't have custom constructor (like Uint8Array/Array)
@@ -165,13 +174,12 @@ export function ensureBytes(b: any, len?: number) {
     if (b.length !== len) throw new Error(`Uint8Array length ${len} expected`);
 }
 
-// Constant-time equality
-export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
-  // Should not happen
-  if (a.length !== b.length) throw new Error('equalBytes: Different size of Uint8Arrays');
-  let isSame = true;
-  for (let i = 0; i < a.length; i++) isSame &&= a[i] === b[i]; // Lets hope JIT won't optimize away.
-  return isSame;
+// Compares 2 u8a-s in kinda constant time
+export function equalBytes(a: Uint8Array, b: Uint8Array) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
 }
 
 // For runtime check if class implements interface
