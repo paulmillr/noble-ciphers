@@ -642,9 +642,17 @@ export const siv = wrapCipher(
   }
 );
 
+function isBytes32(a: unknown): a is Uint8Array {
+  return (
+    a != null &&
+    typeof a === 'object' &&
+    (a instanceof Uint32Array || a.constructor.name === 'Uint32Array')
+  );
+}
+
 function encryptBlock(xk: Uint32Array, block: Uint8Array) {
   ensureBytes(block, 16);
-  if (!(xk instanceof Uint32Array)) throw new Error('_encryptBlock accepts result of expandKeyLE');
+  if (!isBytes32(xk)) throw new Error('_encryptBlock accepts result of expandKeyLE');
   const b32 = u32(block);
   let { s0, s1, s2, s3 } = encrypt(xk, b32[0], b32[1], b32[2], b32[3]);
   (b32[0] = s0), (b32[1] = s1), (b32[2] = s2), (b32[3] = s3);
@@ -653,7 +661,7 @@ function encryptBlock(xk: Uint32Array, block: Uint8Array) {
 
 function decryptBlock(xk: Uint32Array, block: Uint8Array) {
   ensureBytes(block, 16);
-  if (!(xk instanceof Uint32Array)) throw new Error('_decryptBlock accepts result of expandKeyLE');
+  if (!isBytes32(xk)) throw new Error('_decryptBlock accepts result of expandKeyLE');
   const b32 = u32(block);
   let { s0, s1, s2, s3 } = decrypt(xk, b32[0], b32[1], b32[2], b32[3]);
   (b32[0] = s0), (b32[1] = s1), (b32[2] = s2), (b32[3] = s3);
