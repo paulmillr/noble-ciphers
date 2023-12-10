@@ -522,23 +522,23 @@ Unauthenticated encryption:
 encrypt (64B)
 ├─salsa x 1,287,001 ops/sec @ 777ns/op
 ├─chacha x 1,555,209 ops/sec @ 643ns/op
-├─xsalsa x 868,055 ops/sec @ 1μs/op
-└─xchacha x 862,068 ops/sec @ 1μs/op
+├─xsalsa x 938,086 ops/sec @ 1μs/op
+└─xchacha x 920,810 ops/sec @ 1μs/op
 encrypt (1KB)
-├─salsa x 360,100 ops/sec @ 2μs/op
-├─chacha x 386,697 ops/sec @ 2μs/op
-├─xsalsa x 317,762 ops/sec @ 3μs/op
-└─xchacha x 319,897 ops/sec @ 3μs/op
+├─salsa x 353,107 ops/sec @ 2μs/op
+├─chacha x 377,216 ops/sec @ 2μs/op
+├─xsalsa x 331,674 ops/sec @ 3μs/op
+└─xchacha x 336,247 ops/sec @ 2μs/op
 encrypt (8KB)
-├─salsa x 58,068 ops/sec @ 17μs/op
-├─chacha x 59,898 ops/sec @ 16μs/op
-├─xsalsa x 56,756 ops/sec @ 17μs/op
-└─xchacha x 57,920 ops/sec @ 17μs/op
+├─salsa x 57,084 ops/sec @ 17μs/op
+├─chacha x 59,520 ops/sec @ 16μs/op
+├─xsalsa x 57,097 ops/sec @ 17μs/op
+└─xchacha x 58,278 ops/sec @ 17μs/op
 encrypt (1MB)
-├─salsa x 481 ops/sec @ 2ms/op
-├─chacha x 489 ops/sec @ 2ms/op
-├─xsalsa x 480 ops/sec @ 2ms/op
-└─xchacha x 487 ops/sec @ 2ms/op
+├─salsa x 479 ops/sec @ 2ms/op
+├─chacha x 491 ops/sec @ 2ms/op
+├─xsalsa x 483 ops/sec @ 2ms/op
+└─xchacha x 492 ops/sec @ 2ms/op
 
 AES
 encrypt (64B)
