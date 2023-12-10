@@ -6,6 +6,7 @@ function bool(b: boolean) {
   if (typeof b !== 'boolean') throw new Error(`boolean expected, not ${b}`);
 }
 
+// TODO: merge with utils
 function isBytes(a: unknown): a is Uint8Array {
   return (
     a != null &&
