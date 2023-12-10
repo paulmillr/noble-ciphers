@@ -11,8 +11,12 @@ export const u16 = (arr: TypedArray) =>
 export const u32 = (arr: TypedArray) =>
   new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
 
-function isBytes(a: any): a is Uint8Array {
-  return a instanceof Uint8Array || a.constructor.name === 'Uint8Array';
+function isBytes(a: unknown): a is Uint8Array {
+  return (
+    a != null &&
+    typeof a === 'object' &&
+    (a instanceof Uint8Array || a.constructor.name === 'Uint8Array')
+  );
 }
 
 // Cast array to view
@@ -169,7 +173,7 @@ export function checkOpts<T1 extends EmptyObj, T2 extends EmptyObj>(
 }
 
 export function ensureBytes(b: any, len?: number) {
-  if (!(b instanceof Uint8Array)) throw new Error('Uint8Array expected');
+  if (!isBytes(b)) throw new Error('Uint8Array expected');
   if (typeof len === 'number')
     if (b.length !== len) throw new Error(`Uint8Array length ${len} expected`);
 }
