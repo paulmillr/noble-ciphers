@@ -27,7 +27,7 @@ function getCryptParams(
   algo: BlockMode,
   nonce: Uint8Array,
   AAD?: Uint8Array
-): AesCbcParams | AesCtrParams | AesGcmParams {
+) {
   if (algo === BlockMode.CBC) return { name: BlockMode.CBC, iv: nonce };
   if (algo === BlockMode.CTR) return { name: BlockMode.CTR, counter: nonce, length: 64 };
   if (algo === BlockMode.GCM) return { name: BlockMode.GCM, iv: nonce, additionalData: AAD };
