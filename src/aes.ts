@@ -1,6 +1,7 @@
-import { wrapCipher, Cipher, CipherWithOutput, equalBytes, u32, u8, ensureBytes } from './utils.js';
+import { wrapCipher, Cipher, CipherWithOutput, equalBytes, u32, u8 } from './utils.js';
 import { createView, setBigUint64 } from './utils.js';
 import { ghash, polyval } from './_polyval.js';
+import { bytes as abytes } from './_assert.js';
 
 // AES (Advanced Encryption Standard) aka Rijndael block cipher.
 //
@@ -95,7 +96,7 @@ const POWX = /* @__PURE__ */ (() => {
 })();
 
 export function expandKeyLE(key: Uint8Array): Uint32Array {
-  ensureBytes(key);
+  abytes(key);
   const len = key.length;
   if (![16, 24, 32].includes(len))
     throw new Error(`aes: wrong key size: should be 16, 24 or 32, got: ${len}`);
@@ -199,7 +200,7 @@ function decrypt(xk: Uint32Array, s0: number, s1: number, s2: number, s3: number
 
 function getDst(len: number, dst?: Uint8Array) {
   if (!dst) return new Uint8Array(len);
-  ensureBytes(dst);
+  abytes(dst);
   if (dst.length < len)
     throw new Error(`aes: wrong destination length, expected at least ${len}, got: ${dst.length}`);
   return dst;
@@ -207,8 +208,8 @@ function getDst(len: number, dst?: Uint8Array) {
 
 // TODO: investigate merging with ctr32
 function ctrCounter(xk: Uint32Array, nonce: Uint8Array, src: Uint8Array, dst?: Uint8Array) {
-  ensureBytes(nonce, BLOCK_SIZE);
-  ensureBytes(src);
+  abytes(nonce, BLOCK_SIZE);
+  abytes(src);
   const srcLen = src.length;
   dst = getDst(srcLen, dst);
   const ctr = nonce;
@@ -253,8 +254,8 @@ function ctr32(
   src: Uint8Array,
   dst?: Uint8Array
 ) {
-  ensureBytes(nonce, BLOCK_SIZE);
-  ensureBytes(src);
+  abytes(nonce, BLOCK_SIZE);
+  abytes(src);
   dst = getDst(src.length, dst);
   const ctr = nonce; // write new value to nonce, so it can be re-used
   const c32 = u32(ctr);
@@ -293,8 +294,8 @@ function ctr32(
 export const ctr = wrapCipher(
   { blockSize: 16, nonceLength: 16 },
   function ctr(key: Uint8Array, nonce: Uint8Array): CipherWithOutput {
-    ensureBytes(key);
-    ensureBytes(nonce, BLOCK_SIZE);
+    abytes(key);
+    abytes(nonce, BLOCK_SIZE);
     function processCtr(buf: Uint8Array, dst?: Uint8Array) {
       const xk = expandKeyLE(key);
       const n = nonce.slice();
@@ -311,7 +312,7 @@ export const ctr = wrapCipher(
 );
 
 function validateBlockDecrypt(data: Uint8Array) {
-  ensureBytes(data);
+  abytes(data);
   if (data.length % BLOCK_SIZE !== 0) {
     throw new Error(
       `aes/(cbc-ecb).decrypt ciphertext should consist of blocks with size ${BLOCK_SIZE}`
@@ -365,11 +366,11 @@ export type BlockOpts = { disablePadding?: boolean };
 export const ecb = wrapCipher(
   { blockSize: 16 },
   function ecb(key: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
-    ensureBytes(key);
+    abytes(key);
     const pcks5 = !opts.disablePadding;
     return {
       encrypt: (plaintext: Uint8Array, dst?: Uint8Array) => {
-        ensureBytes(plaintext);
+        abytes(plaintext);
         const { b, o, out: _out } = validateBlockEncrypt(plaintext, pcks5, dst);
         const xk = expandKeyLE(key);
         let i = 0;
@@ -409,8 +410,8 @@ export const ecb = wrapCipher(
 export const cbc = wrapCipher(
   { blockSize: 16, nonceLength: 16 },
   function cbc(key: Uint8Array, iv: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
-    ensureBytes(key);
-    ensureBytes(iv, 16);
+    abytes(key);
+    abytes(iv, 16);
     const pcks5 = !opts.disablePadding;
     return {
       encrypt: (plaintext: Uint8Array, dst?: Uint8Array) => {
@@ -484,7 +485,7 @@ function computeTag(
 export const gcm = wrapCipher(
   { blockSize: 16, nonceLength: 12, tagLength: 16 },
   function gcm(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
-    ensureBytes(nonce);
+    abytes(nonce);
     // Nonce can be pretty much anything (even 1 byte). But smaller nonces less secure.
     if (nonce.length === 0) throw new Error('aes/gcm: empty nonce');
     const tagLength = 16;
@@ -514,7 +515,7 @@ export const gcm = wrapCipher(
     }
     return {
       encrypt: (plaintext: Uint8Array) => {
-        ensureBytes(plaintext);
+        abytes(plaintext);
         const { xk, authKey, counter, tagMask } = deriveKeys();
         const out = new Uint8Array(plaintext.length + tagLength);
         ctr32(xk, false, counter, plaintext, out);
@@ -524,7 +525,7 @@ export const gcm = wrapCipher(
         return out;
       },
       decrypt: (ciphertext: Uint8Array) => {
-        ensureBytes(ciphertext);
+        abytes(ciphertext);
         if (ciphertext.length < tagLength)
           throw new Error(`aes/gcm: ciphertext less than tagLen (${tagLength})`);
         const { xk, authKey, counter, tagMask } = deriveKeys();
@@ -562,10 +563,10 @@ export const siv = wrapCipher(
     const PLAIN_LIMIT = limit('plaintext', 0, 2 ** 36);
     const NONCE_LIMIT = limit('nonce', 12, 12);
     const CIPHER_LIMIT = limit('ciphertext', 16, 2 ** 36 + 16);
-    ensureBytes(nonce);
+    abytes(nonce);
     NONCE_LIMIT(nonce.length);
     if (AAD) {
-      ensureBytes(AAD);
+      abytes(AAD);
       AAD_LIMIT(AAD.length);
     }
     function deriveKeys() {
@@ -615,7 +616,7 @@ export const siv = wrapCipher(
     }
     return {
       encrypt: (plaintext: Uint8Array) => {
-        ensureBytes(plaintext);
+        abytes(plaintext);
         PLAIN_LIMIT(plaintext.length);
         const { encKey, authKey } = deriveKeys();
         const tag = _computeTag(encKey, authKey, plaintext);
@@ -627,7 +628,7 @@ export const siv = wrapCipher(
         return out;
       },
       decrypt: (ciphertext: Uint8Array) => {
-        ensureBytes(ciphertext);
+        abytes(ciphertext);
         CIPHER_LIMIT(ciphertext.length);
         const tag = ciphertext.subarray(-tagLength);
         const { encKey, authKey } = deriveKeys();
@@ -651,7 +652,7 @@ function isBytes32(a: unknown): a is Uint8Array {
 }
 
 function encryptBlock(xk: Uint32Array, block: Uint8Array) {
-  ensureBytes(block, 16);
+  abytes(block, 16);
   if (!isBytes32(xk)) throw new Error('_encryptBlock accepts result of expandKeyLE');
   const b32 = u32(block);
   let { s0, s1, s2, s3 } = encrypt(xk, b32[0], b32[1], b32[2], b32[3]);
@@ -660,7 +661,7 @@ function encryptBlock(xk: Uint32Array, block: Uint8Array) {
 }
 
 function decryptBlock(xk: Uint32Array, block: Uint8Array) {
-  ensureBytes(block, 16);
+  abytes(block, 16);
   if (!isBytes32(xk)) throw new Error('_decryptBlock accepts result of expandKeyLE');
   const b32 = u32(block);
   let { s0, s1, s2, s3 } = decrypt(xk, b32[0], b32[1], b32[2], b32[3]);

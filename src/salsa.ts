@@ -1,6 +1,7 @@
-import { wrapCipher, Cipher, ensureBytes, equalBytes } from './utils.js';
+import { wrapCipher, Cipher, equalBytes } from './utils.js';
 import { poly1305 } from './_poly1305.js';
 import { createCipher, rotl } from './_arx.js';
+import { bytes as abytes } from './_assert.js';
 
 // Salsa20 stream cipher was released in 2005.
 // Salsa's goal was to implement AES replacement that does not rely on S-Boxes,
@@ -120,16 +121,16 @@ export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
   (key: Uint8Array, nonce: Uint8Array): Cipher => {
     const tagLength = 16;
-    ensureBytes(key, 32);
-    ensureBytes(nonce, 24);
+    abytes(key, 32);
+    abytes(nonce, 24);
     return {
       encrypt: (plaintext: Uint8Array, output?: Uint8Array) => {
-        ensureBytes(plaintext);
+        abytes(plaintext);
         // This is small optimization (calculate auth key with same call as encryption itself) makes it hard
         // to separate tag calculation and encryption itself, since 32 byte is half-block of salsa (64 byte)
         const clength = plaintext.length + 32;
         if (output) {
-          ensureBytes(output, clength);
+          abytes(output, clength);
         } else {
           output = new Uint8Array(clength);
         }
@@ -143,7 +144,7 @@ export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(
         return output.subarray(tagLength);
       },
       decrypt: (ciphertext: Uint8Array) => {
-        ensureBytes(ciphertext);
+        abytes(ciphertext);
         const clength = ciphertext.length;
         if (clength < tagLength) throw new Error('encrypted data should be at least 16 bytes');
         // Create new ciphertext array:

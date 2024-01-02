@@ -3,12 +3,12 @@ import {
   CipherWithOutput,
   XorStream,
   createView,
-  ensureBytes,
   equalBytes,
   setBigUint64,
 } from './utils.js';
 import { poly1305 } from './_poly1305.js';
 import { createCipher, rotl } from './_arx.js';
+import { bytes as abytes } from './_assert.js';
 
 // ChaCha20 stream cipher was released in 2008. ChaCha aims to increase
 // the diffusion per round, but had slightly less cryptanalysis.
@@ -234,14 +234,14 @@ export const _poly1305_aead =
   (xorStream: XorStream) =>
   (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): CipherWithOutput => {
     const tagLength = 16;
-    ensureBytes(key, 32);
-    ensureBytes(nonce);
+    abytes(key, 32);
+    abytes(nonce);
     return {
       encrypt: (plaintext: Uint8Array, output?: Uint8Array) => {
         const plength = plaintext.length;
         const clength = plength + tagLength;
         if (output) {
-          ensureBytes(output, clength);
+          abytes(output, clength);
         } else {
           output = new Uint8Array(clength);
         }
@@ -256,7 +256,7 @@ export const _poly1305_aead =
         if (clength < tagLength)
           throw new Error(`encrypted data must be at least ${tagLength} bytes`);
         if (output) {
-          ensureBytes(output, plength);
+          abytes(output, plength);
         } else {
           output = new Uint8Array(plength);
         }

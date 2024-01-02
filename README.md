@@ -76,7 +76,7 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 ```js
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 import { utf8ToBytes } from '@noble/ciphers/utils';
-import { randomBytes } from '@noble/ciphers/webcrypto/utils';
+import { randomBytes } from '@noble/ciphers/webcrypto';
 const key = randomBytes(32);
 const nonce = randomBytes(24);
 const chacha = xchacha20poly1305(key, nonce);
@@ -90,7 +90,7 @@ const data_ = chacha.decrypt(ciphertext); // utils.bytesToUtf8(data_) === data
 ```js
 import { gcm } from '@noble/ciphers/aes';
 import { utf8ToBytes } from '@noble/ciphers/utils';
-import { randomBytes } from '@noble/ciphers/webcrypto/utils';
+import { randomBytes } from '@noble/ciphers/webcrypto';
 const key = randomBytes(32);
 const nonce = randomBytes(24);
 const aes = gcm(key, nonce);
@@ -124,7 +124,7 @@ const nonce2 = hexToBytes('9610467513de0bbd7c4cc2c3c64069f1802086fbd3232b13');
 
 ```js
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
-import { managedNonce } from '@noble/ciphers/webcrypto/utils'
+import { managedNonce } from '@noble/ciphers/webcrypto'
 import { hexToBytes, utf8ToBytes } from '@noble/ciphers/utils';
 const key = hexToBytes('fa686bfdffd3758f6377abbc23bf3d9bdc1a0dda4a6e7f8dbdd579fa1ff6d7e1');
 const chacha = managedNonce(xchacha20poly1305)(key); // manages nonces for you
@@ -138,7 +138,7 @@ const data_ = chacha.decrypt(ciphertext);
 ```js
 import { chacha20poly1305 } from '@noble/ciphers/chacha';
 import { utf8ToBytes } from '@noble/ciphers/utils';
-import { randomBytes } from '@noble/ciphers/webcrypto/utils';
+import { randomBytes } from '@noble/ciphers/webcrypto';
 
 const key = randomBytes(32);
 const nonce = randomBytes(12);
@@ -166,7 +166,7 @@ import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha';
 
 // Utilities
 import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils';
-import { managedNonce, randomBytes } from '@noble/ciphers/webcrypto/utils';
+import { managedNonce, randomBytes } from '@noble/ciphers/webcrypto';
 ```
 
 ## Implementations
@@ -217,7 +217,7 @@ Check out [PDF](http://cr.yp.to/chacha/chacha-20080128.pdf) and [wiki](https://e
 
 ```js
 import { gcm, siv, ctr, cbc, ecb } from '@noble/ciphers/aes';
-import { randomBytes } from '@noble/ciphers/webcrypto/utils';
+import { randomBytes } from '@noble/ciphers/webcrypto';
 const plaintext = new Uint8Array(32).fill(16);
 const key = randomBytes(32); // 24 for AES-192, 16 for AES-128
 for (let cipher of [gcm, siv]) {
@@ -254,8 +254,7 @@ Check out [AES internals and block modes](#aes-internals-and-block-modes).
 ### Webcrypto AES
 
 ```js
-import { gcm, ctr, cbc } from '@noble/ciphers/webcrypto/aes';
-import { randomBytes } from '@noble/ciphers/webcrypto/utils';
+import { gcm, ctr, cbc, randomBytes } from '@noble/ciphers/webcrypto';
 const plaintext = new Uint8Array(32).fill(16);
 const key = randomBytes(32);
 for (const cipher of [gcm]) {
@@ -310,7 +309,7 @@ Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publi
 ### Managed nonces
 
 ```js
-import { managedNonce } from '@noble/ciphers/webcrypto/utils';
+import { managedNonce } from '@noble/ciphers/webcrypto';
 import { gcm, siv, ctr, cbc, ecb } from '@noble/ciphers/aes';
 import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
 import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
@@ -620,7 +619,7 @@ console.log(aes.utils.bytesToUtf8(plaintext) === message);
 
 import { gcm } from '@noble/ciphers/aes';
 import { bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils';
-import { managedNonce } from '@noble/ciphers/webcrypto/utils';
+import { managedNonce } from '@noble/ciphers/webcrypto';
 const aes = managedNonce(gcm)(key);
 const ciphertext = aes.encrypt(utf8ToBytes(message));
 const plaintext = aes.decrypt(key, ciphertext);

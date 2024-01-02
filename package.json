@@ -5,7 +5,6 @@
   "files": [
     "esm",
     "src",
-    "webcrypto",
     "*.js",
     "*.js.map",
     "*.d.ts",
@@ -17,7 +16,7 @@
     "bench:install": "cd benchmark && npm install && cd ../../",
     "build": "npm run build:clean; tsc && tsc -p tsconfig.esm.json",
     "build:release": "cd build; npm i; npm run build",
-    "build:clean": "rm *.{js,d.ts,js.map,d.ts.map} esm/*.{js,d.ts,js.map,d.ts.map} 2> /dev/null; rm -r webcrypto esm/webcrypto 2> /dev/null",
+    "build:clean": "rm *.{js,d.ts,js.map,d.ts.map} esm/*.{js,d.ts,js.map,d.ts.map} 2> /dev/null",
     "lint": "prettier --check 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
     "format": "prettier --write 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
     "test": "node test/index.js"
@@ -44,15 +43,6 @@
       "import": "./esm/index.js",
       "default": "./index.js"
     },
-    "./webcrypto/crypto": {
-      "types": "./webcrypto/crypto.d.ts",
-      "node": {
-        "import": "./esm/webcrypto/cryptoNode.js",
-        "default": "./webcrypto/cryptoNode.js"
-      },
-      "import": "./esm/webcrypto/crypto.js",
-      "default": "./webcrypto/crypto.js"
-    },
     "./_micro": {
       "types": "./_micro.d.ts",
       "import": "./esm/_micro.js",
@@ -67,6 +57,15 @@
       "types": "./_polyval.d.ts",
       "import": "./esm/_polyval.js",
       "default": "./_polyval.js"
+    },
+    "./crypto": {
+      "types": "./crypto.d.ts",
+      "node": {
+        "import": "./esm/cryptoNode.js",
+        "default": "./cryptoNode.js"
+      },
+      "import": "./esm/crypto.js",
+      "default": "./crypto.js"
     },
     "./aes": {
       "types": "./aes.d.ts",
@@ -98,20 +97,15 @@
       "import": "./esm/index.js",
       "default": "./index.js"
     },
-    "./webcrypto/aes": {
-      "types": "./webcrypto/aes.d.ts",
-      "import": "./esm/webcrypto/aes.js",
-      "default": "./webcrypto/aes.js"
-    },
-    "./webcrypto/utils": {
-      "types": "./webcrypto/utils.d.ts",
-      "import": "./esm/webcrypto/utils.js",
-      "default": "./webcrypto/utils.js"
+    "./webcrypto": {
+      "types": "./webcrypto.d.ts",
+      "import": "./esm/webcrypto.js",
+      "default": "./webcrypto.js"
     }
   },
   "browser": {
     "node:crypto": false,
-    "./webcrypto/crypto": "./webcrypto/crypto.js"
+    "./crypto": "./crypto.js"
   },
   "keywords": [
     "salsa20",

@@ -17,6 +17,11 @@ function isBytes(a: unknown): a is Uint8Array {
     (a != null && typeof a === 'object' && a.constructor.name === 'Uint8Array')
   );
 }
+function abytes(b: Uint8Array | undefined, ...lengths: number[]) {
+  if (!isBytes(b)) throw new Error('Uint8Array expected');
+  if (lengths.length > 0 && !lengths.includes(b.length))
+    throw new Error(`Uint8Array expected of length ${lengths}, not of length=${b.length}`);
+}
 
 // Cast array to view
 export const createView = (arr: TypedArray) =>
@@ -35,7 +40,7 @@ const hexes = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) =>
  * @example bytesToHex(Uint8Array.from([0xca, 0xfe, 0x01, 0x23])) // 'cafe0123'
  */
 export function bytesToHex(bytes: Uint8Array): string {
-  if (!isBytes(bytes)) throw new Error('Uint8Array expected');
+  abytes(bytes);
   // pre-caching improves the speed 6x
   let hex = '';
   for (let i = 0; i < bytes.length; i++) {
@@ -144,7 +149,7 @@ export function concatBytes(...arrays: Uint8Array[]): Uint8Array {
   let sum = 0;
   for (let i = 0; i < arrays.length; i++) {
     const a = arrays[i];
-    if (!isBytes(a)) throw new Error('Uint8Array expected');
+    abytes(a);
     sum += a.length;
   }
   const res = new Uint8Array(sum);
@@ -169,12 +174,6 @@ export function checkOpts<T1 extends EmptyObj, T2 extends EmptyObj>(
     throw new Error('options must be object or undefined');
   const merged = Object.assign(defaults, opts);
   return merged as T1 & T2;
-}
-
-export function ensureBytes(b: any, len?: number) {
-  if (!isBytes(b)) throw new Error('Uint8Array expected');
-  if (typeof len === 'number')
-    if (b.length !== len) throw new Error(`Uint8Array length ${len} expected`);
 }
 
 // Compares 2 u8a-s in kinda constant time

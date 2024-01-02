@@ -1,7 +1,7 @@
 const { deepStrictEqual } = require('assert');
 const { should, describe } = require('micro-should');
 const { hex } = require('@scure/base');
-const { managedNonce, randomBytes } = require('../webcrypto/utils.js');
+const { managedNonce, randomBytes } = require('../webcrypto.js');
 
 const { siv, gcm, ctr, ecb, cbc } = require('../aes.js');
 const { xsalsa20poly1305 } = require('../salsa.js');

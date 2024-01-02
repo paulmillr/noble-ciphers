@@ -1,7 +1,7 @@
 import { utils as butils } from 'micro-bmark';
 import { createCipheriv, createDecipheriv } from 'node:crypto';
 
-import * as webcrypto from '@noble/ciphers/webcrypto/aes';
+import * as webcrypto from '@noble/ciphers/webcrypto';
 import { concatBytes } from '@noble/ciphers/utils';
 import * as aes from '@noble/ciphers/aes';
 import {

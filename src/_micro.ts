@@ -7,9 +7,10 @@
 // prettier-ignore
 import {
   Cipher, XorStream, createView, setBigUint64, wrapCipher,
-  bytesToHex, concatBytes, ensureBytes, equalBytes, hexToNumber, numberToBytesBE,
+  bytesToHex, concatBytes, equalBytes, hexToNumber, numberToBytesBE,
 } from './utils.js';
 import { createCipher, rotl } from './_arx.js';
+import { bytes as abytes } from './_assert.js';
 
 function bytesToNumberLE(bytes: Uint8Array): bigint {
   return hexToNumber(bytesToHex(Uint8Array.from(bytes).reverse()));
@@ -195,8 +196,8 @@ const _0 = BigInt(0);
 const _1 = BigInt(1);
 // Can be speed-up using BigUint64Array, but would be more complicated
 export function poly1305(msg: Uint8Array, key: Uint8Array): Uint8Array {
-  ensureBytes(msg);
-  ensureBytes(key);
+  abytes(msg);
+  abytes(key);
   let acc = _0;
   const r = bytesToNumberLE(key.subarray(0, 16)) & CLAMP_R;
   const s = bytesToNumberLE(key.subarray(16));
@@ -242,11 +243,11 @@ function computeTag(
 export const xsalsa20poly1305 = wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
   function xsalsa20poly1305(key: Uint8Array, nonce: Uint8Array) {
-    ensureBytes(key);
-    ensureBytes(nonce);
+    abytes(key);
+    abytes(nonce);
     return {
       encrypt: (plaintext: Uint8Array) => {
-        ensureBytes(plaintext);
+        abytes(plaintext);
         const m = concatBytes(new Uint8Array(32), plaintext);
         const c = xsalsa20(key, nonce, m);
         const authKey = c.subarray(0, 32);
@@ -255,7 +256,7 @@ export const xsalsa20poly1305 = wrapCipher(
         return concatBytes(tag, data);
       },
       decrypt: (ciphertext: Uint8Array) => {
-        ensureBytes(ciphertext);
+        abytes(ciphertext);
         if (ciphertext.length < 16) throw new Error('encrypted data must be at least 16 bytes');
         const c = concatBytes(new Uint8Array(16), ciphertext);
         const authKey = xsalsa20(key, nonce, new Uint8Array(32));
@@ -280,17 +281,17 @@ export const _poly1305_aead =
   (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher => {
     const tagLength = 16;
     const keyLength = 32;
-    ensureBytes(key, keyLength);
-    ensureBytes(nonce);
+    abytes(key, keyLength);
+    abytes(nonce);
     return {
       encrypt: (plaintext: Uint8Array) => {
-        ensureBytes(plaintext);
+        abytes(plaintext);
         const res = fn(key, nonce, plaintext, undefined, 1);
         const tag = computeTag(fn, key, nonce, res, AAD);
         return concatBytes(res, tag);
       },
       decrypt: (ciphertext: Uint8Array) => {
-        ensureBytes(ciphertext);
+        abytes(ciphertext);
         if (ciphertext.length < tagLength)
           throw new Error(`encrypted data must be at least ${tagLength} bytes`);
         const passedTag = ciphertext.subarray(-tagLength);

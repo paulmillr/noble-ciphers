@@ -1,5 +1,5 @@
-import { createView, toBytes, Input, Hash, u32, ensureBytes } from './utils.js';
-import { exists as aexists, output as aoutput } from './_assert.js';
+import { createView, toBytes, Input, Hash, u32 } from './utils.js';
+import { bytes as abytes, exists as aexists, output as aoutput } from './_assert.js';
 
 // GHash from AES-GCM and its little-endian "mirror image" Polyval from AES-SIV.
 // Implemented in terms of GHash with conversion function for keys
@@ -76,7 +76,7 @@ class GHASH implements Hash<GHASH> {
   // We select bits per window adaptively based on expectedLength
   constructor(key: Input, expectedLength?: number) {
     key = toBytes(key);
-    ensureBytes(key, 16);
+    abytes(key, 16);
     const kView = createView(key);
     let k0 = kView.getUint32(0, false);
     let k1 = kView.getUint32(4, false);
