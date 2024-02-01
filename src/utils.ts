@@ -162,15 +162,29 @@ export function concatBytes(...arrays: Uint8Array[]): Uint8Array {
 }
 
 // Check if object doens't have custom constructor (like Uint8Array/Array)
-const isPlainObject = (obj: any) =>
-  Object.prototype.toString.call(obj) === '[object Object]' && obj.constructor === Object;
+//
+// Copied from https://www.npmjs.com/package/is-plain-obj v4.1.0, MIT
+function isPlainObject(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+  return (
+    (prototype === null ||
+      prototype === Object.prototype ||
+      Object.getPrototypeOf(prototype) === null) &&
+    !(Symbol.toStringTag in value) &&
+    !(Symbol.iterator in value)
+  );
+}
 
 type EmptyObj = {};
 export function checkOpts<T1 extends EmptyObj, T2 extends EmptyObj>(
   defaults: T1,
   opts?: T2
 ): T1 & T2 {
-  if (opts !== undefined && (typeof opts !== 'object' || !isPlainObject(opts)))
+  if (opts !== undefined && !isPlainObject(opts))
     throw new Error('options must be object or undefined');
   const merged = Object.assign(defaults, opts);
   return merged as T1 & T2;
