@@ -28,6 +28,7 @@
     "url": "git+https://github.com/paulmillr/noble-ciphers.git"
   },
   "license": "MIT",
+  "sideEffects": false,
   "devDependencies": {
     "@scure/base": "1.1.3",
     "fast-check": "3.0.0",

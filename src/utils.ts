@@ -1,5 +1,5 @@
 /*! noble-ciphers - MIT License (c) 2023 Paul Miller (paulmillr.com) */
-
+import { bytes as abytes, isBytes } from './_assert';
 // prettier-ignore
 export type TypedArray = Int8Array | Uint8ClampedArray | Uint8Array |
   Uint16Array | Int16Array | Uint32Array | Int32Array;
@@ -10,18 +10,6 @@ export const u16 = (arr: TypedArray) =>
   new Uint16Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 2));
 export const u32 = (arr: TypedArray) =>
   new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
-
-function isBytes(a: unknown): a is Uint8Array {
-  return (
-    a instanceof Uint8Array ||
-    (a != null && typeof a === 'object' && a.constructor.name === 'Uint8Array')
-  );
-}
-function abytes(b: Uint8Array | undefined, ...lengths: number[]) {
-  if (!isBytes(b)) throw new Error('Uint8Array expected');
-  if (lengths.length > 0 && !lengths.includes(b.length))
-    throw new Error(`Uint8Array expected of length ${lengths}, not of length=${b.length}`);
-}
 
 // Cast array to view
 export const createView = (arr: TypedArray) =>
@@ -121,10 +109,13 @@ declare const TextDecoder: any;
  * @example utf8ToBytes('abc') // new Uint8Array([97, 98, 99])
  */
 export function utf8ToBytes(str: string): Uint8Array {
-  if (typeof str !== 'string') throw new Error(`utf8ToBytes expected string, got ${typeof str}`);
+  if (typeof str !== 'string') throw new Error(`string expected, got ${typeof str}`);
   return new Uint8Array(new TextEncoder().encode(str)); // https://bugzil.la/1681809
 }
 
+/**
+ * @example bytesToUtf8(new Uint8Array([97, 98, 99])) // 'abc'
+ */
 export function bytesToUtf8(bytes: Uint8Array): string {
   return new TextDecoder().decode(bytes);
 }
@@ -138,7 +129,7 @@ export type Input = Uint8Array | string;
 export function toBytes(data: Input): Uint8Array {
   if (typeof data === 'string') data = utf8ToBytes(data);
   else if (isBytes(data)) data = data.slice();
-  else throw new Error(`expected Uint8Array, got ${typeof data}`);
+  else throw new Error(`Uint8Array expected, got ${typeof data}`);
   return data;
 }
 
@@ -221,6 +212,9 @@ export type CipherWithOutput = Cipher & {
 // If function support multiple nonceLength's, we return best one
 export type CipherParams = { blockSize: number; nonceLength?: number; tagLength?: number };
 export type CipherCons<T extends any[]> = (key: Uint8Array, ...args: T) => Cipher;
+/**
+ * @__NO_SIDE_EFFECTS__
+ */
 export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
   params: P,
   c: C

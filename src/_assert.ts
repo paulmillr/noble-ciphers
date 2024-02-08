@@ -1,17 +1,15 @@
 function number(n: number) {
-  if (!Number.isSafeInteger(n) || n < 0) throw new Error(`wrong positive integer: ${n}`);
+  if (!Number.isSafeInteger(n) || n < 0) throw new Error(`positive integer expected, not ${n}`);
 }
 
 function bool(b: boolean) {
   if (typeof b !== 'boolean') throw new Error(`boolean expected, not ${b}`);
 }
 
-// TODO: merge with utils
-function isBytes(a: unknown): a is Uint8Array {
+export function isBytes(a: unknown): a is Uint8Array {
   return (
-    a != null &&
-    typeof a === 'object' &&
-    (a instanceof Uint8Array || a.constructor.name === 'Uint8Array')
+    a instanceof Uint8Array ||
+    (a != null && typeof a === 'object' && a.constructor.name === 'Uint8Array')
   );
 }
 
@@ -38,6 +36,7 @@ function exists(instance: any, checkFinished = true) {
   if (instance.destroyed) throw new Error('Hash instance has been destroyed');
   if (checkFinished && instance.finished) throw new Error('Hash#digest() has already been called');
 }
+
 function output(out: any, instance: any) {
   bytes(out);
   const min = instance.outputLen;

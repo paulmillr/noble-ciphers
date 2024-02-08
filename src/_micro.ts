@@ -1,9 +1,4 @@
 /*! noble-ciphers - MIT License (c) 2023 Paul Miller (paulmillr.com) */
-
-// micro-noble-ciphers: more auditable, but slower version of salsa20, chacha & poly1305.
-// Implements the same algorithms that are present in other files,
-// but without unrolled loops (https://en.wikipedia.org/wiki/Loop_unrolling).
-
 // prettier-ignore
 import {
   Cipher, XorStream, createView, setBigUint64, wrapCipher,
@@ -11,6 +6,12 @@ import {
 } from './utils.js';
 import { createCipher, rotl } from './_arx.js';
 import { bytes as abytes } from './_assert.js';
+
+/*
+noble-ciphers-micro: more auditable, but slower version of salsa20, chacha & poly1305.
+Implements the same algorithms that are present in other files, but without
+unrolled loops (https://en.wikipedia.org/wiki/Loop_unrolling).
+*/
 
 function bytesToNumberLE(bytes: Uint8Array): bigint {
   return hexToNumber(bytesToHex(Uint8Array.from(bytes).reverse()));
@@ -135,12 +136,15 @@ export function hchacha(s: Uint32Array, k: Uint32Array, i: Uint32Array, o32: Uin
 /**
  * salsa20, 12-byte nonce.
  */
-export const salsa20 = createCipher(salsaCore, { allowShortKeys: true, counterRight: true });
+export const salsa20 = /* @__PURE__ */ createCipher(salsaCore, {
+  allowShortKeys: true,
+  counterRight: true,
+});
 
 /**
  * xsalsa20, 24-byte nonce.
  */
-export const xsalsa20 = createCipher(salsaCore, {
+export const xsalsa20 = /* @__PURE__ */ createCipher(salsaCore, {
   counterRight: true,
   extendNonceFn: hsalsa,
 });
@@ -148,7 +152,7 @@ export const xsalsa20 = createCipher(salsaCore, {
 /**
  * chacha20 non-RFC, original version by djb. 8-byte nonce, 8-byte counter.
  */
-export const chacha20orig = createCipher(chachaCore, {
+export const chacha20orig = /* @__PURE__ */ createCipher(chachaCore, {
   allowShortKeys: true,
   counterRight: false,
   counterLength: 8,
@@ -157,7 +161,7 @@ export const chacha20orig = createCipher(chachaCore, {
 /**
  * chacha20 RFC 8439 (IETF / TLS). 12-byte nonce, 4-byte counter.
  */
-export const chacha20 = createCipher(chachaCore, {
+export const chacha20 = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 4,
 });
@@ -165,7 +169,7 @@ export const chacha20 = createCipher(chachaCore, {
 /**
  * xchacha20 eXtended-nonce. https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha
  */
-export const xchacha20 = createCipher(chachaCore, {
+export const xchacha20 = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 8,
   extendNonceFn: hchacha,
@@ -174,7 +178,7 @@ export const xchacha20 = createCipher(chachaCore, {
 /**
  * 8-round chacha from the original paper.
  */
-export const chacha8 = createCipher(chachaCore, {
+export const chacha8 = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 4,
   rounds: 8,
@@ -183,7 +187,7 @@ export const chacha8 = createCipher(chachaCore, {
 /**
  * 12-round chacha from the original paper.
  */
-export const chacha12 = createCipher(chachaCore, {
+export const chacha12 = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 4,
   rounds: 12,
@@ -240,7 +244,7 @@ function computeTag(
 /**
  * xsalsa20-poly1305 eXtended-nonce (24 bytes) salsa.
  */
-export const xsalsa20poly1305 = wrapCipher(
+export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
   function xsalsa20poly1305(key: Uint8Array, nonce: Uint8Array) {
     abytes(key);
@@ -306,7 +310,7 @@ export const _poly1305_aead =
 /**
  * chacha20-poly1305 12-byte-nonce chacha.
  */
-export const chacha20poly1305 = wrapCipher(
+export const chacha20poly1305 = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 12, tagLength: 16 },
   _poly1305_aead(chacha20)
 );
@@ -315,7 +319,7 @@ export const chacha20poly1305 = wrapCipher(
  * xchacha20-poly1305 eXtended-nonce (24 bytes) chacha.
  * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
  */
-export const xchacha20poly1305 = wrapCipher(
+export const xchacha20poly1305 = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
   _poly1305_aead(xchacha20)
 );

@@ -1,7 +1,7 @@
-import { wrapCipher, Cipher, equalBytes } from './utils.js';
-import { poly1305 } from './_poly1305.js';
-import { createCipher, rotl } from './_arx.js';
 import { bytes as abytes } from './_assert.js';
+import { createCipher, rotl } from './_arx.js';
+import { poly1305 } from './_poly1305.js';
+import { wrapCipher, Cipher, equalBytes } from './utils.js';
 
 // Salsa20 stream cipher was released in 2005.
 // Salsa's goal was to implement AES replacement that does not rely on S-Boxes,

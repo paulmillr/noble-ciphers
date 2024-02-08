@@ -1,10 +1,6 @@
+// prettier-ignore
 import {
-  wrapCipher,
-  CipherWithOutput,
-  XorStream,
-  createView,
-  equalBytes,
-  setBigUint64,
+  wrapCipher, CipherWithOutput, XorStream, createView, equalBytes, setBigUint64,
 } from './utils.js';
 import { poly1305 } from './_poly1305.js';
 import { createCipher, rotl } from './_arx.js';

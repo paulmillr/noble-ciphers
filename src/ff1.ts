@@ -1,6 +1,6 @@
 import { Cipher, bytesToNumberBE, numberToBytesBE } from './utils.js';
 import { unsafe } from './aes.js';
-// NOTE: no point in inlining encrypt instead encryptBlock, since BigInt stuff will be slow
+// NOTE: no point in inlining encrypt instead of encryptBlock, since BigInt stuff will be slow
 const { expandKeyLE, encryptBlock } = unsafe;
 
 // Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publication 800-38G.

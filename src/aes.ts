@@ -1,19 +1,24 @@
-import { wrapCipher, Cipher, CipherWithOutput, equalBytes, u32, u8 } from './utils.js';
-import { createView, setBigUint64 } from './utils.js';
+// prettier-ignore
+import {
+  wrapCipher, Cipher, CipherWithOutput,
+  createView, setBigUint64, equalBytes, u32, u8,
+} from './utils.js';
 import { ghash, polyval } from './_polyval.js';
 import { bytes as abytes } from './_assert.js';
 
-// AES (Advanced Encryption Standard) aka Rijndael block cipher.
-//
-// Data is split into 128-bit blocks. Encrypted in 10/12/14 rounds (128/192/256bit). Every round:
-// 1. **S-box**, table substitution
-// 2. **Shift rows**, cyclic shift left of all rows of data array
-// 3. **Mix columns**, multiplying every column by fixed polynomial
-// 4. **Add round key**, round_key xor i-th column of array
-//
-// Resources:
-// - FIPS-197 https://csrc.nist.gov/files/pubs/fips/197/final/docs/fips-197.pdf
-// - Original proposal: https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf
+/*
+AES (Advanced Encryption Standard) aka Rijndael block cipher.
+
+Data is split into 128-bit blocks. Encrypted in 10/12/14 rounds (128/192/256 bits). In every round:
+1. **S-box**, table substitution
+2. **Shift rows**, cyclic shift left of all rows of data array
+3. **Mix columns**, multiplying every column by fixed polynomial
+4. **Add round key**, round_key xor i-th column of array
+
+Resources:
+- FIPS-197 https://csrc.nist.gov/files/pubs/fips/197/final/docs/fips-197.pdf
+- Original proposal: https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf
+*/
 
 const BLOCK_SIZE = 16;
 const BLOCK_SIZE32 = 4;
@@ -24,6 +29,7 @@ const POLY = 0x11b; // 1 + x + x**3 + x**4 + x**8
 function mul2(n: number) {
   return (n << 1) ^ (POLY & -(n >> 7));
 }
+
 function mul(a: number, b: number) {
   let res = 0;
   for (; b > 0; b >>= 1) {
@@ -36,21 +42,21 @@ function mul(a: number, b: number) {
 
 // AES S-box is generated using finite field inversion,
 // an affine transform, and xor of a constant 0x63.
-const _sbox = /* @__PURE__ */ (() => {
+const sbox = /* @__PURE__ */ (() => {
   let t = new Uint8Array(256);
   for (let i = 0, x = 1; i < 256; i++, x ^= mul2(x)) t[i] = x;
-  const sbox = new Uint8Array(256);
-  sbox[0] = 0x63; // first elm
+  const box = new Uint8Array(256);
+  box[0] = 0x63; // first elm
   for (let i = 0; i < 255; i++) {
     let x = t[255 - i];
     x |= x << 8;
-    sbox[t[i]] = (x ^ (x >> 4) ^ (x >> 5) ^ (x >> 6) ^ (x >> 7) ^ 0x63) & 0xff;
+    box[t[i]] = (x ^ (x >> 4) ^ (x >> 5) ^ (x >> 6) ^ (x >> 7) ^ 0x63) & 0xff;
   }
-  return sbox;
+  return box;
 })();
 
 // Inverted S-box
-const _inv_sbox = /* @__PURE__ */ _sbox.map((_, j) => _sbox.indexOf(j));
+const invSbox = /* @__PURE__ */ sbox.map((_, j) => sbox.indexOf(j));
 
 // Rotate u32 by 8
 const rotr32_8 = (n: number) => (n << 24) | (n >>> 8);
@@ -80,16 +86,16 @@ function genTtable(sbox: Uint8Array, fn: (n: number) => number) {
   return { sbox, sbox2, T0, T1, T2, T3, T01, T23 };
 }
 
-const TABLE_ENC = /* @__PURE__ */ genTtable(
-  _sbox,
+const tableEncoding = /* @__PURE__ */ genTtable(
+  sbox,
   (s: number) => (mul(s, 3) << 24) | (s << 16) | (s << 8) | mul(s, 2)
 );
-const TABLE_DEC = /* @__PURE__ */ genTtable(
-  _inv_sbox,
+const tableDecoding = /* @__PURE__ */ genTtable(
+  invSbox,
   (s) => (mul(s, 11) << 24) | (mul(s, 13) << 16) | (mul(s, 9) << 8) | mul(s, 14)
 );
 
-const POWX = /* @__PURE__ */ (() => {
+const xPowers = /* @__PURE__ */ (() => {
   const p = new Uint8Array(16);
   for (let i = 0, x = 1; i < 16; i++, x = mul2(x)) p[i] = x;
   return p;
@@ -100,7 +106,7 @@ export function expandKeyLE(key: Uint8Array): Uint32Array {
   const len = key.length;
   if (![16, 24, 32].includes(len))
     throw new Error(`aes: wrong key size: should be 16, 24 or 32, got: ${len}`);
-  const { sbox2 } = TABLE_ENC;
+  const { sbox2 } = tableEncoding;
   const k32 = u32(key);
   const Nk = k32.length;
   const subByte = (n: number) => applySbox(sbox2, n, n, n, n);
@@ -109,7 +115,7 @@ export function expandKeyLE(key: Uint8Array): Uint32Array {
   // 4.3.1 Key expansion
   for (let i = Nk; i < xk.length; i++) {
     let t = xk[i - 1];
-    if (i % Nk === 0) t = subByte(rotr32_8(t)) ^ POWX[i / Nk - 1];
+    if (i % Nk === 0) t = subByte(rotr32_8(t)) ^ xPowers[i / Nk - 1];
     else if (Nk > 6 && i % Nk === 4) t = subByte(t);
     xk[i] = xk[i - Nk] ^ t;
   }
@@ -120,8 +126,8 @@ export function expandKeyDecLE(key: Uint8Array): Uint32Array {
   const encKey = expandKeyLE(key);
   const xk = encKey.slice();
   const Nk = encKey.length;
-  const { sbox2 } = TABLE_ENC;
-  const { T0, T1, T2, T3 } = TABLE_DEC;
+  const { sbox2 } = tableEncoding;
+  const { T0, T1, T2, T3 } = tableDecoding;
   // Inverse key by chunks of 4 (rounds)
   for (let i = 0; i < Nk; i += 4) {
     for (let j = 0; j < 4; j++) xk[i + j] = encKey[Nk - i - 4 + j];
@@ -159,7 +165,7 @@ function applySbox(sbox2: Uint16Array, s0: number, s1: number, s2: number, s3: n
 }
 
 function encrypt(xk: Uint32Array, s0: number, s1: number, s2: number, s3: number) {
-  const { sbox2, T01, T23 } = TABLE_ENC;
+  const { sbox2, T01, T23 } = tableEncoding;
   let k = 0;
   (s0 ^= xk[k++]), (s1 ^= xk[k++]), (s2 ^= xk[k++]), (s3 ^= xk[k++]);
   const rounds = xk.length / 4 - 2;
@@ -179,7 +185,7 @@ function encrypt(xk: Uint32Array, s0: number, s1: number, s2: number, s3: number
 }
 
 function decrypt(xk: Uint32Array, s0: number, s1: number, s2: number, s3: number) {
-  const { sbox2, T01, T23 } = TABLE_DEC;
+  const { sbox2, T01, T23 } = tableDecoding;
   let k = 0;
   (s0 ^= xk[k++]), (s1 ^= xk[k++]), (s2 ^= xk[k++]), (s3 ^= xk[k++]);
   const rounds = xk.length / 4 - 2;
