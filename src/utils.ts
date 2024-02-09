@@ -152,17 +152,12 @@ export function concatBytes(...arrays: Uint8Array[]): Uint8Array {
   return res;
 }
 
-// Check if object doens't have custom constructor (like Uint8Array/Array)
-const isPlainObject = (obj: any) =>
-  Object.prototype.toString.call(obj) === '[object Object]' && obj.constructor === Object;
-
 type EmptyObj = {};
 export function checkOpts<T1 extends EmptyObj, T2 extends EmptyObj>(
   defaults: T1,
-  opts?: T2
+  opts: T2
 ): T1 & T2 {
-  if (opts !== undefined && (typeof opts !== 'object' || !isPlainObject(opts)))
-    throw new Error('options must be object or undefined');
+  if (opts == null || typeof opts !== 'object') throw new Error('options must be defined');
   const merged = Object.assign(defaults, opts);
   return merged as T1 & T2;
 }
