@@ -1,5 +1,5 @@
 /*! noble-ciphers - MIT License (c) 2023 Paul Miller (paulmillr.com) */
-import { bytes as abytes, isBytes } from './_assert';
+import { bytes as abytes, isBytes } from './_assert.js';
 // prettier-ignore
 export type TypedArray = Int8Array | Uint8ClampedArray | Uint8Array |
   Uint16Array | Int16Array | Uint32Array | Int32Array;
