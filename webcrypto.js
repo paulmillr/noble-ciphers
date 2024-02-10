@@ -7,6 +7,9 @@ exports.gcm = exports.ctr = exports.cbc = exports.utils = exports.managedNonce =
 // from `crypto` to `cryptoNode`, which imports native module.
 // Makes the utils un-importable in browsers without a bundler.
 // Once node.js 18 is deprecated, we can just drop the import.
+//
+// Use full path so that Node.js can rewrite it to `cryptoNode.js`.
+// @ts-ignore: `tsc` doesn't understand `@noble/ciphers/crypto` is a valid import.
 const crypto_1 = require("@noble/ciphers/crypto");
 Object.defineProperty(exports, "randomBytes", { enumerable: true, get: function () { return crypto_1.randomBytes; } });
 Object.defineProperty(exports, "getWebcryptoSubtle", { enumerable: true, get: function () { return crypto_1.getWebcryptoSubtle; } });
