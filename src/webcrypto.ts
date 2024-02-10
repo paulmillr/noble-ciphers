@@ -4,7 +4,7 @@
 // from `crypto` to `cryptoNode`, which imports native module.
 // Makes the utils un-importable in browsers without a bundler.
 // Once node.js 18 is deprecated, we can just drop the import.
-// 
+//
 // Use full path so that Node.js can rewrite it to `cryptoNode.js`.
 // @ts-ignore: `tsc` doesn't understand `@noble/ciphers/crypto` is a valid import.
 import { randomBytes, getWebcryptoSubtle } from '@noble/ciphers/crypto';
