@@ -4,7 +4,7 @@
 // from `crypto` to `cryptoNode`, which imports native module.
 // Makes the utils un-importable in browsers without a bundler.
 // Once node.js 18 is deprecated, we can just drop the import.
-import { randomBytes, getWebcryptoSubtle } from '@noble/ciphers/crypto';
+import { randomBytes, getWebcryptoSubtle } from './crypto.js';
 import { Cipher, concatBytes } from './utils.js';
 import { number } from './_assert.js';
 import { AsyncCipher } from './utils.js';
