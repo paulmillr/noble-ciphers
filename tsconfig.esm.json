@@ -16,9 +16,9 @@
     "paths": {
       "@noble/ciphers/crypto": ["src/crypto"]
     },
-    "module": "es2020",
+    "module": "Node16",
     "outDir": "esm",
-    "moduleResolution": "bundler"
+    "moduleResolution": "Node16"
   },
   "include": ["src"],
   "exclude": ["node_modules", "lib"]
