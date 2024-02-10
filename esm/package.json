@@ -4,6 +4,7 @@
     "node:crypto": false
   },
   "node": {
+    "./crypto.js": "./esm/cryptoNode.js",
     "./crypto": "./esm/cryptoNode.js"
   }
 }
