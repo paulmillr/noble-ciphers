@@ -7,9 +7,9 @@ exports.gcm = exports.ctr = exports.cbc = exports.utils = exports.managedNonce =
 // from `crypto` to `cryptoNode`, which imports native module.
 // Makes the utils un-importable in browsers without a bundler.
 // Once node.js 18 is deprecated, we can just drop the import.
-const crypto_1 = require("@noble/ciphers/crypto");
-Object.defineProperty(exports, "randomBytes", { enumerable: true, get: function () { return crypto_1.randomBytes; } });
-Object.defineProperty(exports, "getWebcryptoSubtle", { enumerable: true, get: function () { return crypto_1.getWebcryptoSubtle; } });
+const crypto_js_1 = require("./crypto.js");
+Object.defineProperty(exports, "randomBytes", { enumerable: true, get: function () { return crypto_js_1.randomBytes; } });
+Object.defineProperty(exports, "getWebcryptoSubtle", { enumerable: true, get: function () { return crypto_js_1.getWebcryptoSubtle; } });
 const utils_js_1 = require("./utils.js");
 const _assert_js_1 = require("./_assert.js");
 const _assert_js_2 = require("./_assert.js");
@@ -19,7 +19,7 @@ function managedNonce(fn) {
     return ((key, ...args) => ({
         encrypt: (plaintext, ...argsEnc) => {
             const { nonceLength } = fn;
-            const nonce = (0, crypto_1.randomBytes)(nonceLength);
+            const nonce = (0, crypto_js_1.randomBytes)(nonceLength);
             const ciphertext = fn(key, nonce, ...args).encrypt(plaintext, ...argsEnc);
             const out = (0, utils_js_1.concatBytes)(nonce, ciphertext);
             ciphertext.fill(0);
@@ -37,13 +37,13 @@ exports.managedNonce = managedNonce;
 // Overridable
 exports.utils = {
     async encrypt(key, keyParams, cryptParams, plaintext) {
-        const cr = (0, crypto_1.getWebcryptoSubtle)();
+        const cr = (0, crypto_js_1.getWebcryptoSubtle)();
         const iKey = await cr.importKey('raw', key, keyParams, true, ['encrypt']);
         const ciphertext = await cr.encrypt(cryptParams, iKey, plaintext);
         return new Uint8Array(ciphertext);
     },
     async decrypt(key, keyParams, cryptParams, ciphertext) {
-        const cr = (0, crypto_1.getWebcryptoSubtle)();
+        const cr = (0, crypto_js_1.getWebcryptoSubtle)();
         const iKey = await cr.importKey('raw', key, keyParams, true, ['decrypt']);
         const plaintext = await cr.decrypt(cryptParams, iKey, ciphertext);
         return new Uint8Array(plaintext);
