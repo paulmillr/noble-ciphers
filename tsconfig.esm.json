@@ -14,7 +14,7 @@
     "noUnusedParameters": true,
     "baseUrl": ".",
     "paths": {
-      "@noble/ciphers/crypto": ["src/crypto"]
+      "@noble/ciphers/crypto": ["src/crypto.ts"]
     },
     "module": "Node16",
     "outDir": "esm",
