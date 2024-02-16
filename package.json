@@ -102,6 +102,11 @@
       "types": "./webcrypto.d.ts",
       "import": "./esm/webcrypto.js",
       "default": "./webcrypto.js"
+    },
+    "./webcrypto/utils": {
+      "types": "./webcrypto.d.ts",
+      "import": "./esm/webcrypto.js",
+      "default": "./webcrypto.js"
     }
   },
   "browser": {
