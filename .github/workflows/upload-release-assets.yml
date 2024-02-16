@@ -25,4 +25,3 @@ jobs:
           gh release upload ${{ github.event.release.tag_name }} noble-ciphers.js
         env:
           GH_TOKEN: ${{ github.token }}
-
