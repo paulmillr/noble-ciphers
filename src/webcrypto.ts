@@ -7,10 +7,8 @@
 //
 // Use full path so that Node.js can rewrite it to `cryptoNode.js`.
 import { randomBytes, getWebcryptoSubtle } from '@noble/ciphers/crypto';
-import { Cipher, concatBytes } from './utils.js';
-import { number } from './_assert.js';
-import { AsyncCipher } from './utils.js';
-import { bytes as abytes } from './_assert.js';
+import { AsyncCipher, Cipher, concatBytes } from './utils.js';
+import { number, bytes as abytes } from './_assert.js';
 
 /**
  * Secure PRNG. Uses `crypto.getRandomValues`, which defers to OS.
@@ -67,16 +65,17 @@ export const utils = {
   },
 };
 
-const enum BlockMode {
-  CBC = 'AES-CBC',
-  CTR = 'AES-CTR',
-  GCM = 'AES-GCM',
-}
+const mode = {
+  CBC: 'AES-CBC',
+  CTR: 'AES-CTR',
+  GCM: 'AES-GCM'
+} as const;
+type BlockMode = typeof mode[keyof typeof mode]
 
 function getCryptParams(algo: BlockMode, nonce: Uint8Array, AAD?: Uint8Array) {
-  if (algo === BlockMode.CBC) return { name: BlockMode.CBC, iv: nonce };
-  if (algo === BlockMode.CTR) return { name: BlockMode.CTR, counter: nonce, length: 64 };
-  if (algo === BlockMode.GCM) return { name: BlockMode.GCM, iv: nonce, additionalData: AAD };
+  if (algo === mode.CBC) return { name: mode.CBC, iv: nonce };
+  if (algo === mode.CTR) return { name: mode.CTR, counter: nonce, length: 64 };
+  if (algo === mode.GCM) return { name: mode.GCM, iv: nonce, additionalData: AAD };
   throw new Error('unknown aes block mode');
 }
 
@@ -84,7 +83,6 @@ function generate(algo: BlockMode) {
   return (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): AsyncCipher => {
     abytes(key);
     abytes(nonce);
-    // const keyLength = key.length;
     const keyParams = { name: algo, length: key.length * 8 };
     const cryptParams = getCryptParams(algo, nonce, AAD);
     return {
@@ -101,9 +99,9 @@ function generate(algo: BlockMode) {
   };
 }
 
-export const cbc = generate(BlockMode.CBC);
-export const ctr = generate(BlockMode.CTR);
-export const gcm = generate(BlockMode.GCM);
+export const cbc = generate(mode.CBC);
+export const ctr = generate(mode.CTR);
+export const gcm = generate(mode.GCM);
 
 // // Type tests
 // import { siv, gcm, ctr, ecb, cbc } from '../aes.js';
