@@ -25,7 +25,9 @@ section of the repository.
 - All libraries:
   [ciphers](https://github.com/paulmillr/noble-ciphers),
   [curves](https://github.com/paulmillr/noble-curves),
-  [hashes](https://github.com/paulmillr/noble-hashes)
+  [hashes](https://github.com/paulmillr/noble-hashes),
+  4kb [secp256k1](https://github.com/paulmillr/noble-secp256k1) /
+  [ed25519](https://github.com/paulmillr/noble-ed25519)
 - [Check out homepage](https://paulmillr.com/noble/)
   for reading resources, documentation and apps built with noble
 
@@ -44,7 +46,7 @@ A standalone file
 ```js
 // import * from '@noble/ciphers'; // Error: use sub-imports, to ensure small app size
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
-// import { xchacha20poly1305 } from 'npm:@noble/ciphers@0.2.0/chacha'; // Deno
+// import { xchacha20poly1305 } from 'npm:@noble/ciphers@0.5.0/chacha'; // Deno
 ```
 
 - [Examples](#examples)
@@ -195,7 +197,7 @@ and became safe to be picked at random.
 
 Nacl / Libsodium popularized term "secretbox", a simple black-box
 authenticated encryption. Secretbox is just xsalsa20-poly1305. We provide the
-alias and corresponding seal / open methods.
+alias and corresponding seal / open methods. We don't provide "box" or "sealedbox".
 
 Check out [PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf) and
 [wiki](https://en.wikipedia.org/wiki/Salsa20).
