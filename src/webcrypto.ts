@@ -68,9 +68,9 @@ export const utils = {
 const mode = {
   CBC: 'AES-CBC',
   CTR: 'AES-CTR',
-  GCM: 'AES-GCM'
+  GCM: 'AES-GCM',
 } as const;
-type BlockMode = typeof mode[keyof typeof mode]
+type BlockMode = (typeof mode)[keyof typeof mode];
 
 function getCryptParams(algo: BlockMode, nonce: Uint8Array, AAD?: Uint8Array) {
   if (algo === mode.CBC) return { name: mode.CBC, iv: nonce };
