@@ -6,7 +6,7 @@ Auditable & minimal JS implementation of Salsa20, ChaCha and AES.
 - 🔻 Tree-shaking-friendly: use only what's necessary, other code won't be included
 - 🏎 [Ultra-fast](#speed), hand-optimized for caveats of JS engines
 - 🔍 Unique tests ensure correctness: property-based, cross-library and Wycheproof vectors
-- 💼 AES: ECB, CBC, CTR, GCM, SIV (nonce misuse-resistant)
+- 💼 AES: ECB, CBC, CTR, CFB, GCM, SIV (nonce misuse-resistant)
 - 💃 Salsa20, ChaCha, XSalsa20, XChaCha, Poly1305, ChaCha8, ChaCha12
 - 🥈 Two AES implementations: choose between friendly webcrypto wrapper and pure JS one
 - 🪶 21KB for everything, 10KB for ChaCha build
@@ -168,7 +168,7 @@ import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
 import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
 
 // Unauthenticated encryption: make sure to use HMAC or similar
-import { ctr, cbc, ecb } from '@noble/ciphers/aes';
+import { ctr, cfb, cbc, ecb } from '@noble/ciphers/aes';
 import { salsa20, xsalsa20 } from '@noble/ciphers/salsa';
 import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha';
 
@@ -224,7 +224,7 @@ Check out [PDF](http://cr.yp.to/chacha/chacha-20080128.pdf) and [wiki](https://e
 ### AES
 
 ```js
-import { gcm, siv, ctr, cbc, ecb } from '@noble/ciphers/aes';
+import { gcm, siv, ctr, cfb, cbc, ecb } from '@noble/ciphers/aes';
 import { randomBytes } from '@noble/ciphers/webcrypto';
 const plaintext = new Uint8Array(32).fill(16);
 const key = randomBytes(32); // 24 for AES-192, 16 for AES-128
@@ -233,7 +233,7 @@ for (let cipher of [gcm, siv]) {
   const ciphertext_ = stream.encrypt(plaintext);
   const plaintext_ = stream.decrypt(ciphertext_);
 }
-for (const cipher of [ctr, cbc]) {
+for (const cipher of [ctr, cbc, cbc]) {
   const stream = cipher(key, randomBytes(16));
   const ciphertext_ = stream.encrypt(plaintext);
   const plaintext_ = stream.decrypt(ciphertext_);
@@ -318,7 +318,7 @@ Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publi
 
 ```js
 import { managedNonce } from '@noble/ciphers/webcrypto';
-import { gcm, siv, ctr, cbc, ecb } from '@noble/ciphers/aes';
+import { gcm, siv, ctr, cbc, cbc, ecb } from '@noble/ciphers/aes';
 import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
 import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
 
