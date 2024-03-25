@@ -3,7 +3,7 @@ const { should, describe } = require('micro-should');
 const { hex } = require('@scure/base');
 const { managedNonce, randomBytes } = require('../webcrypto.js');
 
-const { siv, gcm, ctr, ecb, cbc } = require('../aes.js');
+const { siv, gcm, ctr, ecb, cbc, cfb } = require('../aes.js');
 const { xsalsa20poly1305 } = require('../salsa.js');
 const { chacha20poly1305, xchacha20poly1305 } = require('../chacha.js');
 const micro = require('../_micro.js');
@@ -18,7 +18,7 @@ const CIPHERS = {
   micro_xchacha20poly1305: { fn: micro.xchacha20poly1305, keyLen: 32, withNonce: true },
 };
 
-for (const [name, fn] of Object.entries({ ecb, cbc, ctr, gcm, siv })) {
+for (const [name, fn] of Object.entries({ ecb, cbc, ctr, gcm, siv, cfb })) {
   for (const keyLen of [16, 24, 32]) {
     CIPHERS[`${name}_${keyLen * 8}`] = { fn, keyLen, withNonce: name !== 'ecb' };
   }

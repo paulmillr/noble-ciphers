@@ -464,6 +464,51 @@ export const cbc = wrapCipher(
   }
 );
 
+/**
+ * CFB: Cipher Feedback Mode. The input for the block cipher is the previous cipher output.
+ * Unauthenticated: needs MAC.
+ */
+export const cfb = wrapCipher(
+  { blockSize: 16, nonceLength: 16 },
+  function cfb(key: Uint8Array, iv: Uint8Array): CipherWithOutput {
+    abytes(key);
+    abytes(iv, 16);
+    function processCfb(src: Uint8Array, isEncrypt: boolean, dst?: Uint8Array) {
+      const xk = expandKeyLE(key);
+      const srcLen = src.length;
+      dst = getDst(srcLen, dst);
+      const src32 = u32(src);
+      const dst32 = u32(dst);
+      const next32 = isEncrypt ? dst32 : src32;
+      const n32 = u32(iv);
+      // prettier-ignore
+      let s0 = n32[0], s1 = n32[1], s2 = n32[2], s3 = n32[3];
+      for (let i = 0; i + 4 <= src32.length; ) {
+        const { s0: e0, s1: e1, s2: e2, s3: e3 } = encrypt(xk, s0, s1, s2, s3);
+        dst32[i + 0] = src32[i + 0] ^ e0;
+        dst32[i + 1] = src32[i + 1] ^ e1;
+        dst32[i + 2] = src32[i + 2] ^ e2;
+        dst32[i + 3] = src32[i + 3] ^ e3;
+        (s0 = next32[i++]), (s1 = next32[i++]), (s2 = next32[i++]), (s3 = next32[i++]);
+      }
+      // leftovers (less than block)
+      const start = BLOCK_SIZE * Math.floor(src32.length / BLOCK_SIZE32);
+      if (start < srcLen) {
+        ({ s0, s1, s2, s3 } = encrypt(xk, s0, s1, s2, s3));
+        const buf = u8(new Uint32Array([s0, s1, s2, s3]));
+        for (let i = start, pos = 0; i < srcLen; i++, pos++) dst[i] = src[i] ^ buf[pos];
+        buf.fill(0);
+      }
+      xk.fill(0);
+      return dst;
+    }
+    return {
+      encrypt: (plaintext: Uint8Array, dst?: Uint8Array) => processCfb(plaintext, true, dst),
+      decrypt: (ciphertext: Uint8Array, dst?: Uint8Array) => processCfb(ciphertext, false, dst),
+    };
+  }
+);
+
 // TODO: merge with chacha, however gcm has bitLen while chacha has byteLen
 function computeTag(
   fn: typeof ghash,
