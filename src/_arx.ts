@@ -1,6 +1,6 @@
 // Basic utils for ARX (add-rotate-xor) salsa and chacha ciphers.
 import { number as anumber, bytes as abytes, bool as abool } from './_assert.js';
-import { XorStream, checkOpts, u32, utf8ToBytes } from './utils.js';
+import { XorStream, checkOpts, u32 } from './utils.js';
 
 /*
 RFC8439 requires multi-step cipher stream, where
@@ -37,8 +37,11 @@ xchacha [^2] uses the subkey and remaining 8 byte nonce with ChaCha20 as normal
 [^2]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha#appendix-A.2
 */
 
-const sigma16 = utf8ToBytes('expand 16-byte k');
-const sigma32 = utf8ToBytes('expand 32-byte k');
+// We can't make top-level var depend on utils.utf8ToBytes
+// because it's not present in all envs. Creating a similar fn here
+const _utf8ToBytes = (str: string) => Uint8Array.from(str.split('').map((c) => c.charCodeAt(0)));
+const sigma16 = _utf8ToBytes('expand 16-byte k');
+const sigma32 = _utf8ToBytes('expand 32-byte k');
 const sigma16_32 = u32(sigma16);
 const sigma32_32 = u32(sigma32);
 
