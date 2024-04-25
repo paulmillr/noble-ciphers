@@ -463,6 +463,8 @@ constant-timeness_. Even statically typed Rust, a language without GC,
 for some cases. If your goal is absolute security, don't use any JS lib — including bindings to native ones.
 Use low-level libraries & languages. Nonetheless we're targetting algorithmic constant time.
 
+AES uses T-tables, which means it can't be done in constant-time in JS.
+
 ### Supply chain security
 
 * **Commits** are signed with PGP keys, to prevent forgery. Make sure to verify commit signatures.
