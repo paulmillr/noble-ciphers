@@ -75,7 +75,8 @@ type BlockMode = (typeof mode)[keyof typeof mode];
 function getCryptParams(algo: BlockMode, nonce: Uint8Array, AAD?: Uint8Array) {
   if (algo === mode.CBC) return { name: mode.CBC, iv: nonce };
   if (algo === mode.CTR) return { name: mode.CTR, counter: nonce, length: 64 };
-  if (algo === mode.GCM) return { name: mode.GCM, iv: nonce, additionalData: AAD };
+  if (algo === mode.GCM)
+    return { name: mode.GCM, iv: nonce, additionalData: AAD || new Uint8Array(0) };
   throw new Error('unknown aes block mode');
 }
 
