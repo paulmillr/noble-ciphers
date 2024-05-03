@@ -9,7 +9,7 @@ Auditable & minimal JS implementation of Salsa20, ChaCha and AES.
 - 💼 AES: ECB, CBC, CTR, CFB, GCM, SIV (nonce misuse-resistant)
 - 💃 Salsa20, ChaCha, XSalsa20, XChaCha, Poly1305, ChaCha8, ChaCha12
 - 🥈 Two AES implementations: choose between friendly webcrypto wrapper and pure JS one
-- 🪶 21KB for everything, 10KB for ChaCha build
+- 🪶 45KB (8KB gzipped) for everything, 10KB (3KB gzipped) for ChaCha build
 
 For discussions, questions and support, visit
 [GitHub Discussions](https://github.com/paulmillr/noble-ciphers/discussions)
@@ -111,16 +111,12 @@ const data_ = aes.decrypt(ciphertext); // utils.bytesToUtf8(data_) === data
 
 ```js
 const key = new Uint8Array([
-  169,  88, 160, 139, 168,  29, 147, 196,
-   14,  88, 237,  76, 243, 177, 109, 140,
-  195, 140,  80,  10, 216, 134, 215,  71,
-  191,  48,  20, 104, 189,  37,  38,  55
+  169, 88, 160, 139, 168, 29, 147, 196, 14, 88, 237, 76, 243, 177, 109, 140, 195, 140, 80, 10, 216,
+  134, 215, 71, 191, 48, 20, 104, 189, 37, 38, 55,
 ]);
 const nonce = new Uint8Array([
-  180,  90,  27, 63, 160, 191, 150,
-   33,  67, 212, 86,  71, 144,   6,
-  200, 102, 218, 32,  23, 147,   8,
-   41, 147,  11
+  180, 90, 27, 63, 160, 191, 150, 33, 67, 212, 86, 71, 144, 6, 200, 102, 218, 32, 23, 147, 8, 41,
+  147, 11,
 ]);
 // or, hex:
 import { hexToBytes } from '@noble/ciphers/utils';
@@ -132,7 +128,7 @@ const nonce2 = hexToBytes('9610467513de0bbd7c4cc2c3c64069f1802086fbd3232b13');
 
 ```js
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
-import { managedNonce } from '@noble/ciphers/webcrypto'
+import { managedNonce } from '@noble/ciphers/webcrypto';
 import { hexToBytes, utf8ToBytes } from '@noble/ciphers/utils';
 const key = hexToBytes('fa686bfdffd3758f6377abbc23bf3d9bdc1a0dda4a6e7f8dbdd579fa1ff6d7e1');
 const chacha = managedNonce(xchacha20poly1305)(key); // manages nonces for you
@@ -351,19 +347,19 @@ AES-GCM is the third.
 ### How to encrypt properly
 
 - Use unpredictable key with enough entropy
-   - Random key must be using cryptographically secure random number generator (CSPRNG), not `Math.random` etc.
-   - Non-random key generated from KDF is fine
-   - Re-using key is fine, but be aware of rules for cryptographic key wear-out and [encryption limits](#encryption-limits)
+  - Random key must be using cryptographically secure random number generator (CSPRNG), not `Math.random` etc.
+  - Non-random key generated from KDF is fine
+  - Re-using key is fine, but be aware of rules for cryptographic key wear-out and [encryption limits](#encryption-limits)
 - Use new nonce every time and [don't repeat it](#nonces)
-   - chacha and salsa20 are fine for sequential counters that _never_ repeat: `01, 02...`
-   - xchacha and xsalsa20 should be used for random nonces instead
+  - chacha and salsa20 are fine for sequential counters that _never_ repeat: `01, 02...`
+  - xchacha and xsalsa20 should be used for random nonces instead
 - Prefer authenticated encryption (AEAD)
-   - HMAC+ChaCha / HMAC+AES / chacha20poly1305 / aes-gcm is good
-   - chacha20 without poly1305 or hmac / aes-ctr / aes-cbc is bad
-   - Flipping bits or ciphertext substitution won't be detected in unauthenticated ciphers
+  - HMAC+ChaCha / HMAC+AES / chacha20poly1305 / aes-gcm is good
+  - chacha20 without poly1305 or hmac / aes-ctr / aes-cbc is bad
+  - Flipping bits or ciphertext substitution won't be detected in unauthenticated ciphers
 - Don't re-use keys between different protocols
-   - For example, using secp256k1 key in AES is bad
-   - Use hkdf or, at least, a hash function to create sub-key instead
+  - For example, using secp256k1 key in AES is bad
+  - Use hkdf or, at least, a hash function to create sub-key instead
 
 ### Nonces
 
@@ -441,8 +437,9 @@ and each new round either depends on previous block's key, or on some counter.
   tweak arguments corresponding to sector i and 16-byte block (part of sector) j. Not authenticated!
 
 GCM / SIV are not ideal:
-  - Conservative key wear-out is `2**32` (4B) msgs
-  - MAC can be forged: see Poly1305 section above. Same for SIV
+
+- Conservative key wear-out is `2**32` (4B) msgs
+- MAC can be forged: see Poly1305 section above. Same for SIV
 
 ## Security
 
@@ -467,16 +464,16 @@ AES uses T-tables, which means it can't be done in constant-time in JS.
 
 ### Supply chain security
 
-* **Commits** are signed with PGP keys, to prevent forgery. Make sure to verify commit signatures.
-* **Releases** are transparent and built on GitHub CI. Make sure to verify [provenance](https://docs.npmjs.com/generating-provenance-statements) logs
-* **Rare releasing** is followed to ensure less re-audit need for end-users
-* **Dependencies** are minimized and locked-down:
-   - If your app has 500 dependencies, any dep could get hacked and you'll be downloading
-     malware with every install. We make sure to use as few dependencies as possible
-   - We prevent automatic dependency updates by locking-down version ranges. Every update is checked with `npm-diff`
-* **Dev Dependencies** are only used if you want to contribute to the repo. They are disabled for end-users:
-   - scure-base, micro-bmark and micro-should are developed by the same author and follow identical security practices
-   - prettier (linter), fast-check (property-based testing) and typescript are used for code quality, vector generation and ts compilation. The packages are big, which makes it hard to audit their source code thoroughly and fully
+- **Commits** are signed with PGP keys, to prevent forgery. Make sure to verify commit signatures.
+- **Releases** are transparent and built on GitHub CI. Make sure to verify [provenance](https://docs.npmjs.com/generating-provenance-statements) logs
+- **Rare releasing** is followed to ensure less re-audit need for end-users
+- **Dependencies** are minimized and locked-down:
+  - If your app has 500 dependencies, any dep could get hacked and you'll be downloading
+    malware with every install. We make sure to use as few dependencies as possible
+  - We prevent automatic dependency updates by locking-down version ranges. Every update is checked with `npm-diff`
+- **Dev Dependencies** are only used if you want to contribute to the repo. They are disabled for end-users:
+  - scure-base, micro-bmark and micro-should are developed by the same author and follow identical security practices
+  - prettier (linter), fast-check (property-based testing) and typescript are used for code quality, vector generation and ts compilation. The packages are big, which makes it hard to audit their source code thoroughly and fully
 
 ### Randomness
 
@@ -613,8 +610,7 @@ Upgrade from `micro-aes-gcm` package is simple:
 ```js
 // prepare
 const key = Uint8Array.from([
-  64, 196, 127, 247, 172, 2, 34, 159, 6, 241, 30,
-  174, 183, 229, 41, 114, 253, 122, 119, 168, 177,
+  64, 196, 127, 247, 172, 2, 34, 159, 6, 241, 30, 174, 183, 229, 41, 114, 253, 122, 119, 168, 177,
   243, 155, 236, 164, 159, 98, 72, 162, 243, 224, 195,
 ]);
 const message = 'Hello world';
