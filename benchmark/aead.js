@@ -117,7 +117,7 @@ export const ciphers = {
       encrypt: (buf, opts) => siv(opts.key, opts.nonce).encrypt(buf),
       decrypt: (buf, opts) => siv(opts.key, opts.nonce).decrypt(buf),
     },
-  }
+  },
 };
 
 export async function main() {
@@ -130,7 +130,7 @@ export async function main() {
 }
 
 // ESM is broken.
-import url from 'url';
+import url from 'node:url';
 if (import.meta.url === url.pathToFileURL(process.argv[1]).href) {
   main();
 }
