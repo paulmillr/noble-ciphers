@@ -3,11 +3,11 @@
 Auditable & minimal JS implementation of Salsa20, ChaCha and AES.
 
 - 🔒 Auditable
-- 🔻 Tree-shaking-friendly: use only what's necessary, other code won't be included
-- 🏎 [Ultra-fast](#speed), hand-optimized for caveats of JS engines
-- 🔍 Reliable: property-based, cross-library and Wycheproof tests ensure correctness
+- 🔻 Tree-shakeable: unused code is excluded from your builds
+- 🏎 Fast: hand-optimized for caveats of JS engines
+- 🔍 Reliable: property-based / cross-library / wycheproof tests ensure correctness
 - 💼 AES: ECB, CBC, CTR, CFB, GCM, SIV (nonce misuse-resistant)
-- 💃 Salsa20, ChaCha, XSalsa20, XChaCha, Poly1305, ChaCha8, ChaCha12
+- 💃 Salsa20, ChaCha, XSalsa20, XChaCha, ChaCha8, ChaCha12, Poly1305
 - 🥈 Two AES implementations: pure JS or friendly wrapper around webcrypto
 - 🪶 45KB (8KB gzipped) for everything, 10KB (3KB gzipped) for ChaCha build
 
