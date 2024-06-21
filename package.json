@@ -2,7 +2,14 @@
   "name": "@noble/ciphers",
   "version": "0.5.3",
   "description": "Auditable & minimal JS implementation of Salsa20, ChaCha and AES",
-  "files": ["esm", "src", "*.js", "*.js.map", "*.d.ts", "*.d.ts.map"],
+  "files": [
+    "esm",
+    "src",
+    "*.js",
+    "*.js.map",
+    "*.d.ts",
+    "*.d.ts.map"
+  ],
   "scripts": {
     "bench": "node benchmark/aead.js noble && node benchmark/ciphers.js noble",
     "bench:all": "node benchmark/{aead,ciphers,poly}.js",
@@ -28,8 +35,8 @@
     "fast-check": "3.0.0",
     "micro-bmark": "0.3.1",
     "micro-should": "0.4.0",
-    "prettier": "3.1.1",
-    "typescript": "5.3.2"
+    "prettier": "3.3.2",
+    "typescript": "5.5.2"
   },
   "main": "index.js",
   "exports": {
