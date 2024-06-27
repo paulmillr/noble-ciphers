@@ -53,19 +53,14 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 - [Examples](#examples)
   - [Encrypt with XChaCha20-Poly1305](#encrypt-with-xchacha20-poly1305)
   - [Encrypt with AES-256-GCM](#encrypt-with-aes-256-gcm)
+  - [Use different AES block modes](#use-different-aes-block-modes)
+  - [Use wrapper around built-in AES WebCrypto](#use-wrapper-around-built-in-aes-webcrypto)
   - [Use existing key instead of a new one](#use-existing-key-instead-of-a-new-one)
   - [Encrypt without nonce](#encrypt-without-nonce)
-  - [Use same array for input and output](#use-same-array-for-input-and-output)
+  - [Re-use same array for input & output](#re-use-same-array-for-input-and-output)
   - [All imports](#all-imports)
-- [Implementations](#implementations)
-  - [Salsa20](#salsa)
-  - [ChaCha](#chacha)
-  - [AES](#aes)
-  - [Webcrypto AES](#webcrypto-aes)
-  - [Poly1305, GHash, Polyval](#poly1305-ghash-polyval)
-  - [FF1 format-preserving encryption](#ff1)
-  - [Managed nonces](#managed-nonces)
-- [Guidance](#guidance)
+- [Internals](#internals)
+  - [Implemented primitives](#implemented-primitives)
   - [Which cipher should I pick?](#which-cipher-should-i-pick)
   - [How to encrypt properly](#how-to-encrypt-properly)
   - [Nonces](#nonces)
@@ -124,7 +119,57 @@ const key2 = hexToBytes('4b7f89bac90a1086fef73f5da2cbe93b2fae9dfbf7678ae1f3e75fd
 const nonce2 = hexToBytes('9610467513de0bbd7c4cc2c3c64069f1802086fbd3232b13');
 ```
 
+#### Use different AES block modes
+
+```js
+import { gcm, siv, ctr, cfb, cbc, ecb } from '@noble/ciphers/aes';
+import { randomBytes } from '@noble/ciphers/webcrypto';
+const plaintext = new Uint8Array(32).fill(16);
+const key = randomBytes(32); // 24 for AES-192, 16 for AES-128
+for (let cipher of [gcm, siv]) {
+  const stream = cipher(key, randomBytes(12));
+  const ciphertext_ = stream.encrypt(plaintext);
+  const plaintext_ = stream.decrypt(ciphertext_);
+}
+for (const cipher of [ctr, cbc, cbc]) {
+  const stream = cipher(key, randomBytes(16));
+  const ciphertext_ = stream.encrypt(plaintext);
+  const plaintext_ = stream.decrypt(ciphertext_);
+}
+for (const cipher of [ecb]) {
+  const stream = cipher(key);
+  const ciphertext_ = stream.encrypt(plaintext);
+  const plaintext_ = stream.decrypt(ciphertext_);
+}
+```
+
+#### Use wrapper around built-in AES WebCrypto
+
+It's the same as using `crypto.subtle`, but with massively simplified API. While pure js implementation is synchronous, webcrypto is asynchronous.
+
+```js
+import { gcm, ctr, cbc, randomBytes } from '@noble/ciphers/webcrypto';
+const plaintext = new Uint8Array(32).fill(16);
+const key = randomBytes(32);
+for (const cipher of [gcm]) {
+  const stream = cipher(key, randomBytes(12));
+  const ciphertext_ = await stream.encrypt(plaintext);
+  const plaintext_ = await stream.decrypt(ciphertext_);
+}
+for (const cipher of [ctr, cbc]) {
+  const stream = cipher(key, randomBytes(16));
+  const ciphertext_ = await stream.encrypt(plaintext);
+  const plaintext_ = await stream.decrypt(ciphertext_);
+}
+```
+
 #### Encrypt without nonce
+
+We provide API that manages nonce internally instead of exposing them to library's user.
+
+For `encrypt`, a `nonceBytes`-length buffer is fetched from CSPRNG and prenended to encrypted ciphertext.
+
+For `decrypt`, first `nonceBytes` of ciphertext are treated as nonce.
 
 ```js
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
@@ -137,7 +182,7 @@ const ciphertext = chacha.encrypt(data);
 const data_ = chacha.decrypt(ciphertext);
 ```
 
-#### Use same array for input and output
+#### Re-use same array for input & output
 
 This allows re-use Uint8Array between encryption/decryption calls (works if all plaintext or ciphertext are same size).
 
@@ -166,6 +211,7 @@ chacha.decrypt(buf, _12b); // _12b now same as _data
 ```js
 import { gcm, siv } from '@noble/ciphers/aes';
 import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
+import { secretbox } from '@noble/ciphers/salsa'; // == xsalsa20poly1305
 import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
 
 // Unauthenticated encryption: make sure to use HMAC or similar
@@ -176,176 +222,66 @@ import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha';
 // Utilities
 import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils';
 import { managedNonce, randomBytes } from '@noble/ciphers/webcrypto';
-```
 
-## Implementations
-
-### Salsa
-
-```js
-import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
-import { secretbox } from '@noble/ciphers/salsa'; // == xsalsa20poly1305
-import { salsa20, xsalsa20 } from '@noble/ciphers/salsa';
-```
-
-[Salsa20](https://cr.yp.to/snuffle.html) stream cipher was released in 2005.
-Salsa's goal was to implement AES replacement that does not rely on S-Boxes,
-which are hard to implement in a constant-time manner.
-Salsa20 is usually faster than AES, a big deal on slow, budget mobile phones.
-
-[XSalsa20](https://cr.yp.to/snuffle/xsalsa-20110204.pdf), extended-nonce
-variant was released in 2008. It switched nonces from 96-bit to 192-bit,
-and became safe to be picked at random.
-
-Nacl / Libsodium popularized term "secretbox", a simple black-box
-authenticated encryption. Secretbox is just xsalsa20-poly1305. We provide the
-alias and corresponding seal / open methods. We don't provide "box" or "sealedbox".
-
-Check out [PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf) and
-[wiki](https://en.wikipedia.org/wiki/Salsa20).
-
-### ChaCha
-
-```js
-import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
-import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha';
-```
-
-[ChaCha20](https://cr.yp.to/chacha.html) stream cipher was released
-in 2008. ChaCha aims to increase the diffusion per round, but had slightly less
-cryptanalysis. It was standardized in
-[RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3.
-
-[XChaCha20](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha)
-extended-nonce variant is also provided. Similar to XSalsa, it's safe to use with
-randomly-generated nonces.
-
-Check out [PDF](http://cr.yp.to/chacha/chacha-20080128.pdf) and [wiki](https://en.wikipedia.org/wiki/Salsa20).
-
-### AES
-
-```js
-import { gcm, siv, ctr, cfb, cbc, ecb } from '@noble/ciphers/aes';
-import { randomBytes } from '@noble/ciphers/webcrypto';
-const plaintext = new Uint8Array(32).fill(16);
-const key = randomBytes(32); // 24 for AES-192, 16 for AES-128
-for (let cipher of [gcm, siv]) {
-  const stream = cipher(key, randomBytes(12));
-  const ciphertext_ = stream.encrypt(plaintext);
-  const plaintext_ = stream.decrypt(ciphertext_);
-}
-for (const cipher of [ctr, cbc, cbc]) {
-  const stream = cipher(key, randomBytes(16));
-  const ciphertext_ = stream.encrypt(plaintext);
-  const plaintext_ = stream.decrypt(ciphertext_);
-}
-for (const cipher of [ecb]) {
-  const stream = cipher(key);
-  const ciphertext_ = stream.encrypt(plaintext);
-  const plaintext_ = stream.decrypt(ciphertext_);
-}
-```
-
-[AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard)
-is a variant of Rijndael block cipher, standardized by NIST in 2001.
-We provide the fastest available pure JS implementation.
-
-We support AES-128, AES-192 and AES-256: the mode is selected dynamically,
-based on key length (16, 24, 32).
-
-[AES-GCM-SIV](https://en.wikipedia.org/wiki/AES-GCM-SIV)
-nonce-misuse-resistant mode is also provided. It's recommended to use it,
-to prevent catastrophic consequences of nonce reuse. Our implementation of SIV
-has the same speed as GCM: there is no performance hit.
-
-Check out [AES internals and block modes](#aes-internals-and-block-modes).
-
-### Webcrypto AES
-
-```js
-import { gcm, ctr, cbc, randomBytes } from '@noble/ciphers/webcrypto';
-const plaintext = new Uint8Array(32).fill(16);
-const key = randomBytes(32);
-for (const cipher of [gcm]) {
-  const stream = cipher(key, randomBytes(12));
-  const ciphertext_ = await stream.encrypt(plaintext);
-  const plaintext_ = await stream.decrypt(ciphertext_);
-}
-for (const cipher of [ctr, cbc]) {
-  const stream = cipher(key, randomBytes(16));
-  const ciphertext_ = await stream.encrypt(plaintext);
-  const plaintext_ = await stream.decrypt(ciphertext_);
-}
-```
-
-We also have a separate wrapper over WebCrypto built-in.
-
-It's the same as using `crypto.subtle`, but with massively simplified API.
-
-Unlike pure js version, it's asynchronous.
-
-### Poly1305, GHash, Polyval
-
-```js
 import { poly1305 } from '@noble/ciphers/_poly1305';
 import { ghash, polyval } from '@noble/ciphers/_polyval';
 ```
 
-We expose polynomial-evaluation MACs: [Poly1305](https://cr.yp.to/mac.html),
-AES-GCM's [GHash](https://en.wikipedia.org/wiki/Galois/Counter_Mode) and
+## Internals
+
+### Implemented primitives
+
+- [Salsa20](https://cr.yp.to/snuffle.html) stream cipher was released in 2005.
+Salsa's goal was to implement AES replacement that does not rely on S-Boxes,
+which are hard to implement in a constant-time manner.
+Salsa20 is usually faster than AES, a big deal on slow, budget mobile phones.
+    - [XSalsa20](https://cr.yp.to/snuffle/xsalsa-20110204.pdf), extended-nonce
+variant was released in 2008. It switched nonces from 96-bit to 192-bit,
+and became safe to be picked at random.
+    - Nacl / Libsodium popularized term "secretbox", a simple black-box
+authenticated encryption. Secretbox is just xsalsa20-poly1305. We provide the
+alias and corresponding seal / open methods. We don't provide "box" or "sealedbox".
+    - Check out [PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf) and
+[wiki](https://en.wikipedia.org/wiki/Salsa20).
+- [ChaCha20](https://cr.yp.to/chacha.html) stream cipher was released
+  in 2008. ChaCha aims to increase the diffusion per round, but had slightly less
+  cryptanalysis. It was standardized in
+  [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3.
+    - [XChaCha20](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha)
+      extended-nonce variant is also provided. Similar to XSalsa, it's safe to use with
+      randomly-generated nonces.
+    - Check out [PDF](http://cr.yp.to/chacha/chacha-20080128.pdf) and [wiki](https://en.wikipedia.org/wiki/Salsa20).
+- [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard)
+is a variant of Rijndael block cipher, standardized by NIST in 2001.
+We provide the fastest available pure JS implementation.
+    - We support AES-128, AES-192 and AES-256: the mode is selected dynamically,
+      based on key length (16, 24, 32).
+    - [AES-GCM-SIV](https://en.wikipedia.org/wiki/AES-GCM-SIV)
+    nonce-misuse-resistant mode is also provided. It's recommended to use it,
+    to prevent catastrophic consequences of nonce reuse. Our implementation of SIV
+    has the same speed as GCM: there is no performance hit.
+    - Check out [AES internals and block modes](#aes-internals-and-block-modes).
+- We expose polynomial-evaluation MACs: [Poly1305](https://cr.yp.to/mac.html), AES-GCM's [GHash](https://en.wikipedia.org/wiki/Galois/Counter_Mode) and
 AES-SIV's [Polyval](https://en.wikipedia.org/wiki/AES-GCM-SIV).
-
-Poly1305 ([PDF](https://cr.yp.to/mac/poly1305-20050329.pdf),
-[wiki](https://en.wikipedia.org/wiki/Poly1305))
-is a fast and parallel secret-key message-authentication code suitable for
-a wide variety of applications. It was standardized in
-[RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3.
-
-Polynomial MACs are not perfect for every situation:
-they lack Random Key Robustness: the MAC can be forged, and can't
-be used in PAKE schemes. See
-[invisible salamanders attack](https://keymaterial.net/2020/09/07/invisible-salamanders-in-aes-gcm-siv/).
-To combat invisible salamanders, `hash(key)` can be included in ciphertext,
-however, this would violate ciphertext indistinguishability:
-an attacker would know which key was used - so `HKDF(key, i)`
-could be used instead.
-
-### FF1
-
-Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publication 800-38G.
+    - Poly1305 ([PDF](https://cr.yp.to/mac/poly1305-20050329.pdf),
+    [wiki](https://en.wikipedia.org/wiki/Poly1305))
+    is a fast and parallel secret-key message-authentication code suitable for
+    a wide variety of applications. It was standardized in
+    [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3.
+    - Polynomial MACs are not perfect for every situation:
+    they lack Random Key Robustness: the MAC can be forged, and can't
+    be used in PAKE schemes. See
+    [invisible salamanders attack](https://keymaterial.net/2020/09/07/invisible-salamanders-in-aes-gcm-siv/).
+    To combat invisible salamanders, `hash(key)` can be included in ciphertext,
+    however, this would violate ciphertext indistinguishability:
+    an attacker would know which key was used - so `HKDF(key, i)`
+    could be used instead.
+- Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publication 800-38G.
 [See more info](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf).
-
-### Managed nonces
-
-```js
-import { managedNonce } from '@noble/ciphers/webcrypto';
-import { gcm, siv, ctr, cbc, cbc, ecb } from '@noble/ciphers/aes';
-import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
-import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
-
-const wgcm = managedNonce(gcm);
-const wsiv = managedNonce(siv);
-const wcbc = managedNonce(cbc);
-const wctr = managedNonce(ctr);
-const wsalsapoly = managedNonce(xsalsa20poly1305);
-const wchacha = managedNonce(chacha20poly1305);
-const wxchacha = managedNonce(xchacha20poly1305);
-
-// Now:
-const encrypted = wgcm(key).encrypt(data); // no nonces
-```
-
-We provide API that manages nonce internally instead of exposing them to library's user.
-
-For `encrypt`, a `nonceBytes`-length buffer is fetched from CSPRNG and prenended to encrypted ciphertext.
-
-For `decrypt`, first `nonceBytes` of ciphertext are treated as nonce.
-
-## Guidance
 
 ### Which cipher should I pick?
 
-XChaCha20-Poly1305 is the safest bet these days.
+To simplify, XChaCha20-Poly1305 is the safest bet these days.
 AES-GCM-SIV is the second safest.
 AES-GCM is the third.
 
