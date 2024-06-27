@@ -518,7 +518,7 @@ encrypt (8KB)
 ├─chacha20poly1305 x 22,691 ops/sec @ 44μs/op
 ├─xchacha20poly1305 x 22,463 ops/sec @ 44μs/op
 ├─aes-256-gcm x 8,082 ops/sec @ 123μs/op
-└─aes-256-gcm-siv x 2,376 ops/sec @ 420μs/op
+└─aes-256-gcm-siv x 7,907 ops/sec @ 126μs/op
 encrypt (1MB)
 ├─xsalsa20poly1305 x 171 ops/sec @ 5ms/op
 ├─chacha20poly1305 x 186 ops/sec @ 5ms/op

@@ -1,18 +1,19 @@
 // prettier-ignore
+import { bytes as abytes } from './_assert.js';
+import { ghash, polyval } from './_polyval.js';
 import {
-  wrapCipher,
   Cipher,
   CipherWithOutput,
+  clean,
+  copyBytes,
   createView,
-  setBigUint64,
   equalBytes,
+  isAligned32,
+  setBigUint64,
   u32,
   u8,
-  isAligned32,
-  copyBytes,
+  wrapCipher,
 } from './utils.js';
-import { ghash, polyval } from './_polyval.js';
-import { bytes as abytes } from './_assert.js';
 
 /*
 AES (Advanced Encryption Standard) aka Rijndael block cipher.
@@ -60,7 +61,7 @@ const sbox = /* @__PURE__ */ (() => {
     x |= x << 8;
     box[t[i]] = (x ^ (x >> 4) ^ (x >> 5) ^ (x >> 6) ^ (x >> 7) ^ 0x63) & 0xff;
   }
-  t.fill(0);
+  clean(t);
   return box;
 })();
 
@@ -130,7 +131,7 @@ export function expandKeyLE(key: Uint8Array): Uint32Array {
     else if (Nk > 6 && i % Nk === 4) t = subByte(t);
     xk[i] = xk[i - Nk] ^ t;
   }
-  for (const i of toClean) i.fill(0);
+  clean(...toClean)
   return xk;
 }
 
@@ -144,7 +145,7 @@ export function expandKeyDecLE(key: Uint8Array): Uint32Array {
   for (let i = 0; i < Nk; i += 4) {
     for (let j = 0; j < 4; j++) xk[i + j] = encKey[Nk - i - 4 + j];
   }
-  encKey.fill(0);
+  clean(encKey);
   // apply InvMixColumn except first & last round
   for (let i = 4; i < Nk - 4; i++) {
     const x = xk[i];
@@ -259,7 +260,7 @@ function ctrCounter(xk: Uint32Array, nonce: Uint8Array, src: Uint8Array, dst?: U
     const b32 = new Uint32Array([s0, s1, s2, s3]);
     const buf = u8(b32);
     for (let i = start, pos = 0; i < srcLen; i++, pos++) dst[i] = src[i] ^ buf[pos];
-    b32.fill(0);
+    clean(b32);
   }
   return dst;
 }
@@ -303,7 +304,7 @@ function ctr32(
     const b32 = new Uint32Array([s0, s1, s2, s3]);
     const buf = u8(b32);
     for (let i = start, pos = 0; i < srcLen; i++, pos++) dst[i] = src[i] ^ buf[pos];
-    b32.fill(0);
+    clean(b32);
   }
   return dst;
 }
@@ -328,7 +329,7 @@ export const ctr = wrapCipher(
       const toClean = [xk, n];
       if (!isAligned32(buf)) toClean.push((buf = copyBytes(buf)));
       const out = ctrCounter(xk, n, buf, dst);
-      for (const i of toClean) i.fill(0);
+      clean(...toClean)
       return out;
     }
     return {
@@ -402,7 +403,7 @@ export const ecb = wrapCipher(
         const { b, o, out: _out } = validateBlockEncrypt(plaintext, pcks5, dst);
         const xk = expandKeyLE(key);
         let i = 0;
-        for (; i + 4 <= b.length; ) {
+        for (; i + 4 <= b.length;) {
           const { s0, s1, s2, s3 } = encrypt(xk, b[i + 0], b[i + 1], b[i + 2], b[i + 3]);
           (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
         }
@@ -411,7 +412,7 @@ export const ecb = wrapCipher(
           const { s0, s1, s2, s3 } = encrypt(xk, tmp32[0], tmp32[1], tmp32[2], tmp32[3]);
           (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
         }
-        xk.fill(0);
+        clean(xk);
         return _out;
       },
       decrypt(ciphertext: Uint8Array, dst?: Uint8Array) {
@@ -422,11 +423,11 @@ export const ecb = wrapCipher(
         if (!isAligned32(ciphertext)) toClean.push((ciphertext = copyBytes(ciphertext)));
         const b = u32(ciphertext);
         const o = u32(out);
-        for (let i = 0; i + 4 <= b.length; ) {
+        for (let i = 0; i + 4 <= b.length;) {
           const { s0, s1, s2, s3 } = decrypt(xk, b[i + 0], b[i + 1], b[i + 2], b[i + 3]);
           (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
         }
-        for (const i of toClean) i.fill(0);
+        clean(...toClean)
         return validatePCKS(out, pcks5);
       },
     };
@@ -454,7 +455,7 @@ export const cbc = wrapCipher(
         // prettier-ignore
         let s0 = n32[0], s1 = n32[1], s2 = n32[2], s3 = n32[3];
         let i = 0;
-        for (; i + 4 <= b.length; ) {
+        for (; i + 4 <= b.length;) {
           (s0 ^= b[i + 0]), (s1 ^= b[i + 1]), (s2 ^= b[i + 2]), (s3 ^= b[i + 3]);
           ({ s0, s1, s2, s3 } = encrypt(xk, s0, s1, s2, s3));
           (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
@@ -465,7 +466,7 @@ export const cbc = wrapCipher(
           ({ s0, s1, s2, s3 } = encrypt(xk, s0, s1, s2, s3));
           (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
         }
-        for (const i of toClean) i.fill(0);
+        clean(...toClean)
         return _out;
       },
       decrypt(ciphertext: Uint8Array, dst?: Uint8Array) {
@@ -481,14 +482,14 @@ export const cbc = wrapCipher(
         const o = u32(out);
         // prettier-ignore
         let s0 = n32[0], s1 = n32[1], s2 = n32[2], s3 = n32[3];
-        for (let i = 0; i + 4 <= b.length; ) {
+        for (let i = 0; i + 4 <= b.length;) {
           // prettier-ignore
           const ps0 = s0, ps1 = s1, ps2 = s2, ps3 = s3;
           (s0 = b[i + 0]), (s1 = b[i + 1]), (s2 = b[i + 2]), (s3 = b[i + 3]);
           const { s0: o0, s1: o1, s2: o2, s3: o3 } = decrypt(xk, s0, s1, s2, s3);
           (o[i++] = o0 ^ ps0), (o[i++] = o1 ^ ps1), (o[i++] = o2 ^ ps2), (o[i++] = o3 ^ ps3);
         }
-        for (const i of toClean) i.fill(0);
+        clean(...toClean)
         return validatePCKS(out, pcks5);
       },
     };
@@ -519,7 +520,7 @@ export const cfb = wrapCipher(
       const n32 = u32(_iv);
       // prettier-ignore
       let s0 = n32[0], s1 = n32[1], s2 = n32[2], s3 = n32[3];
-      for (let i = 0; i + 4 <= src32.length; ) {
+      for (let i = 0; i + 4 <= src32.length;) {
         const { s0: e0, s1: e1, s2: e2, s3: e3 } = encrypt(xk, s0, s1, s2, s3);
         dst32[i + 0] = src32[i + 0] ^ e0;
         dst32[i + 1] = src32[i + 1] ^ e1;
@@ -533,9 +534,9 @@ export const cfb = wrapCipher(
         ({ s0, s1, s2, s3 } = encrypt(xk, s0, s1, s2, s3));
         const buf = u8(new Uint32Array([s0, s1, s2, s3]));
         for (let i = start, pos = 0; i < srcLen; i++, pos++) dst[i] = src[i] ^ buf[pos];
-        buf.fill(0);
+        clean(buf);
       }
-      for (const i of toClean) i.fill(0);
+      clean(...toClean)
       return dst;
     }
     return {
@@ -562,7 +563,7 @@ function computeTag(
   setBigUint64(view, 8, BigInt(data.length * 8), isLE);
   h.update(num);
   const res = h.digest();
-  num.fill(0);
+  clean(num);
   return res;
 }
 
@@ -617,7 +618,7 @@ export const gcm = wrapCipher(
         const tag = _computeTag(authKey, tagMask, out.subarray(0, out.length - tagLength));
         toClean.push(tag);
         out.set(tag, plaintext.length);
-        for (const i of toClean) i.fill(0);
+        clean(...toClean)
         return out;
       },
       decrypt(ciphertext: Uint8Array) {
@@ -633,7 +634,7 @@ export const gcm = wrapCipher(
         toClean.push(tag);
         if (!equalBytes(tag, passedTag)) throw new Error('aes/gcm: invalid ghash tag');
         const out = ctr32(xk, false, counter, data);
-        for (const i of toClean) i.fill(0);
+        clean(...toClean)
         return out;
       },
     };
@@ -690,7 +691,7 @@ export const siv = wrapCipher(
       }
       const res = { authKey, encKey: expandKeyLE(encKey) };
       // Cleanup
-      for (const i of toClean) i.fill(0);
+      clean(...toClean)
       return res;
     }
     function _computeTag(encKey: Uint32Array, authKey: Uint8Array, data: Uint8Array) {
@@ -714,7 +715,7 @@ export const siv = wrapCipher(
       block[15] |= 0x80; // Force highest bit
       const res = ctr32(encKey, true, block, input);
       // Cleanup
-      block.fill(0);
+      clean(block);
       return res;
     }
     return {
@@ -729,7 +730,7 @@ export const siv = wrapCipher(
         out.set(tag, plaintext.length);
         out.set(processSiv(encKey, tag, plaintext));
         // Cleanup
-        for (const i of toClean) i.fill(0);
+        clean(...toClean)
         return out;
       },
       decrypt(ciphertext: Uint8Array) {
@@ -743,11 +744,11 @@ export const siv = wrapCipher(
         const expectedTag = _computeTag(encKey, authKey, plaintext);
         toClean.push(expectedTag);
         if (!equalBytes(tag, expectedTag)) {
-          for (const i of toClean) i.fill(0);
+          clean(...toClean)
           throw new Error('invalid polyval tag');
         }
         // Cleanup
-        for (const i of toClean) i.fill(0);
+        clean(...toClean)
         return plaintext;
       },
     };

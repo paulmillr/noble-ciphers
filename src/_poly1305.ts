@@ -1,5 +1,5 @@
-import { exists as aexists, bytes as abytes, output as aoutput } from './_assert.js';
-import { Input, toBytes, Hash } from './utils.js';
+import { bytes as abytes, exists as aexists, output as aoutput } from './_assert.js';
+import { Hash, Input, clean, toBytes } from './utils.js';
 
 // Poly1305 is a fast and parallel secret-key message-authentication code.
 // https://cr.yp.to/mac.html, https://cr.yp.to/mac/poly1305-20050329.pdf
@@ -214,7 +214,7 @@ class Poly1305 implements Hash<Poly1305> {
       f = (((h[i] + pad[i]) | 0) + (f >>> 16)) | 0;
       h[i] = f & 0xffff;
     }
-    g.fill(0);
+    clean(g);
   }
   update(data: Input): this {
     aexists(this);
@@ -222,7 +222,7 @@ class Poly1305 implements Hash<Poly1305> {
     data = toBytes(data);
     const len = data.length;
 
-    for (let pos = 0; pos < len; ) {
+    for (let pos = 0; pos < len;) {
       const take = Math.min(blockLen - this.pos, len - pos);
       // Fast path: we have at least one block in input
       if (take === blockLen) {
@@ -240,10 +240,7 @@ class Poly1305 implements Hash<Poly1305> {
     return this;
   }
   destroy() {
-    this.h.fill(0);
-    this.r.fill(0);
-    this.buffer.fill(0);
-    this.pad.fill(0);
+    clean(this.h, this.r, this.buffer, this.pad);
   }
   digestInto(out: Uint8Array) {
     aexists(this);
@@ -253,7 +250,6 @@ class Poly1305 implements Hash<Poly1305> {
     let { pos } = this;
     if (pos) {
       buffer[pos++] = 1;
-      // buffer.subarray(pos).fill(0);
       for (; pos < 16; pos++) buffer[pos] = 0;
       this.process(buffer, 0, true);
     }

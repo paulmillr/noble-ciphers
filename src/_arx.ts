@@ -1,6 +1,6 @@
 // Basic utils for ARX (add-rotate-xor) salsa and chacha ciphers.
-import { number as anumber, bytes as abytes, bool as abool } from './_assert.js';
-import { XorStream, checkOpts, u32, copyBytes } from './utils.js';
+import { bool as abool, bytes as abytes, number as anumber } from './_assert.js';
+import { XorStream, checkOpts, clean, copyBytes, u32 } from './utils.js';
 
 /*
 RFC8439 requires multi-step cipher stream, where
@@ -207,7 +207,7 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
     }
     const n32 = u32(nonce);
     runCipher(core, sigma, k32, n32, data, output, counter, rounds);
-    for (const i of toClean) i.fill(0);
+    clean(...toClean)
     return output;
   };
 }

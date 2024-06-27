@@ -1,11 +1,14 @@
 /*! noble-ciphers - MIT License (c) 2023 Paul Miller (paulmillr.com) */
 // prettier-ignore
-import {
-  Cipher, XorStream, createView, setBigUint64, wrapCipher,
-  bytesToHex, concatBytes, equalBytes, hexToNumber, numberToBytesBE,
-} from './utils.js';
 import { createCipher, rotl } from './_arx.js';
 import { bytes as abytes } from './_assert.js';
+import {
+  Cipher, XorStream,
+  bytesToHex, concatBytes,
+  createView,
+  equalBytes, hexToNumber, numberToBytesBE,
+  setBigUint64, wrapCipher,
+} from './utils.js';
 
 /*
 noble-ciphers-micro: more auditable, but slower version of salsa20, chacha & poly1305.
@@ -73,7 +76,7 @@ function salsaCore(
   const y = new Uint32Array([
     s[0], k[0], k[1], k[2], // "expa" Key     Key     Key
     k[3], s[1], n[0], n[1], // Key    "nd 3"  Nonce   Nonce
-    cnt,  0   , s[2], k[4], // Pos.   Pos.    "2-by"  Key
+    cnt, 0, s[2], k[4], // Pos.   Pos.    "2-by"  Key
     k[5], k[6], k[7], s[3], // Key    Key     Key     "te k"
   ]);
   const x = y.slice();
@@ -91,10 +94,10 @@ export function hsalsa(s: Uint32Array, k: Uint32Array, i: Uint32Array, o32: Uint
   ]);
   salsaRound(x, 20);
   let oi = 0;
-  o32[oi++] = x[0];  o32[oi++] = x[5];
+  o32[oi++] = x[0]; o32[oi++] = x[5];
   o32[oi++] = x[10]; o32[oi++] = x[15];
-  o32[oi++] = x[6];  o32[oi++] = x[7];
-  o32[oi++] = x[8];  o32[oi++] = x[9];
+  o32[oi++] = x[6]; o32[oi++] = x[7];
+  o32[oi++] = x[8]; o32[oi++] = x[9];
 }
 
 function chachaCore(
@@ -110,7 +113,7 @@ function chachaCore(
     s[0], s[1], s[2], s[3], // "expa"   "nd 3"  "2-by"  "te k"
     k[0], k[1], k[2], k[3], // Key      Key     Key     Key
     k[4], k[5], k[6], k[7], // Key      Key     Key     Key
-    cnt,  n[0], n[1], n[2], // Counter  Counter Nonce   Nonce
+    cnt, n[0], n[1], n[2], // Counter  Counter Nonce   Nonce
   ]);
   const x = y.slice();
   chachaRound(x, rounds);
@@ -127,8 +130,8 @@ export function hchacha(s: Uint32Array, k: Uint32Array, i: Uint32Array, o32: Uin
   ]);
   chachaRound(x, 20);
   let oi = 0;
-  o32[oi++] = x[0];  o32[oi++] = x[1];
-  o32[oi++] = x[2];  o32[oi++] = x[3];
+  o32[oi++] = x[0]; o32[oi++] = x[1];
+  o32[oi++] = x[2]; o32[oi++] = x[3];
   o32[oi++] = x[12]; o32[oi++] = x[13];
   o32[oi++] = x[14]; o32[oi++] = x[15];
 }
@@ -282,30 +285,30 @@ export function secretbox(key: Uint8Array, nonce: Uint8Array) {
 
 export const _poly1305_aead =
   (fn: XorStream) =>
-  (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher => {
-    const tagLength = 16;
-    const keyLength = 32;
-    abytes(key, keyLength);
-    abytes(nonce);
-    return {
-      encrypt(plaintext: Uint8Array) {
-        abytes(plaintext);
-        const res = fn(key, nonce, plaintext, undefined, 1);
-        const tag = computeTag(fn, key, nonce, res, AAD);
-        return concatBytes(res, tag);
-      },
-      decrypt(ciphertext: Uint8Array) {
-        abytes(ciphertext);
-        if (ciphertext.length < tagLength)
-          throw new Error(`encrypted data must be at least ${tagLength} bytes`);
-        const passedTag = ciphertext.subarray(-tagLength);
-        const data = ciphertext.subarray(0, -tagLength);
-        const tag = computeTag(fn, key, nonce, data, AAD);
-        if (!equalBytes(passedTag, tag)) throw new Error('invalid poly1305 tag');
-        return fn(key, nonce, data, undefined, 1);
-      },
+    (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher => {
+      const tagLength = 16;
+      const keyLength = 32;
+      abytes(key, keyLength);
+      abytes(nonce);
+      return {
+        encrypt(plaintext: Uint8Array) {
+          abytes(plaintext);
+          const res = fn(key, nonce, plaintext, undefined, 1);
+          const tag = computeTag(fn, key, nonce, res, AAD);
+          return concatBytes(res, tag);
+        },
+        decrypt(ciphertext: Uint8Array) {
+          abytes(ciphertext);
+          if (ciphertext.length < tagLength)
+            throw new Error(`encrypted data must be at least ${tagLength} bytes`);
+          const passedTag = ciphertext.subarray(-tagLength);
+          const data = ciphertext.subarray(0, -tagLength);
+          const tag = computeTag(fn, key, nonce, data, AAD);
+          if (!equalBytes(passedTag, tag)) throw new Error('invalid poly1305 tag');
+          return fn(key, nonce, data, undefined, 1);
+        },
+      };
     };
-  };
 
 /**
  * chacha20-poly1305 12-byte-nonce chacha.

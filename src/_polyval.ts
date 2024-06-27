@@ -1,5 +1,5 @@
-import { createView, toBytes, Input, Hash, u32, copyBytes } from './utils.js';
 import { bytes as abytes, exists as aexists, output as aoutput } from './_assert.js';
+import { clean, copyBytes, createView, Hash, Input, toBytes, u32 } from './utils.js';
 
 // GHash from AES-GCM and its little-endian "mirror image" Polyval from AES-SIV.
 // Implemented in terms of GHash with conversion function for keys
@@ -148,7 +148,7 @@ class GHASH implements Hash<GHASH> {
     if (left) {
       ZEROS16.set(data.subarray(blocks * BLOCK_SIZE));
       this._updateBlock(ZEROS32[0], ZEROS32[1], ZEROS32[2], ZEROS32[3]);
-      ZEROS32.fill(0); // clean tmp buffer
+      clean(ZEROS32); // clean tmp buffer
     }
     return this;
   }
@@ -184,7 +184,7 @@ class Polyval extends GHASH {
     key = toBytes(key);
     const ghKey = _toGHASHKey(copyBytes(key));
     super(ghKey, expectedLength);
-    ghKey.fill(0);
+    clean(ghKey);
   }
   update(data: Input): this {
     data = toBytes(data);
@@ -208,7 +208,7 @@ class Polyval extends GHASH {
         swapLE(ZEROS32[1]),
         swapLE(ZEROS32[0])
       );
-      ZEROS32.fill(0); // clean tmp buffer
+      clean(ZEROS32);
     }
     return this;
   }

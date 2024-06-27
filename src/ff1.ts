@@ -1,5 +1,5 @@
-import { Cipher, bytesToNumberBE, numberToBytesBE } from './utils.js';
 import { unsafe } from './aes.js';
+import { Cipher, bytesToNumberBE, clean, numberToBytesBE } from './utils.js';
 // NOTE: no point in inlining encrypt instead of encryptBlock, since BigInt stuff will be slow
 const { expandKeyLE, encryptBlock } = unsafe;
 
@@ -45,7 +45,7 @@ function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: number[]
   // Q = T || [0](−t−b−1) mod 16 || [i]1 || [NUMradix(B)]b.
   const PQ = new Uint8Array(P.length + tweak.length + padding + 1 + b);
   PQ.set(P);
-  P.fill(0);
+  clean(P);
   PQ.set(tweak, P.length);
   const xk = expandKeyLE(key);
   const round = (A: number[], B: number[], i: number, decrypt = false) => {
@@ -80,8 +80,7 @@ function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: number[]
     return [A, B];
   };
   const destroy = () => {
-    xk.fill(0);
-    PQ.fill(0);
+    clean(xk, PQ);
   };
   return { u, round, destroy };
 }

@@ -262,6 +262,8 @@ export function copyBytes(bytes: Uint8Array) {
   return Uint8Array.from(bytes);
 }
 
-export function clean(bytes: Uint8Array) {
-  bytes.fill(0);
+export function clean(...arrays: TypedArray[]) {
+  for (let i = 0; i < arrays.length; i++) {
+    arrays[i].fill(0);
+  }
 }

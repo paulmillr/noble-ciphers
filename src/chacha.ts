@@ -1,10 +1,13 @@
 // prettier-ignore
-import {
-  wrapCipher, CipherWithOutput, XorStream, createView, equalBytes, setBigUint64,
-} from './utils.js';
-import { poly1305 } from './_poly1305.js';
 import { createCipher, rotl } from './_arx.js';
 import { bytes as abytes } from './_assert.js';
+import { poly1305 } from './_poly1305.js';
+import {
+  CipherWithOutput, XorStream,
+  clean,
+  createView, equalBytes, setBigUint64,
+  wrapCipher,
+} from './utils.js';
 
 // ChaCha20 stream cipher was released in 2008. ChaCha aims to increase
 // the diffusion per round, but had slightly less cryptanalysis.
@@ -18,14 +21,14 @@ function chachaCore(
   s: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32Array, cnt: number, rounds = 20
 ): void {
   let y00 = s[0], y01 = s[1], y02 = s[2], y03 = s[3], // "expa"   "nd 3"  "2-by"  "te k"
-      y04 = k[0], y05 = k[1], y06 = k[2], y07 = k[3], // Key      Key     Key     Key
-      y08 = k[4], y09 = k[5], y10 = k[6], y11 = k[7], // Key      Key     Key     Key
-      y12 = cnt,  y13 = n[0], y14 = n[1], y15 = n[2]; // Counter  Counter	Nonce   Nonce
+    y04 = k[0], y05 = k[1], y06 = k[2], y07 = k[3], // Key      Key     Key     Key
+    y08 = k[4], y09 = k[5], y10 = k[6], y11 = k[7], // Key      Key     Key     Key
+    y12 = cnt, y13 = n[0], y14 = n[1], y15 = n[2]; // Counter  Counter	Nonce   Nonce
   // Save state to temporary variables
   let x00 = y00, x01 = y01, x02 = y02, x03 = y03,
-      x04 = y04, x05 = y05, x06 = y06, x07 = y07,
-      x08 = y08, x09 = y09, x10 = y10, x11 = y11,
-      x12 = y12, x13 = y13, x14 = y14, x15 = y15;
+    x04 = y04, x05 = y05, x06 = y06, x07 = y07,
+    x08 = y08, x09 = y09, x10 = y10, x11 = y11,
+    x12 = y12, x13 = y13, x14 = y14, x15 = y15;
   for (let r = 0; r < rounds; r += 2) {
     x00 = (x00 + x04) | 0; x12 = rotl(x12 ^ x00, 16);
     x08 = (x08 + x12) | 0; x04 = rotl(x04 ^ x08, 12);
@@ -39,7 +42,7 @@ function chachaCore(
 
     x02 = (x02 + x06) | 0; x14 = rotl(x14 ^ x02, 16);
     x10 = (x10 + x14) | 0; x06 = rotl(x06 ^ x10, 12);
-    x02 = (x02 + x06) | 0; x14 = rotl(x14 ^x02, 8);
+    x02 = (x02 + x06) | 0; x14 = rotl(x14 ^ x02, 8);
     x10 = (x10 + x14) | 0; x06 = rotl(x06 ^ x10, 7);
 
     x03 = (x03 + x07) | 0; x15 = rotl(x15 ^ x03, 16);
@@ -89,9 +92,9 @@ export function hchacha(
   s: Uint32Array, k: Uint32Array, i: Uint32Array, o32: Uint32Array
 ) {
   let x00 = s[0], x01 = s[1], x02 = s[2], x03 = s[3],
-      x04 = k[0], x05 = k[1], x06 = k[2], x07 = k[3],
-      x08 = k[4], x09 = k[5], x10 = k[6], x11 = k[7],
-      x12 = i[0], x13 = i[1], x14 = i[2], x15 = i[3];
+    x04 = k[0], x05 = k[1], x06 = k[2], x07 = k[3],
+    x08 = k[4], x09 = k[5], x10 = k[6], x11 = k[7],
+    x12 = i[0], x13 = i[1], x14 = i[2], x15 = i[3];
   for (let r = 0; r < 20; r += 2) {
     x00 = (x00 + x04) | 0; x12 = rotl(x12 ^ x00, 16);
     x08 = (x08 + x12) | 0; x04 = rotl(x04 ^ x08, 12);
@@ -213,8 +216,7 @@ function computeTag(
   setBigUint64(view, 8, BigInt(data.length), true);
   h.update(num);
   const res = h.digest();
-  authKey.fill(0);
-  num.fill(0);
+  clean(authKey, num);
   return res;
 }
 
@@ -229,45 +231,45 @@ function computeTag(
  */
 export const _poly1305_aead =
   (xorStream: XorStream) =>
-  (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): CipherWithOutput => {
-    const tagLength = 16;
-    abytes(key, 32);
-    abytes(nonce);
-    return {
-      encrypt(plaintext: Uint8Array, output?: Uint8Array) {
-        const plength = plaintext.length;
-        const clength = plength + tagLength;
-        if (output) {
-          abytes(output, clength);
-        } else {
-          output = new Uint8Array(clength);
-        }
-        xorStream(key, nonce, plaintext, output, 1);
-        const tag = computeTag(xorStream, key, nonce, output.subarray(0, -tagLength), AAD);
-        output.set(tag, plength); // append tag
-        tag.fill(0);
-        return output;
-      },
-      decrypt(ciphertext: Uint8Array, output?: Uint8Array) {
-        const clength = ciphertext.length;
-        const plength = clength - tagLength;
-        if (clength < tagLength)
-          throw new Error(`encrypted data must be at least ${tagLength} bytes`);
-        if (output) {
-          abytes(output, plength);
-        } else {
-          output = new Uint8Array(plength);
-        }
-        const data = ciphertext.subarray(0, -tagLength);
-        const passedTag = ciphertext.subarray(-tagLength);
-        const tag = computeTag(xorStream, key, nonce, data, AAD);
-        if (!equalBytes(passedTag, tag)) throw new Error('invalid tag');
-        xorStream(key, nonce, data, output, 1);
-        tag.fill(0);
-        return output;
-      },
+    (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): CipherWithOutput => {
+      const tagLength = 16;
+      abytes(key, 32);
+      abytes(nonce);
+      return {
+        encrypt(plaintext: Uint8Array, output?: Uint8Array) {
+          const plength = plaintext.length;
+          const clength = plength + tagLength;
+          if (output) {
+            abytes(output, clength);
+          } else {
+            output = new Uint8Array(clength);
+          }
+          xorStream(key, nonce, plaintext, output, 1);
+          const tag = computeTag(xorStream, key, nonce, output.subarray(0, -tagLength), AAD);
+          output.set(tag, plength); // append tag
+          clean(tag);
+          return output;
+        },
+        decrypt(ciphertext: Uint8Array, output?: Uint8Array) {
+          const clength = ciphertext.length;
+          const plength = clength - tagLength;
+          if (clength < tagLength)
+            throw new Error(`encrypted data must be at least ${tagLength} bytes`);
+          if (output) {
+            abytes(output, plength);
+          } else {
+            output = new Uint8Array(plength);
+          }
+          const data = ciphertext.subarray(0, -tagLength);
+          const passedTag = ciphertext.subarray(-tagLength);
+          const tag = computeTag(xorStream, key, nonce, data, AAD);
+          if (!equalBytes(passedTag, tag)) throw new Error('invalid tag');
+          xorStream(key, nonce, data, output, 1);
+          clean(tag);
+          return output;
+        },
+      };
     };
-  };
 
 /**
  * ChaCha20-Poly1305 from RFC 8439.
