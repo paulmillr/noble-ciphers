@@ -222,7 +222,7 @@ class Poly1305 implements Hash<Poly1305> {
     data = toBytes(data);
     const len = data.length;
 
-    for (let pos = 0; pos < len;) {
+    for (let pos = 0; pos < len; ) {
       const take = Math.min(blockLen - this.pos, len - pos);
       // Fast path: we have at least one block in input
       if (take === blockLen) {

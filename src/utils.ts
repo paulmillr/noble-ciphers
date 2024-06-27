@@ -85,7 +85,7 @@ export function numberToBytesBE(n: number | bigint, len: number): Uint8Array {
 // There is no setImmediate in browser and setTimeout is slow.
 // call of async fn will return Promise, which will be fullfiled only on
 // next scheduler queue processing step and this is exactly what we need.
-export const nextTick = async () => { };
+export const nextTick = async () => {};
 
 // Returns control to thread each 'tick' ms to avoid blocking
 export async function asyncLoop(iters: number, tick: number, cb: (i: number) => void) {

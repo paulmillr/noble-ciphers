@@ -3,11 +3,16 @@
 import { createCipher, rotl } from './_arx.js';
 import { bytes as abytes } from './_assert.js';
 import {
-  Cipher, XorStream,
-  bytesToHex, concatBytes,
+  Cipher,
+  XorStream,
+  bytesToHex,
+  concatBytes,
   createView,
-  equalBytes, hexToNumber, numberToBytesBE,
-  setBigUint64, wrapCipher,
+  equalBytes,
+  hexToNumber,
+  numberToBytesBE,
+  setBigUint64,
+  wrapCipher,
 } from './utils.js';
 
 /*
@@ -285,30 +290,30 @@ export function secretbox(key: Uint8Array, nonce: Uint8Array) {
 
 export const _poly1305_aead =
   (fn: XorStream) =>
-    (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher => {
-      const tagLength = 16;
-      const keyLength = 32;
-      abytes(key, keyLength);
-      abytes(nonce);
-      return {
-        encrypt(plaintext: Uint8Array) {
-          abytes(plaintext);
-          const res = fn(key, nonce, plaintext, undefined, 1);
-          const tag = computeTag(fn, key, nonce, res, AAD);
-          return concatBytes(res, tag);
-        },
-        decrypt(ciphertext: Uint8Array) {
-          abytes(ciphertext);
-          if (ciphertext.length < tagLength)
-            throw new Error(`encrypted data must be at least ${tagLength} bytes`);
-          const passedTag = ciphertext.subarray(-tagLength);
-          const data = ciphertext.subarray(0, -tagLength);
-          const tag = computeTag(fn, key, nonce, data, AAD);
-          if (!equalBytes(passedTag, tag)) throw new Error('invalid poly1305 tag');
-          return fn(key, nonce, data, undefined, 1);
-        },
-      };
+  (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher => {
+    const tagLength = 16;
+    const keyLength = 32;
+    abytes(key, keyLength);
+    abytes(nonce);
+    return {
+      encrypt(plaintext: Uint8Array) {
+        abytes(plaintext);
+        const res = fn(key, nonce, plaintext, undefined, 1);
+        const tag = computeTag(fn, key, nonce, res, AAD);
+        return concatBytes(res, tag);
+      },
+      decrypt(ciphertext: Uint8Array) {
+        abytes(ciphertext);
+        if (ciphertext.length < tagLength)
+          throw new Error(`encrypted data must be at least ${tagLength} bytes`);
+        const passedTag = ciphertext.subarray(-tagLength);
+        const data = ciphertext.subarray(0, -tagLength);
+        const tag = computeTag(fn, key, nonce, data, AAD);
+        if (!equalBytes(passedTag, tag)) throw new Error('invalid poly1305 tag');
+        return fn(key, nonce, data, undefined, 1);
+      },
     };
+  };
 
 /**
  * chacha20-poly1305 12-byte-nonce chacha.

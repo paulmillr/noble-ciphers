@@ -207,7 +207,7 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
     }
     const n32 = u32(nonce);
     runCipher(core, sigma, k32, n32, data, output, counter, rounds);
-    clean(...toClean)
+    clean(...toClean);
     return output;
   };
 }

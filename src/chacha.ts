@@ -3,9 +3,12 @@ import { createCipher, rotl } from './_arx.js';
 import { bytes as abytes } from './_assert.js';
 import { poly1305 } from './_poly1305.js';
 import {
-  CipherWithOutput, XorStream,
+  CipherWithOutput,
+  XorStream,
   clean,
-  createView, equalBytes, setBigUint64,
+  createView,
+  equalBytes,
+  setBigUint64,
   wrapCipher,
 } from './utils.js';
 
@@ -231,45 +234,45 @@ function computeTag(
  */
 export const _poly1305_aead =
   (xorStream: XorStream) =>
-    (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): CipherWithOutput => {
-      const tagLength = 16;
-      abytes(key, 32);
-      abytes(nonce);
-      return {
-        encrypt(plaintext: Uint8Array, output?: Uint8Array) {
-          const plength = plaintext.length;
-          const clength = plength + tagLength;
-          if (output) {
-            abytes(output, clength);
-          } else {
-            output = new Uint8Array(clength);
-          }
-          xorStream(key, nonce, plaintext, output, 1);
-          const tag = computeTag(xorStream, key, nonce, output.subarray(0, -tagLength), AAD);
-          output.set(tag, plength); // append tag
-          clean(tag);
-          return output;
-        },
-        decrypt(ciphertext: Uint8Array, output?: Uint8Array) {
-          const clength = ciphertext.length;
-          const plength = clength - tagLength;
-          if (clength < tagLength)
-            throw new Error(`encrypted data must be at least ${tagLength} bytes`);
-          if (output) {
-            abytes(output, plength);
-          } else {
-            output = new Uint8Array(plength);
-          }
-          const data = ciphertext.subarray(0, -tagLength);
-          const passedTag = ciphertext.subarray(-tagLength);
-          const tag = computeTag(xorStream, key, nonce, data, AAD);
-          if (!equalBytes(passedTag, tag)) throw new Error('invalid tag');
-          xorStream(key, nonce, data, output, 1);
-          clean(tag);
-          return output;
-        },
-      };
+  (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): CipherWithOutput => {
+    const tagLength = 16;
+    abytes(key, 32);
+    abytes(nonce);
+    return {
+      encrypt(plaintext: Uint8Array, output?: Uint8Array) {
+        const plength = plaintext.length;
+        const clength = plength + tagLength;
+        if (output) {
+          abytes(output, clength);
+        } else {
+          output = new Uint8Array(clength);
+        }
+        xorStream(key, nonce, plaintext, output, 1);
+        const tag = computeTag(xorStream, key, nonce, output.subarray(0, -tagLength), AAD);
+        output.set(tag, plength); // append tag
+        clean(tag);
+        return output;
+      },
+      decrypt(ciphertext: Uint8Array, output?: Uint8Array) {
+        const clength = ciphertext.length;
+        const plength = clength - tagLength;
+        if (clength < tagLength)
+          throw new Error(`encrypted data must be at least ${tagLength} bytes`);
+        if (output) {
+          abytes(output, plength);
+        } else {
+          output = new Uint8Array(plength);
+        }
+        const data = ciphertext.subarray(0, -tagLength);
+        const passedTag = ciphertext.subarray(-tagLength);
+        const tag = computeTag(xorStream, key, nonce, data, AAD);
+        if (!equalBytes(passedTag, tag)) throw new Error('invalid tag');
+        xorStream(key, nonce, data, output, 1);
+        clean(tag);
+        return output;
+      },
     };
+  };
 
 /**
  * ChaCha20-Poly1305 from RFC 8439.
