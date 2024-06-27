@@ -1,6 +1,6 @@
 // Basic utils for ARX (add-rotate-xor) salsa and chacha ciphers.
 import { number as anumber, bytes as abytes, bool as abool } from './_assert.js';
-import { XorStream, checkOpts, u32 } from './utils.js';
+import { XorStream, checkOpts, u32, copyBytes } from './utils.js';
 
 /*
 RFC8439 requires multi-step cipher stream, where
@@ -149,7 +149,7 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
     abytes(nonce);
     abytes(data);
     const len = data.length;
-    if (!output) output = new Uint8Array(len);
+    if (output === undefined) output = new Uint8Array(len);
     abytes(output);
     anumber(counter);
     if (counter < 0 || counter >= MAX_COUNTER) throw new Error('arx: counter overflow');
@@ -164,8 +164,7 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
       k: Uint8Array,
       sigma: Uint32Array;
     if (l === 32) {
-      k = key.slice();
-      toClean.push(k);
+      toClean.push((k = copyBytes(key)));
       sigma = sigma32_32;
     } else if (l === 16 && allowShortKeys) {
       k = new Uint8Array(32);
@@ -184,10 +183,7 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
     // xsalsa20:     24  (16 -> hsalsa,  8 -> old nonce)
     // xchacha20:    24  (16 -> hchacha, 8 -> old nonce)
     // Align nonce to 4 bytes
-    if (!isAligned32(nonce)) {
-      nonce = nonce.slice();
-      toClean.push(nonce);
-    }
+    if (!isAligned32(nonce)) toClean.push((nonce = copyBytes(nonce)));
 
     const k32 = u32(k);
     // hsalsa & hchacha: handle extended nonce
@@ -211,7 +207,7 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
     }
     const n32 = u32(nonce);
     runCipher(core, sigma, k32, n32, data, output, counter, rounds);
-    while (toClean.length > 0) toClean.pop()!.fill(0);
+    for (const i of toClean) i.fill(0);
     return output;
   };
 }

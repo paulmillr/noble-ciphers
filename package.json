@@ -1,6 +1,6 @@
 {
   "name": "@noble/ciphers",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "description": "Auditable & minimal JS implementation of Salsa20, ChaCha and AES",
   "files": [
     "esm",
@@ -28,7 +28,6 @@
     "url": "git+https://github.com/paulmillr/noble-ciphers.git"
   },
   "license": "MIT",
-  "sideEffects": false,
   "devDependencies": {
     "@paulmillr/jsbt": "0.1.0",
     "@scure/base": "1.1.3",
@@ -41,24 +40,20 @@
   "main": "index.js",
   "exports": {
     ".": {
-      "types": "./index.d.ts",
       "import": "./esm/index.js",
-      "default": "./index.js"
+      "require": "./index.js"
     },
     "./_micro": {
-      "types": "./_micro.d.ts",
       "import": "./esm/_micro.js",
-      "default": "./_micro.js"
+      "require": "./_micro.js"
     },
     "./_poly1305": {
-      "types": "./_poly1305.d.ts",
       "import": "./esm/_poly1305.js",
-      "default": "./_poly1305.js"
+      "require": "./_poly1305.js"
     },
     "./_polyval": {
-      "types": "./_polyval.d.ts",
       "import": "./esm/_polyval.js",
-      "default": "./_polyval.js"
+      "require": "./_polyval.js"
     },
     "./crypto": {
       "types": "./crypto.d.ts",
@@ -70,41 +65,35 @@
       "default": "./crypto.js"
     },
     "./aes": {
-      "types": "./aes.d.ts",
       "import": "./esm/aes.js",
-      "default": "./aes.js"
+      "require": "./aes.js"
     },
     "./chacha": {
-      "types": "./chacha.d.ts",
       "import": "./esm/chacha.js",
-      "default": "./chacha.js"
+      "require": "./chacha.js"
     },
     "./salsa": {
-      "types": "./salsa.d.ts",
       "import": "./esm/salsa.js",
-      "default": "./salsa.js"
+      "require": "./salsa.js"
     },
     "./ff1": {
-      "types": "./ff1.d.ts",
       "import": "./esm/ff1.js",
-      "default": "./ff1.js"
+      "require": "./ff1.js"
     },
     "./utils": {
-      "types": "./utils.d.ts",
       "import": "./esm/utils.js",
-      "default": "./utils.js"
+      "require": "./utils.js"
     },
     "./index": {
-      "types": "./index.d.ts",
       "import": "./esm/index.js",
-      "default": "./index.js"
+      "require": "./index.js"
     },
     "./webcrypto": {
-      "types": "./webcrypto.d.ts",
       "import": "./esm/webcrypto.js",
-      "default": "./webcrypto.js"
+      "require": "./webcrypto.js"
     }
   },
+  "sideEffects": false,
   "browser": {
     "node:crypto": false,
     "./crypto": "./crypto.js"

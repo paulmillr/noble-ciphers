@@ -14,7 +14,7 @@
   "dependencies": {
     "@chainsafe/as-chacha20poly1305": "0.1.0",
     "@devtomio/sodium": "0.3.0",
-    "@noble/ciphers": "file:..",
+    "@noble/ciphers": "file:noble-ciphers-0.6.0.tgz",
     "@stablelib/aes": "^1.0.1",
     "@stablelib/chacha": "1.0.1",
     "@stablelib/chacha20poly1305": "1.0.1",

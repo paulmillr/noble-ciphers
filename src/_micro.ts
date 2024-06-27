@@ -250,7 +250,7 @@ export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(
     abytes(key);
     abytes(nonce);
     return {
-      encrypt: (plaintext: Uint8Array) => {
+      encrypt(plaintext: Uint8Array) {
         abytes(plaintext);
         const m = concatBytes(new Uint8Array(32), plaintext);
         const c = xsalsa20(key, nonce, m);
@@ -259,7 +259,7 @@ export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(
         const tag = poly1305(data, authKey);
         return concatBytes(tag, data);
       },
-      decrypt: (ciphertext: Uint8Array) => {
+      decrypt(ciphertext: Uint8Array) {
         abytes(ciphertext);
         if (ciphertext.length < 16) throw new Error('encrypted data must be at least 16 bytes');
         const c = concatBytes(new Uint8Array(16), ciphertext);
@@ -288,13 +288,13 @@ export const _poly1305_aead =
     abytes(key, keyLength);
     abytes(nonce);
     return {
-      encrypt: (plaintext: Uint8Array) => {
+      encrypt(plaintext: Uint8Array) {
         abytes(plaintext);
         const res = fn(key, nonce, plaintext, undefined, 1);
         const tag = computeTag(fn, key, nonce, res, AAD);
         return concatBytes(res, tag);
       },
-      decrypt: (ciphertext: Uint8Array) => {
+      decrypt(ciphertext: Uint8Array) {
         abytes(ciphertext);
         if (ciphertext.length < tagLength)
           throw new Error(`encrypted data must be at least ${tagLength} bytes`);

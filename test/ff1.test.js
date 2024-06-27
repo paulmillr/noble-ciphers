@@ -1,5 +1,5 @@
-const assert = require('assert');
-const { should } = require('micro-should');
+const { deepStrictEqual } = require('assert');
+const { describe, should } = require('micro-should');
 const { FF1, BinaryFF1 } = require('../ff1.js');
 const v = require('./vectors/ff1.json');
 const BIN_VECTORS = v.v;
@@ -68,47 +68,49 @@ const VECTORS = [
   },
 ];
 
-should('FF1: simple test', () => {
-  const bytes = new Uint8Array([
-    156, 161, 238, 80, 84, 230, 40, 147, 212, 166, 85, 71, 189, 19, 216, 222, 239, 239, 247, 244,
-    254, 223, 161, 182, 178, 156, 92, 134, 113, 32, 54, 74,
-  ]);
-  const ff1 = BinaryFF1(bytes);
-  let res = ff1.encrypt([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-  assert.deepStrictEqual(res, new Uint8Array([59, 246, 250, 31, 131, 191, 69, 99, 200, 167, 19]));
-});
-
-for (let i = 0; i < VECTORS.length; i++) {
-  const v = VECTORS[i];
-  const ff1 = FF1(v.radix, v.key, v.tweak);
-  should(`NIST vector (${i}): encrypt`, () => {
-    assert.deepStrictEqual(ff1.encrypt(v.X), v.AB);
+describe('FF1', () => {
+  should('FF1: simple test', () => {
+    const bytes = new Uint8Array([
+      156, 161, 238, 80, 84, 230, 40, 147, 212, 166, 85, 71, 189, 19, 216, 222, 239, 239, 247, 244,
+      254, 223, 161, 182, 178, 156, 92, 134, 113, 32, 54, 74,
+    ]);
+    const ff1 = BinaryFF1(bytes);
+    let res = ff1.encrypt([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    deepStrictEqual(res, new Uint8Array([59, 246, 250, 31, 131, 191, 69, 99, 200, 167, 19]));
   });
-  should(`NIST vector (${i}): decrypt`, () => {
-    assert.deepStrictEqual(ff1.decrypt(v.AB), v.X);
+
+  for (let i = 0; i < VECTORS.length; i++) {
+    const v = VECTORS[i];
+    const ff1 = FF1(v.radix, v.key, v.tweak);
+    should(`NIST vector (${i}): encrypt`, () => {
+      deepStrictEqual(ff1.encrypt(v.X), v.AB);
+    });
+    should(`NIST vector (${i}): decrypt`, () => {
+      deepStrictEqual(ff1.decrypt(v.AB), v.X);
+    });
+  }
+
+  should(`Binary FF1 encrypt`, () => {
+    for (let i = 0; i < BIN_VECTORS.length; i++) {
+      const v = BIN_VECTORS[i];
+      const ff1 = BinaryFF1(fromHex(v.key));
+      // minLen is 2 by spec
+      if (v.data.length < 2) continue;
+      const res = ff1.encrypt(fromHex(v.data));
+      deepStrictEqual(res, fromHex(v.exp), i);
+    }
   });
-}
 
-should(`Binary FF1 encrypt`, () => {
-  for (let i = 0; i < BIN_VECTORS.length; i++) {
-    const v = BIN_VECTORS[i];
-    const ff1 = BinaryFF1(fromHex(v.key));
-    // minLen is 2 by spec
-    if (v.data.length < 2) continue;
-    const res = ff1.encrypt(fromHex(v.data));
-    assert.deepStrictEqual(res, fromHex(v.exp), i);
-  }
-});
-
-should(`Binary FF1 decrypt`, () => {
-  for (let i = 0; i < BIN_VECTORS.length; i++) {
-    const v = BIN_VECTORS[i];
-    const ff1 = BinaryFF1(fromHex(v.key));
-    // minLen is 2 by spec
-    if (v.data.length < 2) continue;
-    const res = ff1.decrypt(fromHex(v.exp));
-    assert.deepStrictEqual(res, fromHex(v.data), i);
-  }
+  should(`Binary FF1 decrypt`, () => {
+    for (let i = 0; i < BIN_VECTORS.length; i++) {
+      const v = BIN_VECTORS[i];
+      const ff1 = BinaryFF1(fromHex(v.key));
+      // minLen is 2 by spec
+      if (v.data.length < 2) continue;
+      const res = ff1.decrypt(fromHex(v.exp));
+      deepStrictEqual(res, fromHex(v.data), i);
+    }
+  });
 });
 
 if (require.main === module) should.run();

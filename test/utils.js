@@ -109,6 +109,12 @@ const pattern = (toByte, len) => Uint8Array.from({ length: len }, (i, j) => j % 
 
 const jsonGZ = (path) => JSON.parse(zlib.gunzipSync(fs.readFileSync(`${__dirname}/${path}`)));
 
+const unalign = (arr, len) => {
+  const n = new Uint8Array(arr.length + len);
+  n.set(arr, len);
+  return n.subarray(len);
+};
+
 module.exports = {
   utf8ToBytes,
   hexToBytes,
@@ -129,4 +135,5 @@ module.exports = {
   times,
   pattern,
   jsonGZ,
+  unalign,
 };

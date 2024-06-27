@@ -2,16 +2,17 @@ const { deepStrictEqual } = require('assert');
 const { should, describe } = require('micro-should');
 const { hex } = require('@scure/base');
 const { managedNonce, randomBytes } = require('../webcrypto.js');
-
 const { siv, gcm, ctr, ecb, cbc, cfb } = require('../aes.js');
 const { xsalsa20poly1305 } = require('../salsa.js');
 const { chacha20poly1305, xchacha20poly1305 } = require('../chacha.js');
+const { unalign } = require('./utils.js');
+const { BinaryFF1 } = require('../ff1.js');
 const micro = require('../_micro.js');
 
 const CIPHERS = {
   xsalsa20poly1305: { fn: xsalsa20poly1305, keyLen: 32, withNonce: true },
-  chacha20poly1305: { fn: chacha20poly1305, keyLen: 32, withNonce: true },
-  xchacha20poly1305: { fn: xchacha20poly1305, keyLen: 32, withNonce: true },
+  chacha20poly1305: { fn: chacha20poly1305, keyLen: 32, withNonce: true, withDST: true },
+  xchacha20poly1305: { fn: xchacha20poly1305, keyLen: 32, withNonce: true, withDST: true },
 
   micro_xsalsa20poly1305: { fn: micro.xsalsa20poly1305, keyLen: 32, withNonce: true },
   micro_chacha20poly1305: { fn: micro.chacha20poly1305, keyLen: 32, withNonce: true },
@@ -37,39 +38,72 @@ const initCipher = (opts) => {
   const { fn, keyLen, withNonce } = opts;
   const args = opts.args || [];
   const key = randomBytes(keyLen);
-  if (withNonce) {
-    const nonce = randomBytes(fn.nonceLength);
-    return fn(key, nonce, ...args);
-  }
-  return fn(key, ...args);
+  const nonce = randomBytes(fn.nonceLength);
+  const c = withNonce ? fn(key, nonce, ...args) : fn(key, ...args);
+  return { c, key, nonce, copy: { key: key.slice(), nonce: nonce.slice() } };
 };
 
 describe('Basic', () => {
   for (const k in CIPHERS) {
     const opts = CIPHERS[k];
     should(`${k}: blockSize`, () => {
-      const c = initCipher(opts);
+      const { c, key, nonce, copy } = initCipher(opts);
       const msg = new Uint8Array(opts.fn.blockSize).fill(12);
-      deepStrictEqual(c.decrypt(c.encrypt(msg.slice())), msg);
+      const msgCopy = msg.slice();
+      deepStrictEqual(c.decrypt(c.encrypt(msgCopy)), msg);
+      deepStrictEqual(msg, msgCopy);
+      // Verify that key/nonce is not modified
+      deepStrictEqual(key, copy.key);
+      deepStrictEqual(nonce, copy.nonce);
     });
 
     should(`${k}: round-trip`, () => {
-      const c = initCipher(opts);
+      const { c, key, nonce, copy } = initCipher(opts);
       // slice, so cipher has no way to corrupt msg
       const msg = new Uint8Array(2).fill(12);
-      deepStrictEqual(c.decrypt(c.encrypt(msg.slice())), msg);
+      const msgCopy = msg.slice();
+      deepStrictEqual(c.decrypt(c.encrypt(msgCopy)), msg);
+      deepStrictEqual(msg, msgCopy);
+
       const msg2 = new Uint8Array(2048).fill(255);
-      deepStrictEqual(c.decrypt(c.encrypt(msg2.slice())), msg2);
+      const msg2Copy = msg2.slice();
+      deepStrictEqual(c.decrypt(c.encrypt(msg2)), msg2);
+      deepStrictEqual(msg2, msg2Copy);
+
       const msg3 = new Uint8Array(256);
-      deepStrictEqual(c.decrypt(c.encrypt(msg3.slice())), msg3);
+      const msg3Copy = msg3.slice();
+      deepStrictEqual(c.decrypt(c.encrypt(msg3Copy)), msg3);
+      deepStrictEqual(msg3, msg3Copy);
+
+      // Verify that key/nonce is not modified
+      deepStrictEqual(key, copy.key);
+      deepStrictEqual(nonce, copy.nonce);
     });
     should(`${k}: different sizes`, () => {
-      const c = initCipher(opts);
+      const { c, key, nonce, copy } = initCipher(opts);
       for (let i = 0; i < 2048; i++) {
         const msg = new Uint8Array(i).fill(i);
-        deepStrictEqual(c.decrypt(c.encrypt(msg.slice())), msg);
+        const msgCopy = msg.slice();
+        deepStrictEqual(c.decrypt(c.encrypt(msg)), msg);
+        deepStrictEqual(msg, msgCopy);
       }
+      // Verify that key/nonce is not modified
+      deepStrictEqual(key, copy.key);
+      deepStrictEqual(nonce, copy.nonce);
     });
+    for (let i = 0; i < 8; i++) {
+      should(`${k} (unalign ${i})`, () => {
+        const { fn, keyLen } = opts;
+        const key = unalign(randomBytes(keyLen), i);
+        const nonce = unalign(randomBytes(fn.nonceLength), i);
+        const AAD = unalign(randomBytes(64), i);
+        const msg = unalign(new Uint8Array(2048).fill(255), i);
+        const cipher = fn(key, nonce, AAD);
+        const encrypted = unalign(cipher.encrypt(msg), i);
+        const decrypted = cipher.decrypt(encrypted);
+        deepStrictEqual(decrypted, msg);
+      });
+    }
   }
 });
 

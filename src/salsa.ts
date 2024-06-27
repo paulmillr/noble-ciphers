@@ -124,7 +124,7 @@ export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(
     abytes(key, 32);
     abytes(nonce, 24);
     return {
-      encrypt: (plaintext: Uint8Array, output?: Uint8Array) => {
+      encrypt(plaintext: Uint8Array, output?: Uint8Array) {
         abytes(plaintext);
         // This is small optimization (calculate auth key with same call as encryption itself) makes it hard
         // to separate tag calculation and encryption itself, since 32 byte is half-block of salsa (64 byte)
@@ -141,29 +141,39 @@ export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(
         // Clean auth key, even though JS provides no guarantees about memory cleaning
         output.set(tag, tagLength);
         output.subarray(0, tagLength).fill(0);
+        // Cleanup
+        tag.fill(0);
         return output.subarray(tagLength);
       },
-      decrypt: (ciphertext: Uint8Array) => {
+      decrypt(ciphertext: Uint8Array, output?: Uint8Array) {
         abytes(ciphertext);
-        const clength = ciphertext.length;
-        if (clength < tagLength) throw new Error('encrypted data should be at least 16 bytes');
+        if (ciphertext.length < tagLength)
+          throw new Error('encrypted data should be at least 16 bytes');
+        const clength = ciphertext.length + 32; // 32 is authKey length
+        if (output) {
+          abytes(output, clength);
+        } else {
+          output = new Uint8Array(clength);
+        }
         // Create new ciphertext array:
-        // auth tag      auth tag from ciphertext ciphertext
-        // [bytes 0..16] [bytes 16..32]           [bytes 32..]
+        // tmp part      auth tag                 ciphertext
+        // [bytes 0..32] [bytes 32..48]           [bytes 48..]
         // 16 instead of 32, because we already have 16 byte tag
-        const ciphertext_ = new Uint8Array(clength + tagLength); // alloc
-        ciphertext_.set(ciphertext, tagLength);
+        output.set(ciphertext, 32);
         // Each xsalsa20 calls to hsalsa to calculate key, but seems not much perf difference
         // Separate call to calculate authkey, since first bytes contains tag
-        const authKey = xsalsa20(key, nonce, new Uint8Array(32)); // alloc(32)
-        const tag = poly1305(ciphertext_.subarray(32), authKey);
-        if (!equalBytes(ciphertext_.subarray(16, 32), tag)) throw new Error('invalid tag');
-
-        const plaintext = xsalsa20(key, nonce, ciphertext_); // alloc
-        // Clean auth key, even though JS provides no guarantees about memory cleaning
-        plaintext.subarray(0, 32).fill(0);
-        authKey.fill(0);
-        return plaintext.subarray(32);
+        // Here we use first 32 bytes for authKey
+        const authKeyBuf = output.subarray(0, 32);
+        authKeyBuf.fill(0);
+        const authKey = xsalsa20(key, nonce, authKeyBuf, authKeyBuf);
+        const tag = poly1305(output.subarray(32 + tagLength), authKey); // alloc
+        if (!equalBytes(output.subarray(32, 48), tag)) throw new Error('invalid tag');
+        // NOTE: first 32 bytes skipped (used for authKey)
+        xsalsa20(key, nonce, output.subarray(16), output.subarray(16));
+        // Cleanup
+        output.subarray(0, 32 + 16).fill(0);
+        tag.fill(0);
+        return output.subarray(32 + 16);
       },
     };
   }

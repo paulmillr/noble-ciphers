@@ -6,14 +6,23 @@
 // Once node.js 18 is deprecated, we can just drop the import.
 //
 // Use full path so that Node.js can rewrite it to `cryptoNode.js`.
-import { randomBytes, getWebcryptoSubtle } from '@noble/ciphers/crypto';
+import { crypto } from '@noble/ciphers/crypto';
 import { AsyncCipher, Cipher, concatBytes } from './utils.js';
 import { number, bytes as abytes } from './_assert.js';
 
 /**
  * Secure PRNG. Uses `crypto.getRandomValues`, which defers to OS.
  */
-export { randomBytes, getWebcryptoSubtle };
+export function randomBytes(bytesLength = 32): Uint8Array {
+  if (crypto && typeof crypto.getRandomValues === 'function')
+    return crypto.getRandomValues(new Uint8Array(bytesLength));
+  throw new Error('crypto.getRandomValues must be defined');
+}
+
+export function getWebcryptoSubtle() {
+  if (crypto && typeof crypto.subtle === 'object' && crypto.subtle != null) return crypto.subtle;
+  throw new Error('crypto.subtle must be defined');
+}
 
 type RemoveNonceInner<T extends any[], Ret> = ((...args: T) => Ret) extends (
   arg0: any,
@@ -32,7 +41,7 @@ type CipherWithNonce = ((key: Uint8Array, nonce: Uint8Array, ...args: any[]) => 
 export function managedNonce<T extends CipherWithNonce>(fn: T): RemoveNonce<T> {
   number(fn.nonceLength);
   return ((key: Uint8Array, ...args: any[]): any => ({
-    encrypt: (plaintext: Uint8Array, ...argsEnc: any[]) => {
+    encrypt(plaintext: Uint8Array, ...argsEnc: any[]) {
       const { nonceLength } = fn;
       const nonce = randomBytes(nonceLength);
       const ciphertext = (fn(key, nonce, ...args).encrypt as any)(plaintext, ...argsEnc);
@@ -40,7 +49,7 @@ export function managedNonce<T extends CipherWithNonce>(fn: T): RemoveNonce<T> {
       ciphertext.fill(0);
       return out;
     },
-    decrypt: (ciphertext: Uint8Array, ...argsDec: any[]) => {
+    decrypt(ciphertext: Uint8Array, ...argsDec: any[]) {
       const { nonceLength } = fn;
       const nonce = ciphertext.subarray(0, nonceLength);
       const data = ciphertext.subarray(nonceLength);
@@ -122,4 +131,4 @@ export const gcm = generate(mode.GCM);
 
 // // should fail
 // const wcbc2 = managedNonce(managedNonce(cbc));
-// const wecb = managedNonce(ecb);
+// const wctr = managedNonce(ctr);

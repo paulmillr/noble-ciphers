@@ -214,6 +214,7 @@ class Poly1305 implements Hash<Poly1305> {
       f = (((h[i] + pad[i]) | 0) + (f >>> 16)) | 0;
       h[i] = f & 0xffff;
     }
+    g.fill(0);
   }
   update(data: Input): this {
     aexists(this);

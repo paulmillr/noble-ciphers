@@ -4,9 +4,19 @@
     "outDir": "esm",
     "baseUrl": ".",
     "paths": {
-      "@noble/ciphers/crypto": ["src/crypto.ts"]
-    }
+      "@noble/ciphers/crypto": [
+        "src/crypto.ts"
+      ]
+    },
+    "declaration": true,
+    "declarationMap": true
   },
-  "include": ["index.ts", "src"],
-  "exclude": ["node_modules", "lib"]
+  "include": [
+    "index.ts",
+    "src"
+  ],
+  "exclude": [
+    "node_modules",
+    "lib"
+  ]
 }

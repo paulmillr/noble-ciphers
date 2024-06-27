@@ -1,4 +1,4 @@
-import { createView, toBytes, Input, Hash, u32 } from './utils.js';
+import { createView, toBytes, Input, Hash, u32, copyBytes } from './utils.js';
 import { bytes as abytes, exists as aexists, output as aoutput } from './_assert.js';
 
 // GHash from AES-GCM and its little-endian "mirror image" Polyval from AES-SIV.
@@ -182,7 +182,7 @@ class GHASH implements Hash<GHASH> {
 class Polyval extends GHASH {
   constructor(key: Input, expectedLength?: number) {
     key = toBytes(key);
-    const ghKey = _toGHASHKey(key.slice());
+    const ghKey = _toGHASHKey(copyBytes(key));
     super(ghKey, expectedLength);
     ghKey.fill(0);
   }

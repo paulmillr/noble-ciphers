@@ -139,6 +139,11 @@ const data_ = chacha.decrypt(ciphertext);
 
 #### Use same array for input and output
 
+This allows re-use Uint8Array between encryption/decryption calls (works if all plaintext or ciphertext are same size).
+
+**_NOTE_**: some ciphers don't support unaligned (`byteOffset % 4 !== 0`) Uint8Array as destination, since it will significantly
+decrease performance and this optimization will become pointless.
+
 ```js
 import { chacha20poly1305 } from '@noble/ciphers/chacha';
 import { utf8ToBytes } from '@noble/ciphers/utils';
@@ -497,54 +502,54 @@ Benchmark results on Apple M2 with node v20:
 
 ```
 encrypt (64B)
-├─xsalsa20poly1305 x 485,672 ops/sec @ 2μs/op
-├─chacha20poly1305 x 466,200 ops/sec @ 2μs/op
-├─xchacha20poly1305 x 312,500 ops/sec @ 3μs/op
-├─aes-256-gcm x 151,057 ops/sec @ 6μs/op
-└─aes-256-gcm-siv x 124,984 ops/sec @ 8μs/op
+├─xsalsa20poly1305 x 485,908 ops/sec @ 2μs/op
+├─chacha20poly1305 x 419,639 ops/sec @ 2μs/op
+├─xchacha20poly1305 x 335,232 ops/sec @ 2μs/op
+├─aes-256-gcm x 143,595 ops/sec @ 6μs/op
+└─aes-256-gcm-siv x 120,743 ops/sec @ 8μs/op
 encrypt (1KB)
-├─xsalsa20poly1305 x 146,477 ops/sec @ 6μs/op
-├─chacha20poly1305 x 145,518 ops/sec @ 6μs/op
-├─xchacha20poly1305 x 126,119 ops/sec @ 7μs/op
-├─aes-256-gcm x 43,207 ops/sec @ 23μs/op
-└─aes-256-gcm-siv x 39,363 ops/sec @ 25μs/op
+├─xsalsa20poly1305 x 135,924 ops/sec @ 7μs/op
+├─chacha20poly1305 x 134,843 ops/sec @ 7μs/op
+├─xchacha20poly1305 x 124,626 ops/sec @ 8μs/op
+├─aes-256-gcm x 39,588 ops/sec @ 25μs/op
+└─aes-256-gcm-siv x 36,989 ops/sec @ 27μs/op
 encrypt (8KB)
-├─xsalsa20poly1305 x 23,773 ops/sec @ 42μs/op
-├─chacha20poly1305 x 24,134 ops/sec @ 41μs/op
-├─xchacha20poly1305 x 23,520 ops/sec @ 42μs/op
-├─aes-256-gcm x 8,420 ops/sec @ 118μs/op
-└─aes-256-gcm-siv x 8,126 ops/sec @ 123μs/op
+├─xsalsa20poly1305 x 22,178 ops/sec @ 45μs/op
+├─chacha20poly1305 x 22,691 ops/sec @ 44μs/op
+├─xchacha20poly1305 x 22,463 ops/sec @ 44μs/op
+├─aes-256-gcm x 8,082 ops/sec @ 123μs/op
+└─aes-256-gcm-siv x 2,376 ops/sec @ 420μs/op
 encrypt (1MB)
-├─xsalsa20poly1305 x 195 ops/sec @ 5ms/op
-├─chacha20poly1305 x 199 ops/sec @ 5ms/op
-├─xchacha20poly1305 x 198 ops/sec @ 5ms/op
-├─aes-256-gcm x 76 ops/sec @ 13ms/op
-└─aes-256-gcm-siv x 78 ops/sec @ 12ms/op
+├─xsalsa20poly1305 x 171 ops/sec @ 5ms/op
+├─chacha20poly1305 x 186 ops/sec @ 5ms/op
+├─xchacha20poly1305 x 189 ops/sec @ 5ms/op
+├─aes-256-gcm x 73 ops/sec @ 13ms/op
+└─aes-256-gcm-siv x 77 ops/sec @ 12ms/op
 ```
 
 Unauthenticated encryption:
 
 ```
 encrypt (64B)
-├─salsa x 1,287,001 ops/sec @ 777ns/op
-├─chacha x 1,555,209 ops/sec @ 643ns/op
-├─xsalsa x 938,086 ops/sec @ 1μs/op
-└─xchacha x 920,810 ops/sec @ 1μs/op
+├─salsa x 1,245,330 ops/sec @ 803ns/op
+├─chacha x 1,468,428 ops/sec @ 681ns/op
+├─xsalsa x 995,024 ops/sec @ 1μs/op
+└─xchacha x 1,026,694 ops/sec @ 974ns/op
 encrypt (1KB)
-├─salsa x 353,107 ops/sec @ 2μs/op
-├─chacha x 377,216 ops/sec @ 2μs/op
-├─xsalsa x 331,674 ops/sec @ 3μs/op
-└─xchacha x 336,247 ops/sec @ 2μs/op
+├─salsa x 349,283 ops/sec @ 2μs/op
+├─chacha x 369,822 ops/sec @ 2μs/op
+├─xsalsa x 326,370 ops/sec @ 3μs/op
+└─xchacha x 334,001 ops/sec @ 2μs/op
 encrypt (8KB)
-├─salsa x 57,084 ops/sec @ 17μs/op
-├─chacha x 59,520 ops/sec @ 16μs/op
-├─xsalsa x 57,097 ops/sec @ 17μs/op
-└─xchacha x 58,278 ops/sec @ 17μs/op
+├─salsa x 55,050 ops/sec @ 18μs/op
+├─chacha x 56,474 ops/sec @ 17μs/op
+├─xsalsa x 54,068 ops/sec @ 18μs/op
+└─xchacha x 55,469 ops/sec @ 18μs/op
 encrypt (1MB)
-├─salsa x 479 ops/sec @ 2ms/op
-├─chacha x 491 ops/sec @ 2ms/op
-├─xsalsa x 483 ops/sec @ 2ms/op
-└─xchacha x 492 ops/sec @ 2ms/op
+├─salsa x 449 ops/sec @ 2ms/op
+├─chacha x 459 ops/sec @ 2ms/op
+├─xsalsa x 448 ops/sec @ 2ms/op
+└─xchacha x 459 ops/sec @ 2ms/op
 
 AES
 encrypt (64B)

@@ -85,7 +85,7 @@ export function numberToBytesBE(n: number | bigint, len: number): Uint8Array {
 // There is no setImmediate in browser and setTimeout is slow.
 // call of async fn will return Promise, which will be fullfiled only on
 // next scheduler queue processing step and this is exactly what we need.
-export const nextTick = async () => {};
+export const nextTick = async () => { };
 
 // Returns control to thread each 'tick' ms to avoid blocking
 export async function asyncLoop(iters: number, tick: number, cb: (i: number) => void) {
@@ -128,7 +128,7 @@ export type Input = Uint8Array | string;
  */
 export function toBytes(data: Input): Uint8Array {
   if (typeof data === 'string') data = utf8ToBytes(data);
-  else if (isBytes(data)) data = data.slice();
+  else if (isBytes(data)) data = copyBytes(data);
   else throw new Error(`Uint8Array expected, got ${typeof data}`);
   return data;
 }
@@ -250,4 +250,18 @@ export function u64Lengths(ciphertext: Uint8Array, AAD?: Uint8Array) {
   setBigUint64(view, 0, BigInt(AAD ? AAD.length : 0), true);
   setBigUint64(view, 8, BigInt(ciphertext.length), true);
   return num;
+}
+
+// Is byte array aligned to 4 byte offset (u32)?
+export function isAligned32(bytes: Uint8Array) {
+  return bytes.byteOffset % 4 === 0;
+}
+
+// copy bytes to new u8a (aligned). Because Buffer.slice is broken.
+export function copyBytes(bytes: Uint8Array) {
+  return Uint8Array.from(bytes);
+}
+
+export function clean(bytes: Uint8Array) {
+  bytes.fill(0);
 }

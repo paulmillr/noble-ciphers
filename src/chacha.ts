@@ -214,6 +214,7 @@ function computeTag(
   h.update(num);
   const res = h.digest();
   authKey.fill(0);
+  num.fill(0);
   return res;
 }
 
@@ -233,7 +234,7 @@ export const _poly1305_aead =
     abytes(key, 32);
     abytes(nonce);
     return {
-      encrypt: (plaintext: Uint8Array, output?: Uint8Array) => {
+      encrypt(plaintext: Uint8Array, output?: Uint8Array) {
         const plength = plaintext.length;
         const clength = plength + tagLength;
         if (output) {
@@ -244,9 +245,10 @@ export const _poly1305_aead =
         xorStream(key, nonce, plaintext, output, 1);
         const tag = computeTag(xorStream, key, nonce, output.subarray(0, -tagLength), AAD);
         output.set(tag, plength); // append tag
+        tag.fill(0);
         return output;
       },
-      decrypt: (ciphertext: Uint8Array, output?: Uint8Array) => {
+      decrypt(ciphertext: Uint8Array, output?: Uint8Array) {
         const clength = ciphertext.length;
         const plength = clength - tagLength;
         if (clength < tagLength)
@@ -261,6 +263,7 @@ export const _poly1305_aead =
         const tag = computeTag(xorStream, key, nonce, data, AAD);
         if (!equalBytes(passedTag, tag)) throw new Error('invalid tag');
         xorStream(key, nonce, data, output, 1);
+        tag.fill(0);
         return output;
       },
     };
