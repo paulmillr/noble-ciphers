@@ -53,8 +53,8 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 - [Examples](#examples)
   - [Encrypt with XChaCha20-Poly1305](#encrypt-with-xchacha20-poly1305)
   - [Encrypt with AES-256-GCM](#encrypt-with-aes-256-gcm)
-  - [Use different AES block modes](#use-different-aes-block-modes)
-  - [Use wrapper around built-in AES WebCrypto](#use-wrapper-around-built-in-aes-webcrypto)
+  - [Different AES block modes](#different-aes-block-modes)
+  - [Friendly wrapper around AES WebCrypto](#friendly-wrapper-around-aes-webcrypto)
   - [Use existing key instead of a new one](#use-existing-key-instead-of-a-new-one)
   - [Encrypt without nonce](#encrypt-without-nonce)
   - [Re-use same array for input & output](#re-use-same-array-for-input-and-output)
@@ -119,7 +119,7 @@ const key2 = hexToBytes('4b7f89bac90a1086fef73f5da2cbe93b2fae9dfbf7678ae1f3e75fd
 const nonce2 = hexToBytes('9610467513de0bbd7c4cc2c3c64069f1802086fbd3232b13');
 ```
 
-#### Use different AES block modes
+#### Different AES block modes
 
 ```js
 import { gcm, siv, ctr, cfb, cbc, ecb } from '@noble/ciphers/aes';
@@ -143,9 +143,11 @@ for (const cipher of [ecb]) {
 }
 ```
 
-#### Use wrapper around built-in AES WebCrypto
+#### Friendly wrapper around AES WebCrypto
 
-It's the same as using `crypto.subtle`, but with massively simplified API. While pure js implementation is synchronous, webcrypto is asynchronous.
+Noble implements AES. Sometimes people want to use built-in `crypto.subtle` instead. However, it has terrible API.
+
+We simplify access to built-ins. Note: it's always async.
 
 ```js
 import { gcm, ctr, cbc, randomBytes } from '@noble/ciphers/webcrypto';
