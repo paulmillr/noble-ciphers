@@ -17,9 +17,9 @@ function salsaCore(
 ): void {
   // Based on https://cr.yp.to/salsa20.html
   let y00 = s[0], y01 = k[0], y02 = k[1], y03 = k[2], // "expa" Key     Key     Key
-    y04 = k[3], y05 = s[1], y06 = n[0], y07 = n[1], // Key    "nd 3"  Nonce   Nonce
-    y08 = cnt, y09 = 0, y10 = s[2], y11 = k[4], // Pos.   Pos.    "2-by"	Key
-    y12 = k[5], y13 = k[6], y14 = k[7], y15 = s[3]; // Key    Key     Key     "te k"
+    y04 = k[3], y05 = s[1], y06 = n[0], y07 = n[1],   // Key    "nd 3"  Nonce   Nonce
+    y08 = cnt, y09 = 0, y10 = s[2], y11 = k[4],       // Pos.   Pos.    "2-by"	Key
+    y12 = k[5], y13 = k[6], y14 = k[7], y15 = s[3];   // Key    Key     Key     "te k"
   // Save state to temporary variables
   let x00 = y00, x01 = y01, x02 = y02, x03 = y03,
     x04 = y04, x05 = y05, x06 = y06, x07 = y07,

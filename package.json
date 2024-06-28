@@ -55,6 +55,14 @@
       "import": "./esm/_polyval.js",
       "require": "./_polyval.js"
     },
+    "./aes": {
+      "import": "./esm/aes.js",
+      "require": "./aes.js"
+    },
+    "./chacha": {
+      "import": "./esm/chacha.js",
+      "require": "./chacha.js"
+    },
     "./crypto": {
       "types": "./crypto.d.ts",
       "node": {
@@ -64,29 +72,21 @@
       "import": "./esm/crypto.js",
       "default": "./crypto.js"
     },
-    "./aes": {
-      "import": "./esm/aes.js",
-      "require": "./aes.js"
+    "./ff1": {
+      "import": "./esm/ff1.js",
+      "require": "./ff1.js"
     },
-    "./chacha": {
-      "import": "./esm/chacha.js",
-      "require": "./chacha.js"
+    "./index": {
+      "import": "./esm/index.js",
+      "require": "./index.js"
     },
     "./salsa": {
       "import": "./esm/salsa.js",
       "require": "./salsa.js"
     },
-    "./ff1": {
-      "import": "./esm/ff1.js",
-      "require": "./ff1.js"
-    },
     "./utils": {
       "import": "./esm/utils.js",
       "require": "./utils.js"
-    },
-    "./index": {
-      "import": "./esm/index.js",
-      "require": "./index.js"
     },
     "./webcrypto": {
       "import": "./esm/webcrypto.js",

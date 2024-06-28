@@ -81,7 +81,7 @@ function salsaCore(
   const y = new Uint32Array([
     s[0], k[0], k[1], k[2], // "expa" Key     Key     Key
     k[3], s[1], n[0], n[1], // Key    "nd 3"  Nonce   Nonce
-    cnt, 0, s[2], k[4], // Pos.   Pos.    "2-by"  Key
+    cnt, 0, s[2], k[4],     // Pos.   Pos.    "2-by"  Key
     k[5], k[6], k[7], s[3], // Key    Key     Key     "te k"
   ]);
   const x = y.slice();
@@ -118,7 +118,7 @@ function chachaCore(
     s[0], s[1], s[2], s[3], // "expa"   "nd 3"  "2-by"  "te k"
     k[0], k[1], k[2], k[3], // Key      Key     Key     Key
     k[4], k[5], k[6], k[7], // Key      Key     Key     Key
-    cnt, n[0], n[1], n[2], // Counter  Counter Nonce   Nonce
+    cnt, n[0], n[1], n[2],  // Counter  Counter Nonce   Nonce
   ]);
   const x = y.slice();
   chachaRound(x, rounds);
