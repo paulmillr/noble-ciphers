@@ -554,7 +554,8 @@ function computeTag(
   data: Uint8Array,
   AAD?: Uint8Array
 ) {
-  const h = fn.create(key, data.length + (AAD?.length || 0));
+  const aadLength = AAD == null ? 0 : AAD.length;
+  const h = fn.create(key, data.length + aadLength);
   if (AAD) h.update(AAD);
   h.update(data);
   const num = new Uint8Array(16);
