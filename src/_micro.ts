@@ -16,7 +16,7 @@ import {
 } from './utils.js';
 
 /*
-noble-ciphers-micro: more auditable, but slower version of salsa20, chacha & poly1305.
+noble-ciphers-micro: more auditable, but 4x slower version of salsa20, chacha & poly1305.
 Implements the same algorithms that are present in other files, but without
 unrolled loops (https://en.wikipedia.org/wiki/Loop_unrolling).
 */
