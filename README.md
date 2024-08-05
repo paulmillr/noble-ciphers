@@ -6,7 +6,7 @@ Auditable & minimal JS implementation of Salsa20, ChaCha and AES.
 - 🔻 Tree-shakeable: unused code is excluded from your builds
 - 🏎 Fast: hand-optimized for caveats of JS engines
 - 🔍 Reliable: property-based / cross-library / wycheproof tests ensure correctness
-- 💼 AES: ECB, CBC, CTR, CFB, GCM, SIV (nonce misuse-resistant)
+- 💼 AES: ECB, CBC, CTR, CFB, GCM, SIV (nonce misuse-resistant), AESKW, AESKWP
 - 💃 Salsa20, ChaCha, XSalsa20, XChaCha, ChaCha8, ChaCha12, Poly1305
 - 🥈 Two AES implementations: pure JS or friendly wrapper around webcrypto
 - 🪶 45KB (8KB gzipped) for everything, 10KB (3KB gzipped) for ChaCha build
@@ -106,12 +106,12 @@ const data_ = aes.decrypt(ciphertext); // utils.bytesToUtf8(data_) === data
 
 ```js
 const key = new Uint8Array([
-  169, 88, 160, 139, 168, 29, 147, 196, 14, 88, 237, 76, 243, 177, 109, 140, 195, 140, 80, 10, 216,
-  134, 215, 71, 191, 48, 20, 104, 189, 37, 38, 55,
+  169, 88, 160, 139, 168, 29, 147, 196, 14, 88, 237, 76, 243, 177, 109, 140,
+  195, 140, 80, 10, 216, 134, 215, 71, 191, 48, 20, 104, 189, 37, 38, 55,
 ]);
 const nonce = new Uint8Array([
-  180, 90, 27, 63, 160, 191, 150, 33, 67, 212, 86, 71, 144, 6, 200, 102, 218, 32, 23, 147, 8, 41,
-  147, 11,
+  180, 90, 27, 63, 160, 191, 150, 33, 67, 212, 86, 71, 144, 6, 200, 102, 218,
+  32, 23, 147, 8, 41, 147, 11,
 ]);
 // or, hex:
 import { hexToBytes } from '@noble/ciphers/utils';
@@ -163,6 +163,17 @@ for (const cipher of [ctr, cbc]) {
   const ciphertext_ = await stream.encrypt(plaintext);
   const plaintext_ = await stream.decrypt(ciphertext_);
 }
+```
+
+#### AESKW and AESKWP
+
+```ts
+import { aeskw, aeskwp } from '@noble/ciphers/aes';
+import { hexToBytes } from '@noble/ciphers/utils';
+
+const kek = hexToBytes('000102030405060708090A0B0C0D0E0F');
+const keyData = hexToBytes('00112233445566778899AABBCCDDEEFF');
+const ciphertext =  aeskw(kek).encrypt(keyData);
 ```
 
 #### Encrypt without nonce
@@ -217,7 +228,7 @@ import { secretbox } from '@noble/ciphers/salsa'; // == xsalsa20poly1305
 import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
 
 // Unauthenticated encryption: make sure to use HMAC or similar
-import { ctr, cfb, cbc, ecb } from '@noble/ciphers/aes';
+import { ctr, cfb, cbc, ecb, aeskw, aeskwp } from '@noble/ciphers/aes';
 import { salsa20, xsalsa20 } from '@noble/ciphers/salsa';
 import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha';
 
@@ -262,6 +273,8 @@ We provide the fastest available pure JS implementation.
     nonce-misuse-resistant mode is also provided. It's recommended to use it,
     to prevent catastrophic consequences of nonce reuse. Our implementation of SIV
     has the same speed as GCM: there is no performance hit.
+    - We also have AESKW and AESKWP from
+      [RFC 3394](https://datatracker.ietf.org/doc/html/rfc3394) / [RFC 5649](https://datatracker.ietf.org/doc/html/rfc5649)
     - Check out [AES internals and block modes](#aes-internals-and-block-modes).
 - We expose polynomial-evaluation MACs: [Poly1305](https://cr.yp.to/mac.html), AES-GCM's [GHash](https://en.wikipedia.org/wiki/Galois/Counter_Mode) and
 AES-SIV's [Polyval](https://en.wikipedia.org/wiki/AES-GCM-SIV).
