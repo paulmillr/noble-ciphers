@@ -5,6 +5,7 @@ import {
   Cipher,
   CipherWithOutput,
   clean,
+  concatBytes,
   copyBytes,
   createView,
   equalBytes,
@@ -71,6 +72,12 @@ const invSbox = /* @__PURE__ */ sbox.map((_, j) => sbox.indexOf(j));
 // Rotate u32 by 8
 const rotr32_8 = (n: number) => (n << 24) | (n >>> 8);
 const rotl32_8 = (n: number) => (n << 8) | (n >>> 24);
+// The byte swap operation for uint32 (LE<->BE)
+const byteSwap = (word: number) =>
+  ((word << 24) & 0xff000000) |
+  ((word << 8) & 0xff0000) |
+  ((word >>> 8) & 0xff00) |
+  ((word >>> 24) & 0xff);
 
 // T-table is optimization suggested in 5.2 of original proposal (missed from FIPS-197). Changes:
 // - LE instead of BE
@@ -197,6 +204,7 @@ function encrypt(xk: Uint32Array, s0: number, s1: number, s2: number, s3: number
   return { s0: t0, s1: t1, s2: t2, s3: t3 };
 }
 
+// Can't be merged with encrypt: arg positions for apply0123 / applySbox are different
 function decrypt(xk: Uint32Array, s0: number, s1: number, s2: number, s3: number) {
   const { sbox2, T01, T23 } = tableDecoding;
   let k = 0;
@@ -560,7 +568,7 @@ function computeTag(
   h.update(data);
   const num = new Uint8Array(16);
   const view = createView(num);
-  if (AAD) setBigUint64(view, 0, BigInt(AAD.length * 8), isLE);
+  if (AAD) setBigUint64(view, 0, BigInt(aadLength * 8), isLE);
   setBigUint64(view, 8, BigInt(data.length * 8), isLE);
   h.update(num);
   const res = h.digest();
@@ -782,8 +790,190 @@ function decryptBlock(xk: Uint32Array, block: Uint8Array) {
   return block;
 }
 
-// Highly unsafe private functions for implementing new modes or ciphers based on AES
-// Can change at any time, no API guarantees
+/**
+ * AES-W (base for AESKW/AESKWP).
+ * Specs: [SP800-38F](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38F.pdf),
+ * [RFC 3394](https://datatracker.ietf.org/doc/rfc3394/),
+ * [RFC 5649](https://datatracker.ietf.org/doc/rfc5649/).
+ */
+const AESW = {
+  /*
+  High-level pseudocode:
+  ```
+  A: u64 = IV
+  out = []
+  for (let i=0, ctr = 0; i<6; i++) {
+    for (const chunk of chunks(plaintext, 8)) {
+      A ^= swapEndianess(ctr++)
+      [A, res] = chunks(encrypt(A || chunk), 8);
+      out ||= res
+    }
+  }
+  out = A || out
+  ```
+  Decrypt is the same, but reversed.
+  */
+  encrypt(kek: Uint8Array, out: Uint8Array) {
+    // Size is limited to 4GB, otherwise ctr will overflow and we'll need to switch to bigints.
+    // If you need it larger, open an issue.
+    if (out.length >= 2 ** 32) throw new Error('plaintext should be less than 4gb');
+    const xk = expandKeyLE(kek);
+    if (out.length === 16) encryptBlock(xk, out);
+    else {
+      const o32 = u32(out);
+      // prettier-ignore
+      let a0 = o32[0], a1 = o32[1]; // A
+      for (let j = 0, ctr = 1; j < 6; j++) {
+        for (let pos = 2; pos < o32.length; pos += 2, ctr++) {
+          const { s0, s1, s2, s3 } = encrypt(xk, a0, a1, o32[pos], o32[pos + 1]);
+          // A = MSB(64, B) ^ t where t = (n*j)+i
+          (a0 = s0), (a1 = s1 ^ byteSwap(ctr)), (o32[pos] = s2), (o32[pos + 1] = s3);
+        }
+      }
+      (o32[0] = a0), (o32[1] = a1); // out = A || out
+    }
+    xk.fill(0);
+  },
+  decrypt(kek: Uint8Array, out: Uint8Array) {
+    if (out.length - 8 >= 2 ** 32) throw new Error('ciphertext should be less than 4gb');
+    const xk = expandKeyDecLE(kek);
+    const chunks = out.length / 8 - 1; // first chunk is IV
+    if (chunks === 1) decryptBlock(xk, out);
+    else {
+      const o32 = u32(out);
+      // prettier-ignore
+      let a0 = o32[0], a1 = o32[1]; // A
+      for (let j = 0, ctr = chunks * 6; j < 6; j++) {
+        for (let pos = chunks * 2; pos >= 1; pos -= 2, ctr--) {
+          a1 ^= byteSwap(ctr);
+          const { s0, s1, s2, s3 } = decrypt(xk, a0, a1, o32[pos], o32[pos + 1]);
+          (a0 = s0), (a1 = s1), (o32[pos] = s2), (o32[pos + 1] = s3);
+        }
+      }
+      (o32[0] = a0), (o32[1] = a1);
+    }
+    xk.fill(0);
+  },
+};
+
+const AESKW_IV = new Uint8Array(8).fill(0xa6); // A6A6A6A6A6A6A6A6
+
+/**
+ * AES-KW (key-wrap). Injects static IV into plaintext, adds counter, encrypts 6 times.
+ * Reduces block size from 16 to 8 bytes.
+ * For padded version, use aeskwp.
+ * [RFC 3394](https://datatracker.ietf.org/doc/rfc3394/),
+ * [NIST.SP.800-38F](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38F.pdf).
+ */
+export const aeskw = wrapCipher(
+  { blockSize: 8 },
+  (kek: Uint8Array): Cipher => ({
+    encrypt(plaintext: Uint8Array) {
+      abytes(plaintext);
+      if (!plaintext.length || plaintext.length % 8 !== 0)
+        throw new Error('plaintext length must be non-empty and a multiple of 8 bytes');
+      if (plaintext.length === 8)
+        throw new Error('8-byte keys not allowed in AESKW, use AESKWP instead');
+      const out = concatBytes(AESKW_IV, plaintext);
+      AESW.encrypt(kek, out);
+      return out;
+    },
+    decrypt(ciphertext: Uint8Array) {
+      abytes(ciphertext);
+      // 24 because should have at least two block (1 iv + 2).
+      // Replace with 16 to enable '8-byte keys'
+      if (ciphertext.length % 8 !== 0 || ciphertext.length < 3 * 8)
+        throw new Error('ciphertext must be at least 24 bytes and a multiple of 8 bytes');
+      const out = copyBytes(ciphertext);
+      AESW.decrypt(kek, out);
+      if (!equalBytes(out.subarray(0, 8), AESKW_IV)) throw new Error('integrity check failed');
+      out.subarray(0, 8).fill(0); // ciphertext.subarray(0, 8) === IV, but we clean it anyway
+      return out.subarray(8);
+    },
+  })
+);
+
+/*
+We don't support 8-byte keys. The rabbit hole:
+
+- Wycheproof says: "NIST SP 800-38F does not define the wrapping of 8 byte keys.
+  RFC 3394 Section 2  on the other hand specifies that 8 byte keys are wrapped
+  by directly encrypting one block with AES."
+    - https://github.com/C2SP/wycheproof/blob/master/doc/key_wrap.md
+    - "RFC 3394 specifies in Section 2, that the input for the key wrap
+      algorithm must be at least two blocks and otherwise the constant
+      field and key are simply encrypted with ECB as a single block"
+- What RFC 3394 actually says (in Section 2):
+    - "Before being wrapped, the key data is parsed into n blocks of 64 bits.
+      The only restriction the key wrap algorithm places on n is that n be
+      at least two"
+    - "For key data with length less than or equal to 64 bits, the constant
+      field used in this specification and the key data form a single
+      128-bit codebook input making this key wrap unnecessary."
+- Which means "assert(n >= 2)" and "use something else for 8 byte keys"
+- NIST SP800-38F actually prohibits 8-byte in "5.3.1 Mandatory Limits".
+  It states that plaintext for KW should be "2 to 2^54 -1 semiblocks".
+- So, where does "directly encrypt single block with AES" come from?
+    - Not RFC 3394. Pseudocode of key wrap in 2.2 explicitly uses
+      loop of 6 for any code path
+    - There is a weird W3C spec:
+      https://www.w3.org/TR/2002/REC-xmlenc-core-20021210/Overview.html#kw-aes128
+    - This spec is outdated, as admitted by Wycheproof authors
+    - There is RFC 5649 for padded key wrap, which is padding construction on
+      top of AESKW. In '4.1.2' it says: "If the padded plaintext contains exactly
+      eight octets, then prepend the AIV as defined in Section 3 above to P[1] and
+      encrypt the resulting 128-bit block using AES in ECB mode [Modes] with key
+      K (the KEK).  In this case, the output is two 64-bit blocks C[0] and C[1]:"
+    - Browser subtle crypto is actually crashes on wrapping keys less than 16 bytes:
+      `Error: error:1C8000E6:Provider routines::invalid input length] { opensslErrorStack: [ 'error:030000BD:digital envelope routines::update error' ]`
+
+In the end, seems like a bug in Wycheproof.
+The 8-byte check can be easily disabled inside of AES_W.
+*/
+
+const AESKWP_IV = 0xa65959a6; // single u32le value
+
+/**
+ * AES-KW, but with padding and allows random keys.
+ * Second u32 of IV is used as counter for length.
+ * [RFC 5649](https://www.rfc-editor.org/rfc/rfc5649)
+ */
+export const aeskwp = wrapCipher(
+  { blockSize: 8 },
+  (kek: Uint8Array): Cipher => ({
+    encrypt(plaintext: Uint8Array) {
+      abytes(plaintext);
+      if (!plaintext.length) throw new Error('plaintext length must be non-empty');
+      const padded = Math.ceil(plaintext.length / 8) * 8;
+      const out = new Uint8Array(8 + padded);
+      out.set(plaintext, 8);
+      const out32 = u32(out);
+      out32[0] = AESKWP_IV;
+      out32[1] = byteSwap(plaintext.length);
+      AESW.encrypt(kek, out);
+      return out;
+    },
+    decrypt(ciphertext: Uint8Array) {
+      abytes(ciphertext);
+      // 16 because should have at least one block
+      if (ciphertext.length < 16)
+        throw new Error('ciphertext must be at least 16 bytes and a multiple of 8 bytes');
+      const out = copyBytes(ciphertext);
+      const o32 = u32(out);
+      AESW.decrypt(kek, out);
+      const len = byteSwap(o32[1]) >>> 0;
+      const padded = Math.ceil(len / 8) * 8;
+      if (o32[0] !== AESKWP_IV || out.length - 8 !== padded)
+        throw new Error('integrity check failed');
+      for (let i = len; i < padded; i++)
+        if (out[8 + i] !== 0) throw new Error('integrity check failed');
+      out.subarray(0, 8).fill(0); // ciphertext.subarray(0, 8) === IV, but we clean it anyway
+      return out.subarray(8, 8 + len);
+    },
+  })
+);
+
+// Private, unsafe low-level methods. Can change at any time.
 export const unsafe = {
   expandKeyLE,
   expandKeyDecLE,

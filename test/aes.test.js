@@ -3,13 +3,15 @@ const { should, describe } = require('micro-should');
 const crypto = require('node:crypto');
 const { hex } = require('@scure/base');
 const { concatBytes } = require('../utils.js');
-const { ecb, cbc, ctr, siv, gcm } = require('../aes.js');
+const { ecb, cbc, ctr, siv, gcm, aeskw, aeskwp } = require('../aes.js');
 // https://datatracker.ietf.org/doc/html/rfc8452#appendix-C
 const NIST_VECTORS = require('./vectors/nist_800_38a.json');
 const VECTORS = require('./vectors/siv.json');
 const aes_gcm_test = require('./wycheproof/aes_gcm_test.json');
 const aes_gcm_siv_test = require('./wycheproof/aes_gcm_siv_test.json');
-const aes_cbc = require('./wycheproof/aes_cbc_pkcs5_test.json');
+const aes_cbc_test = require('./wycheproof/aes_cbc_pkcs5_test.json');
+const aes_kw_test = require('./wycheproof/aes_wrap_test.json');
+const aes_kwp_test = require('./wycheproof/aes_kwp_test.json');
 
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
 
@@ -82,7 +84,7 @@ describe('AES', () => {
     const cases = [
       { name: 'GCM-SIV', groups: aes_gcm_siv_test.testGroups, cipher: 'siv' },
       { name: 'GCM', groups: aes_gcm_test.testGroups, cipher: 'gcm' },
-      { name: 'CBC', groups: aes_cbc.testGroups, cipher: 'cbc' }, // PCKS5 is enabled by default
+      { name: 'CBC', groups: aes_cbc_test.testGroups, cipher: 'cbc' }, // PCKS5 is enabled by default
     ];
     for (const c of cases) {
       for (const g of c.groups) {
@@ -107,6 +109,110 @@ describe('AES', () => {
         }
       }
     }
+  });
+  describe('AESKW', () => {
+    should('RFC3394', () => {
+      // https://www.rfc-editor.org/rfc/rfc3394#section-4.1
+      const vectors = [
+        // 4.1 Wrap 128 bits of Key Data with a 128-bit KEK
+        {
+          KEK: hex.decode('000102030405060708090A0B0C0D0E0F'),
+          KeyData: hex.decode('00112233445566778899AABBCCDDEEFF'),
+          Ciphertext: hex.decode('1FA68B0A8112B447AEF34BD8FB5A7B829D3E862371D2CFE5'),
+        },
+        // 4.2 Wrap 128 bits of Key Data with a 192-bit KEK
+        {
+          KEK: hex.decode('000102030405060708090A0B0C0D0E0F1011121314151617'),
+          KeyData: hex.decode('00112233445566778899AABBCCDDEEFF'),
+          Ciphertext: hex.decode('96778B25AE6CA435F92B5B97C050AED2468AB8A17AD84E5D'),
+        },
+        // 4.3 Wrap 128 bits of Key Data with a 256-bit KEK
+        {
+          KEK: hex.decode('000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F'),
+          KeyData: hex.decode('00112233445566778899AABBCCDDEEFF'),
+          Ciphertext: hex.decode('64E8C3F9CE0F5BA263E9777905818A2A93C8191E7D6E8AE7'),
+        },
+        // 4.4 Wrap 192 bits of Key Data with a 192-bit KEK
+        {
+          KEK: hex.decode('000102030405060708090A0B0C0D0E0F1011121314151617'),
+          KeyData: hex.decode('00112233445566778899AABBCCDDEEFF0001020304050607'),
+          Ciphertext: hex.decode(
+            '031D33264E15D33268F24EC260743EDCE1C6C7DDEE725A936BA814915C6762D2'
+          ),
+        },
+        // 4.5 Wrap 192 bits of Key Data with a 256-bit KEK
+        {
+          KEK: hex.decode('000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F'),
+          KeyData: hex.decode('00112233445566778899AABBCCDDEEFF0001020304050607'),
+          Ciphertext: hex.decode(
+            'A8F9BC1612C68B3FF6E6F4FBE30E71E4769C8B80A32CB8958CD5D17D6B254DA1'
+          ),
+        },
+        // 4.6 Wrap 256 bits of Key Data with a 256-bit KEK
+        {
+          KEK: hex.decode('000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F'),
+          KeyData: hex.decode('00112233445566778899AABBCCDDEEFF000102030405060708090A0B0C0D0E0F'),
+          Ciphertext: hex.decode(
+            '28C9F404C4B810F4CBCCB35CFB87F8263F5786E2D80ED326CBC7F0E71A99F43BFB988B9B7A02DD21'
+          ),
+        },
+      ];
+      for (const t of vectors) {
+        const kw = aeskw(t.KEK);
+        deepStrictEqual(kw.encrypt(t.KeyData), t.Ciphertext);
+        deepStrictEqual(kw.decrypt(t.Ciphertext), t.KeyData);
+      }
+    });
+    should('Wycheproof', () => {
+      for (const group of aes_kw_test.testGroups) {
+        for (const t of group.tests) {
+          const kw = aeskw(hex.decode(t.key));
+          // 8-byte keys considered 'acceptable' by Wychenproof, but seems like bug.
+          if (t.flags.includes('ShortKey')) continue;
+          if (t.result === 'valid' || t.result === 'acceptable') {
+            deepStrictEqual(hex.encode(kw.encrypt(hex.decode(t.msg))), t.ct);
+            deepStrictEqual(hex.encode(kw.decrypt(hex.decode(t.ct))), t.msg);
+          } else {
+            throws(() => kw.decrypt(hex.decode(t.ct)));
+            throws(() => deepStrictEqual(kw.encrypt(hex.decode(t.msg)), hex.decode(t.ct)));
+          }
+        }
+      }
+    });
+    should('KWP', () => {
+      // https://www.rfc-editor.org/rfc/rfc5649
+      const vectors = [
+        {
+          KEK: hex.decode('5840df6e29b02af1ab493b705bf16ea1ae8338f4dcc176a8'),
+          Key: hex.decode('c37b7e6492584340bed12207808941155068f738'),
+          Wrap: hex.decode('138bdeaa9b8fa7fc61f97742e72248ee5ae6ae5360d1ae6a5f54f373fa543b6a'),
+        },
+        {
+          KEK: hex.decode('5840df6e29b02af1ab493b705bf16ea1ae8338f4dcc176a8'),
+          Key: hex.decode('466f7250617369'),
+          Wrap: hex.decode('afbeb0f07dfbf5419200f2ccb50bb24f'),
+        },
+      ];
+      for (const t of vectors) {
+        const kwp = aeskwp(t.KEK);
+        deepStrictEqual(kwp.encrypt(t.Key), t.Wrap);
+        deepStrictEqual(kwp.decrypt(t.Wrap), t.Key);
+      }
+    });
+    should('AESKWP: Wycheproof', () => {
+      for (const group of aes_kwp_test.testGroups) {
+        for (const t of group.tests) {
+          const kwp = aeskwp(hex.decode(t.key));
+          if (t.result === 'valid' || t.result === 'acceptable') {
+            deepStrictEqual(hex.encode(kwp.encrypt(hex.decode(t.msg))), t.ct);
+            deepStrictEqual(hex.encode(kwp.decrypt(hex.decode(t.ct))), t.msg);
+          } else {
+            throws(() => kwp.decrypt(hex.decode(t.ct)), 'decrypt');
+            throws(() => deepStrictEqual(kwp.encrypt(hex.decode(t.msg)), hex.decode(t.ct)));
+          }
+        }
+      }
+    });
   });
 });
 
