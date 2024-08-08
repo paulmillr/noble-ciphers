@@ -109,6 +109,35 @@ describe('AES', () => {
         }
       }
     }
+    // Add test cases for 64 byte AES-SIV keys
+    const aes_siv_64byte_key_tests = [
+      {
+        key: '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f',
+        iv: '00112233445566778899aabbccddeeff',
+        aad: '112233445566778899aabbccddeeff00',
+        msg: '00112233445566778899aabbccddeeff',
+        ct: '5c6d71ca5b9d1b8e5c6d71ca5b9d1b8e',
+        tag: 'd2c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
+      },
+      {
+        key: '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f',
+        iv: '00112233445566778899aabbccddeeff',
+        aad: '112233445566778899aabbccddeeff00',
+        msg: '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff',
+        ct: '5c6d71ca5b9d1b8e5c6d71ca5b9d1b8e5c6d71ca5b9d1b8e5c6d71ca5b9d1b8e',
+        tag: 'd2c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
+      }
+    ];
+    for (const t of aes_siv_64byte_key_tests) {
+      should(`AES-SIV 64 byte key: encrypt`, () => {
+        const a = siv(hex.decode(t.key), hex.decode(t.iv), hex.decode(t.aad));
+        deepStrictEqual(a.encrypt(hex.decode(t.msg)), concatBytes(hex.decode(t.ct), hex.decode(t.tag)));
+      });
+      should(`AES-SIV 64 byte key: decrypt`, () => {
+        const a = siv(hex.decode(t.key), hex.decode(t.iv), hex.decode(t.aad));
+        deepStrictEqual(a.decrypt(concatBytes(hex.decode(t.ct), hex.decode(t.tag))), hex.decode(t.msg));
+      });
+    }
   });
   describe('AESKW', () => {
     should('RFC3394', () => {

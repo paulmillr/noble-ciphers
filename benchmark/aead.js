@@ -112,7 +112,7 @@ export const ciphers = {
     },
   },
   'aes-256-gcm-siv': {
-    opts: { key: buf(32), nonce: buf(12) },
+    opts: { key: buf(64), nonce: buf(12) },
     noble: {
       encrypt: (buf, opts) => siv(opts.key, opts.nonce).encrypt(buf),
       decrypt: (buf, opts) => siv(opts.key, opts.nonce).decrypt(buf),

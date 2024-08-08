@@ -1,4 +1,3 @@
-// prettier-ignore
 import { bytes as abytes } from './_assert.js';
 import { ghash, polyval } from './_polyval.js';
 import {
@@ -121,8 +120,8 @@ const xPowers = /* @__PURE__ */ (() => {
 export function expandKeyLE(key: Uint8Array): Uint32Array {
   abytes(key);
   const len = key.length;
-  if (![16, 24, 32].includes(len))
-    throw new Error(`aes: wrong key size: should be 16, 24 or 32, got: ${len}`);
+  if (![16, 24, 32, 64].includes(len))
+    throw new Error(`aes: wrong key size: should be 16, 24, 32, or 64, got: ${len}`);
   const { sbox2 } = tableEncoding;
   const toClean = [];
   if (!isAligned32(key)) toClean.push((key = copyBytes(key)));
@@ -670,7 +669,7 @@ export const siv = wrapCipher(
     const PLAIN_LIMIT = limit('plaintext', 0, 2 ** 36);
     const NONCE_LIMIT = limit('nonce', 12, 12);
     const CIPHER_LIMIT = limit('ciphertext', 16, 2 ** 36 + 16);
-    abytes(key, 16, 24, 32);
+    abytes(key, 16, 24, 32, 64);
     abytes(nonce);
     NONCE_LIMIT(nonce.length);
     if (AAD !== undefined) {
