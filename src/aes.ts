@@ -377,12 +377,12 @@ function validateBlockEncrypt(plaintext: Uint8Array, pcks5: boolean, dst?: Uint8
 function validatePCKS(data: Uint8Array, pcks5: boolean) {
   if (!pcks5) return data;
   const len = data.length;
-  if (!len) throw new Error(`aes/pcks5: empty ciphertext not allowed`);
+  if (!len) throw new Error('aes/pcks5: empty ciphertext not allowed');
   const lastByte = data[len - 1];
-  if (lastByte <= 0 || lastByte > 16) throw new Error(`aes/pcks5: wrong padding byte: ${lastByte}`);
+  if (lastByte <= 0 || lastByte > 16) throw new Error('aes/pcks5: wrong padding');
   const out = data.subarray(0, -lastByte);
   for (let i = 0; i < lastByte; i++)
-    if (data[len - i - 1] !== lastByte) throw new Error(`aes/pcks5: wrong padding`);
+    if (data[len - i - 1] !== lastByte) throw new Error('aes/pcks5: wrong padding');
   return out;
 }
 
@@ -587,8 +587,10 @@ export const gcm = wrapCipher(
     abytes(key);
     abytes(nonce);
     if (AAD !== undefined) abytes(AAD);
-    // Nonce can be pretty much anything (even 1 byte). But smaller nonces less secure.
-    if (nonce.length === 0) throw new Error('aes/gcm: empty nonce');
+    // NIST 800-38d doesn't enforce minimum nonce length.
+    // We enforce 8 bytes for compat with openssl.
+    // 12 bytes are recommended. More than 12 bytes would be converted into 12.
+    if (nonce.length < 8) throw new Error('aes/gcm: invalid nonce length');
     const tagLength = 16;
     function _computeTag(authKey: Uint8Array, tagMask: Uint8Array, data: Uint8Array) {
       const tag = computeTag(ghash, false, authKey, data, AAD);
@@ -600,11 +602,10 @@ export const gcm = wrapCipher(
       const authKey = EMPTY_BLOCK.slice();
       const counter = EMPTY_BLOCK.slice();
       ctr32(xk, false, counter, counter, authKey);
+      // NIST 800-38d, page 15: different behavior for 96-bit and non-96-bit nonces
       if (nonce.length === 12) {
         counter.set(nonce);
       } else {
-        // Spec (NIST 800-38d) supports variable size nonce.
-        // Not supported for now, but can be useful.
         const nonceLen = EMPTY_BLOCK.slice();
         const view = createView(nonceLen);
         setBigUint64(view, 8, BigInt(nonce.length * 8), false);
@@ -871,7 +872,7 @@ export const aeskw = wrapCipher(
     encrypt(plaintext: Uint8Array) {
       abytes(plaintext);
       if (!plaintext.length || plaintext.length % 8 !== 0)
-        throw new Error('plaintext length must be non-empty and a multiple of 8 bytes');
+        throw new Error('invalid plaintext length');
       if (plaintext.length === 8)
         throw new Error('8-byte keys not allowed in AESKW, use AESKWP instead');
       const out = concatBytes(AESKW_IV, plaintext);
@@ -880,10 +881,11 @@ export const aeskw = wrapCipher(
     },
     decrypt(ciphertext: Uint8Array) {
       abytes(ciphertext);
+      // ciphertext must be at least 24 bytes and a multiple of 8 bytes
       // 24 because should have at least two block (1 iv + 2).
       // Replace with 16 to enable '8-byte keys'
       if (ciphertext.length % 8 !== 0 || ciphertext.length < 3 * 8)
-        throw new Error('ciphertext must be at least 24 bytes and a multiple of 8 bytes');
+        throw new Error('invalid ciphertext length');
       const out = copyBytes(ciphertext);
       AESW.decrypt(kek, out);
       if (!equalBytes(out.subarray(0, 8), AESKW_IV)) throw new Error('integrity check failed');
@@ -943,7 +945,7 @@ export const aeskwp = wrapCipher(
   (kek: Uint8Array): Cipher => ({
     encrypt(plaintext: Uint8Array) {
       abytes(plaintext);
-      if (!plaintext.length) throw new Error('plaintext length must be non-empty');
+      if (!plaintext.length) throw new Error('invalid plaintext length');
       const padded = Math.ceil(plaintext.length / 8) * 8;
       const out = new Uint8Array(8 + padded);
       out.set(plaintext, 8);
@@ -956,8 +958,7 @@ export const aeskwp = wrapCipher(
     decrypt(ciphertext: Uint8Array) {
       abytes(ciphertext);
       // 16 because should have at least one block
-      if (ciphertext.length < 16)
-        throw new Error('ciphertext must be at least 16 bytes and a multiple of 8 bytes');
+      if (ciphertext.length < 16) throw new Error('invalid ciphertext length');
       const out = copyBytes(ciphertext);
       const o32 = u32(out);
       AESW.decrypt(kek, out);
