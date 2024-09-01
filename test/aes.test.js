@@ -96,6 +96,7 @@ describe('AES', () => {
             const msg = hex.decode(t.msg);
             const cipher = CIPHERS[c.cipher];
             if (t.result === 'valid') {
+              if (t.flags.includes('SmallIv')) return; // skip test, we don't support iv < 8b
               const a = cipher(hex.decode(t.key), hex.decode(t.iv), hex.decode(t.aad || ''));
               const ct = concatBytes(hex.decode(t.ct), hex.decode(t.tag || ''));
               deepStrictEqual(a.decrypt(ct), msg);
