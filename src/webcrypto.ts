@@ -14,8 +14,13 @@ import { AsyncCipher, Cipher, concatBytes } from './utils.js';
  * Secure PRNG. Uses `crypto.getRandomValues`, which defers to OS.
  */
 export function randomBytes(bytesLength = 32): Uint8Array {
-  if (crypto && typeof crypto.getRandomValues === 'function')
+  if (crypto && typeof crypto.getRandomValues === 'function') {
     return crypto.getRandomValues(new Uint8Array(bytesLength));
+  }
+  // Legacy Node.js compatibility
+  if (crypto && typeof crypto.randomBytes === 'function') {
+    return crypto.randomBytes(bytesLength);
+  }
   throw new Error('crypto.getRandomValues must be defined');
 }
 
