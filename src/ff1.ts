@@ -1,3 +1,4 @@
+import { number as anumber, bytes as abytes } from './_assert.js';
 import { unsafe } from './aes.js';
 import { Cipher, bytesToNumberBE, clean, numberToBytesBE } from './utils.js';
 // NOTE: no point in inlining encrypt instead of encryptBlock, since BigInt stuff will be slow
@@ -30,6 +31,7 @@ function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: number[]
   // 2 ≤ minlen ≤ maxlen < 2**32
   if (2 > minLen || minLen > maxLen || maxLen >= 2 ** 32)
     throw new Error('Invalid radix: 2 ≤ minlen ≤ maxlen < 2**32');
+  if (!Array.isArray(x)) throw new Error('invalid X');
   if (x.length < minLen || x.length > maxLen) throw new Error('X is outside minLen..maxLen bounds');
   const u = Math.floor(x.length / 2);
   const v = x.length - u;
@@ -88,6 +90,9 @@ function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: number[]
 const EMPTY_BUF = new Uint8Array([]);
 
 export function FF1(radix: number, key: Uint8Array, tweak: Uint8Array = EMPTY_BUF) {
+  anumber(radix);
+  abytes(key);
+  abytes(tweak);
   const PQ = getRound.bind(null, radix, key, tweak);
   return {
     encrypt(x: number[]) {
@@ -127,7 +132,7 @@ const binLE = {
     return x;
   },
   decode(b: number[]): Uint8Array {
-    if (b.length % 8) throw new Error('Invalid binary string');
+    if (!Array.isArray(b) || b.length % 8) throw new Error('Invalid binary string');
     const res = new Uint8Array(b.length / 8);
     for (let i = 0, j = 0; i < res.length; i++) {
       res[i] = b[j++] | (b[j++] << 1) | (b[j++] << 2) | (b[j++] << 3);
