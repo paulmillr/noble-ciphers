@@ -276,7 +276,8 @@ export const _poly1305_aead =
 
 /**
  * ChaCha20-Poly1305 from RFC 8439.
- * With 12-byte nonce, it's not safe to use fill it with random (CSPRNG), due to collision chance.
+ * Unsafe to use random nonces under the same key, due to collision chance.
+ * Prefer XChaCha instead.
  */
 export const chacha20poly1305 = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 12, tagLength: 16 },
@@ -284,8 +285,8 @@ export const chacha20poly1305 = /* @__PURE__ */ wrapCipher(
 );
 /**
  * XChaCha20-Poly1305 extended-nonce chacha.
- * https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha
- * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
+ * Can be safely used with random nonces (CSPRNG).
+ * [IRTF draft](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha).
  */
 export const xchacha20poly1305 = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },

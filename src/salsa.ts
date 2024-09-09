@@ -96,7 +96,8 @@ export function hsalsa(
 
 /**
  * Salsa20 from original paper.
- * With 12-byte nonce, it's not safe to use fill it with random (CSPRNG), due to collision chance.
+ * Unsafe to use random nonces under the same key, due to collision chance.
+ * Prefer XSalsa instead.
  */
 export const salsa20 = /* @__PURE__ */ createCipher(salsaCore, {
   allowShortKeys: true,
@@ -105,7 +106,7 @@ export const salsa20 = /* @__PURE__ */ createCipher(salsaCore, {
 
 /**
  * xsalsa20 eXtended-nonce salsa.
- * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
+ * Can be safely used with random 24-byte nonces (CSPRNG).
  */
 export const xsalsa20 = /* @__PURE__ */ createCipher(salsaCore, {
   counterRight: true,
@@ -114,7 +115,7 @@ export const xsalsa20 = /* @__PURE__ */ createCipher(salsaCore, {
 
 /**
  * xsalsa20-poly1305 eXtended-nonce salsa.
- * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
+ * Can be safely used with random 24-byte nonces (CSPRNG).
  * Also known as secretbox from libsodium / nacl.
  */
 export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(

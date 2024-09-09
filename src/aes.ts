@@ -578,8 +578,10 @@ function computeTag(
 
 /**
  * GCM: Galois/Counter Mode.
- * Good, modern version of CTR, parallel, with MAC.
+ * Modern, parallel version of CTR, with MAC.
  * Be careful: MACs can be forged.
+ * Unsafe to use random nonces under the same key, due to collision chance.
+ * As for nonce size, prefer 12-byte, instead of 8-byte.
  */
 export const gcm = wrapCipher(
   { blockSize: 16, nonceLength: 12, tagLength: 16 },
