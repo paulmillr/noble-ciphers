@@ -11,9 +11,7 @@ Auditable & minimal JS implementation of Salsa20, ChaCha and AES.
 - 🥈 Two AES implementations: pure JS or friendly wrapper around webcrypto
 - 🪶 45KB (8KB gzipped) for everything, 10KB (3KB gzipped) for ChaCha build
 
-For discussions, questions and support, visit
-[GitHub Discussions](https://github.com/paulmillr/noble-ciphers/discussions)
-section of the repository.
+Take a glance at [GitHub Discussions](https://github.com/paulmillr/noble-ciphers/discussions) for questions and support.
 
 ### This library belongs to _noble_ cryptography
 
@@ -47,7 +45,7 @@ A standalone file
 ```js
 // import * from '@noble/ciphers'; // Error: use sub-imports, to ensure small app size
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
-// import { xchacha20poly1305 } from 'npm:@noble/ciphers@0.5.0/chacha'; // Deno
+// import { xchacha20poly1305 } from 'npm:@noble/ciphers@1.0.0/chacha'; // Deno
 ```
 
 - [Examples](#examples)
@@ -296,9 +294,8 @@ AES-SIV's [Polyval](https://en.wikipedia.org/wiki/AES-GCM-SIV).
 
 ### Which cipher should I pick?
 
-To simplify, XChaCha20-Poly1305 is the safest bet these days.
-AES-GCM-SIV is the second safest.
-AES-GCM is the third.
+We suggest to use XChaCha20-Poly1305.
+If you can't use it, prefer AES-GCM-SIV, or AES-GCM.
 
 ### How to encrypt properly
 
@@ -309,12 +306,13 @@ AES-GCM is the third.
 - Use new nonce every time and [don't repeat it](#nonces)
   - chacha and salsa20 are fine for sequential counters that _never_ repeat: `01, 02...`
   - xchacha and xsalsa20 should be used for random nonces instead
+  - AES-GCM should use 12-byte nonces: smaller nonces are security risk
 - Prefer authenticated encryption (AEAD)
-  - HMAC+ChaCha / HMAC+AES / chacha20poly1305 / aes-gcm is good
-  - chacha20 without poly1305 or hmac / aes-ctr / aes-cbc is bad
+  - chacha20poly1305 / aes-gcm / ChaCha + HMAC / AES + HMAC is good
+  - chacha20 / aes-ctr / aes-cbc without poly1305 or hmac is bad
   - Flipping bits or ciphertext substitution won't be detected in unauthenticated ciphers
 - Don't re-use keys between different protocols
-  - For example, using secp256k1 key in AES is bad
+  - For example, using secp256k1 key in AES can be bad
   - Use hkdf or, at least, a hash function to create sub-key instead
 
 ### Nonces
@@ -344,9 +342,9 @@ Counters are OK, but it's not always possible to store current counter value:
 e.g. in decentralized, unsyncable systems.
 
 Randomness is OK, but there's a catch:
-ChaCha20 and AES-GCM use 96-bit / 12-byte nonces, which implies
-higher chance of collision. In the example above,
-`random()` can collide and produce repeating nonce.
+ChaCha20 and AES-GCM use 96-bit / 12-byte nonces, which implies higher chance of collision.
+In the example above, `random()` can collide and produce repeating nonce.
+Chance is even higher for 64-bit nonces, which GCM allows - don't use them.
 
 To safely use random nonces, utilize XSalsa20 or XChaCha:
 they increased nonce length to 192-bit, minimizing a chance of collision.
@@ -416,7 +414,10 @@ constant-timeness_. Even statically typed Rust, a language without GC,
 for some cases. If your goal is absolute security, don't use any JS lib — including bindings to native ones.
 Use low-level libraries & languages. Nonetheless we're targetting algorithmic constant time.
 
-AES uses T-tables, which means it can't be done in constant-time in JS.
+The library uses T-tables for AES, which
+[leak access timings](https://cr.yp.to/antiforgery/cachetiming-20050414.pdf).
+This is also done in [OpenSSL](https://github.com/openssl/openssl/blob/2f33265039cdbd0e4589c80970e02e208f3f94d2/crypto/aes/aes_core.c#L706) and
+[Go stdlib](https://cs.opensource.google/go/go/+/refs/tags/go1.22.6:src/crypto/aes/const.go;l=90) for performance reasons.
 
 ### Supply chain security
 
