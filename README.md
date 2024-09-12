@@ -51,11 +51,11 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 - [Examples](#examples)
   - [Encrypt with XChaCha20-Poly1305](#encrypt-with-xchacha20-poly1305)
   - [Encrypt with AES-256-GCM](#encrypt-with-aes-256-gcm)
-  - [Different AES block modes](#different-aes-block-modes)
-  - [Friendly wrapper around AES WebCrypto](#friendly-wrapper-around-aes-webcrypto)
-  - [Use existing key instead of a new one](#use-existing-key-instead-of-a-new-one)
-  - [Encrypt without nonce](#encrypt-without-nonce)
-  - [Re-use same array for input & output](#re-use-same-array-for-input-and-output)
+  - [AES: gcm, siv, ctr, cfb, cbc, ecb](#aes-gcm-siv-ctr-cfb-cbc-ecb)
+  - [Friendly WebCrypto AES](#friendly-webcrypto-aes)
+  - [AESKW and AESKWP](#aeskw-and-aeskwp)
+  - [Auto-handle nonces](#auto-handle-nonces)
+  - [Reuse array for input and output](#reuse-array-for-input-and-output)
   - [All imports](#all-imports)
 - [Internals](#internals)
   - [Implemented primitives](#implemented-primitives)
@@ -78,7 +78,13 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 import { utf8ToBytes } from '@noble/ciphers/utils';
 import { randomBytes } from '@noble/ciphers/webcrypto';
-const key = randomBytes(32);
+const key = randomBytes(32);    // random key
+// const key = new Uint8Array([ // existing key
+//   169, 88, 160, 139, 168, 29, 147, 196, 14, 88, 237, 76, 243, 177, 109, 140,
+//   195, 140, 80, 10, 216, 134, 215, 71, 191, 48, 20, 104, 189, 37, 38, 55,
+// ]);
+// import { hexToBytes } from '@noble/ciphers/utils'; // hex key
+// const key = hexToBytes('4b7f89bac90a1086fef73f5da2cbe93b2fae9dfbf7678ae1f3e75fd118ddf999');
 const nonce = randomBytes(24);
 const chacha = xchacha20poly1305(key, nonce);
 const data = utf8ToBytes('hello, noble');
@@ -100,24 +106,7 @@ const ciphertext = aes.encrypt(data);
 const data_ = aes.decrypt(ciphertext); // utils.bytesToUtf8(data_) === data
 ```
 
-#### Use existing key instead of a new one
-
-```js
-const key = new Uint8Array([
-  169, 88, 160, 139, 168, 29, 147, 196, 14, 88, 237, 76, 243, 177, 109, 140,
-  195, 140, 80, 10, 216, 134, 215, 71, 191, 48, 20, 104, 189, 37, 38, 55,
-]);
-const nonce = new Uint8Array([
-  180, 90, 27, 63, 160, 191, 150, 33, 67, 212, 86, 71, 144, 6, 200, 102, 218,
-  32, 23, 147, 8, 41, 147, 11,
-]);
-// or, hex:
-import { hexToBytes } from '@noble/ciphers/utils';
-const key2 = hexToBytes('4b7f89bac90a1086fef73f5da2cbe93b2fae9dfbf7678ae1f3e75fd118ddf999');
-const nonce2 = hexToBytes('9610467513de0bbd7c4cc2c3c64069f1802086fbd3232b13');
-```
-
-#### Different AES block modes
+#### AES: gcm, siv, ctr, cfb, cbc, ecb
 
 ```js
 import { gcm, siv, ctr, cfb, cbc, ecb } from '@noble/ciphers/aes';
@@ -141,11 +130,12 @@ for (const cipher of [ecb]) {
 }
 ```
 
-#### Friendly wrapper around AES WebCrypto
+#### Friendly WebCrypto AES
 
-Noble implements AES. Sometimes people want to use built-in `crypto.subtle` instead. However, it has terrible API.
+Noble implements AES. Sometimes people want to use built-in `crypto.subtle` instead. However, it has terrible API. We simplify access to built-ins.
 
-We simplify access to built-ins. Note: it's always async.
+> [!NOTE]  
+> Webcrypto methods are always async.
 
 ```js
 import { gcm, ctr, cbc, randomBytes } from '@noble/ciphers/webcrypto';
@@ -174,7 +164,7 @@ const keyData = hexToBytes('00112233445566778899AABBCCDDEEFF');
 const ciphertext =  aeskw(kek).encrypt(keyData);
 ```
 
-#### Encrypt without nonce
+#### Auto-handle nonces
 
 We provide API that manages nonce internally instead of exposing them to library's user.
 
@@ -193,12 +183,13 @@ const ciphertext = chacha.encrypt(data);
 const data_ = chacha.decrypt(ciphertext);
 ```
 
-#### Re-use same array for input & output
+#### Reuse array for input and output
 
 This allows re-use Uint8Array between encryption/decryption calls (works if all plaintext or ciphertext are same size).
 
-**_NOTE_**: some ciphers don't support unaligned (`byteOffset % 4 !== 0`) Uint8Array as destination, since it will significantly
-decrease performance and this optimization will become pointless.
+> [!NOTE]  
+> Some ciphers don't support unaligned (`byteOffset % 4 !== 0`) Uint8Array as
+> destination. It can decrease performance, making the optimization pointless.
 
 ```js
 import { chacha20poly1305 } from '@noble/ciphers/chacha';
@@ -207,14 +198,17 @@ import { randomBytes } from '@noble/ciphers/webcrypto';
 
 const key = randomBytes(32);
 const nonce = randomBytes(12);
-const buf = new Uint8Array(12 + 16);
+
+const inputLength = 12;
+const tagLength = 16;
+const buf = new Uint8Array(inputLength + tagLength);
 const _data = utf8ToBytes('hello, noble');
-buf.set(_data, 0); // first 12 bytes
-const _12b = buf.subarray(0, 12);
+buf.set(_data, 0); // first inputLength bytes
+const _start = buf.subarray(0, inputLength);
 
 const chacha = chacha20poly1305(key, nonce);
-chacha.encrypt(_12b, buf);
-chacha.decrypt(buf, _12b); // _12b now same as _data
+chacha.encrypt(_start, buf);
+chacha.decrypt(buf, _start); // _start now same as _data
 ```
 
 #### All imports
@@ -226,14 +220,16 @@ import { secretbox } from '@noble/ciphers/salsa'; // == xsalsa20poly1305
 import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
 
 // Unauthenticated encryption: make sure to use HMAC or similar
-import { ctr, cfb, cbc, ecb, aeskw, aeskwp } from '@noble/ciphers/aes';
+import { ctr, cfb, cbc, ecb } from '@noble/ciphers/aes';
 import { salsa20, xsalsa20 } from '@noble/ciphers/salsa';
 import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha';
+
+// KW
+import { aeskw, aeskwp } from '@noble/ciphers/aes';
 
 // Utilities
 import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils';
 import { managedNonce, randomBytes } from '@noble/ciphers/webcrypto';
-
 import { poly1305 } from '@noble/ciphers/_poly1305';
 import { ghash, polyval } from '@noble/ciphers/_polyval';
 ```
@@ -450,76 +446,76 @@ You can gain additional speed-up and
 avoid memory allocations by passing `output`
 uint8array into encrypt / decrypt methods.
 
-Benchmark results on Apple M2 with node v20:
+Benchmark results on Apple M2 with node v22:
 
 ```
 encrypt (64B)
 ├─xsalsa20poly1305 x 485,908 ops/sec @ 2μs/op
-├─chacha20poly1305 x 419,639 ops/sec @ 2μs/op
-├─xchacha20poly1305 x 335,232 ops/sec @ 2μs/op
-├─aes-256-gcm x 143,595 ops/sec @ 6μs/op
-└─aes-256-gcm-siv x 120,743 ops/sec @ 8μs/op
+├─chacha20poly1305 x 414,250 ops/sec @ 2μs/op
+├─xchacha20poly1305 x 331,674 ops/sec @ 3μs/op
+├─aes-256-gcm x 144,237 ops/sec @ 6μs/op
+└─aes-256-gcm-siv x 121,373 ops/sec @ 8μs/op
 encrypt (1KB)
-├─xsalsa20poly1305 x 135,924 ops/sec @ 7μs/op
-├─chacha20poly1305 x 134,843 ops/sec @ 7μs/op
-├─xchacha20poly1305 x 124,626 ops/sec @ 8μs/op
-├─aes-256-gcm x 39,588 ops/sec @ 25μs/op
-└─aes-256-gcm-siv x 36,989 ops/sec @ 27μs/op
+├─xsalsa20poly1305 x 136,574 ops/sec @ 7μs/op
+├─chacha20poly1305 x 136,017 ops/sec @ 7μs/op
+├─xchacha20poly1305 x 126,008 ops/sec @ 7μs/op
+├─aes-256-gcm x 40,149 ops/sec @ 24μs/op
+└─aes-256-gcm-siv x 37,420 ops/sec @ 26μs/op
 encrypt (8KB)
-├─xsalsa20poly1305 x 22,178 ops/sec @ 45μs/op
-├─chacha20poly1305 x 22,691 ops/sec @ 44μs/op
-├─xchacha20poly1305 x 22,463 ops/sec @ 44μs/op
-├─aes-256-gcm x 8,082 ops/sec @ 123μs/op
-└─aes-256-gcm-siv x 7,907 ops/sec @ 126μs/op
+├─xsalsa20poly1305 x 22,517 ops/sec @ 44μs/op
+├─chacha20poly1305 x 23,187 ops/sec @ 43μs/op
+├─xchacha20poly1305 x 22,837 ops/sec @ 43μs/op
+├─aes-256-gcm x 7,993 ops/sec @ 125μs/op
+└─aes-256-gcm-siv x 7,836 ops/sec @ 127μs/op
 encrypt (1MB)
-├─xsalsa20poly1305 x 171 ops/sec @ 5ms/op
-├─chacha20poly1305 x 186 ops/sec @ 5ms/op
-├─xchacha20poly1305 x 189 ops/sec @ 5ms/op
-├─aes-256-gcm x 73 ops/sec @ 13ms/op
-└─aes-256-gcm-siv x 77 ops/sec @ 12ms/op
+├─xsalsa20poly1305 x 186 ops/sec @ 5ms/op
+├─chacha20poly1305 x 191 ops/sec @ 5ms/op
+├─xchacha20poly1305 x 191 ops/sec @ 5ms/op
+├─aes-256-gcm x 71 ops/sec @ 14ms/op
+└─aes-256-gcm-siv x 75 ops/sec @ 13ms/op
 ```
 
 Unauthenticated encryption:
 
 ```
 encrypt (64B)
-├─salsa x 1,245,330 ops/sec @ 803ns/op
-├─chacha x 1,468,428 ops/sec @ 681ns/op
-├─xsalsa x 995,024 ops/sec @ 1μs/op
-└─xchacha x 1,026,694 ops/sec @ 974ns/op
+├─salsa x 1,221,001 ops/sec @ 819ns/op
+├─chacha x 1,373,626 ops/sec @ 728ns/op
+├─xsalsa x 1,019,367 ops/sec @ 981ns/op
+└─xchacha x 1,019,367 ops/sec @ 981ns/op
 encrypt (1KB)
-├─salsa x 349,283 ops/sec @ 2μs/op
-├─chacha x 369,822 ops/sec @ 2μs/op
-├─xsalsa x 326,370 ops/sec @ 3μs/op
-└─xchacha x 334,001 ops/sec @ 2μs/op
+├─salsa x 349,162 ops/sec @ 2μs/op
+├─chacha x 372,717 ops/sec @ 2μs/op
+├─xsalsa x 327,868 ops/sec @ 3μs/op
+└─xchacha x 332,446 ops/sec @ 3μs/op
 encrypt (8KB)
-├─salsa x 55,050 ops/sec @ 18μs/op
-├─chacha x 56,474 ops/sec @ 17μs/op
-├─xsalsa x 54,068 ops/sec @ 18μs/op
-└─xchacha x 55,469 ops/sec @ 18μs/op
+├─salsa x 55,178 ops/sec @ 18μs/op
+├─chacha x 51,535 ops/sec @ 19μs/op
+├─xsalsa x 54,274 ops/sec @ 18μs/op
+└─xchacha x 55,645 ops/sec @ 17μs/op
 encrypt (1MB)
-├─salsa x 449 ops/sec @ 2ms/op
-├─chacha x 459 ops/sec @ 2ms/op
-├─xsalsa x 448 ops/sec @ 2ms/op
-└─xchacha x 459 ops/sec @ 2ms/op
+├─salsa x 451 ops/sec @ 2ms/op
+├─chacha x 464 ops/sec @ 2ms/op
+├─xsalsa x 455 ops/sec @ 2ms/op
+└─xchacha x 462 ops/sec @ 2ms/op
 
 AES
 encrypt (64B)
-├─ctr-256 x 689,179 ops/sec @ 1μs/op
-├─cbc-256 x 639,795 ops/sec @ 1μs/op
-└─ecb-256 x 668,449 ops/sec @ 1μs/op
+├─ctr-256 x 679,347 ops/sec @ 1μs/op
+├─cbc-256 x 699,300 ops/sec @ 1μs/op
+└─ecb-256 x 717,875 ops/sec @ 1μs/op
 encrypt (1KB)
-├─ctr-256 x 93,668 ops/sec @ 10μs/op
-├─cbc-256 x 94,428 ops/sec @ 10μs/op
-└─ecb-256 x 151,699 ops/sec @ 6μs/op
+├─ctr-256 x 93,423 ops/sec @ 10μs/op
+├─cbc-256 x 95,721 ops/sec @ 10μs/op
+└─ecb-256 x 154,726 ops/sec @ 6μs/op
 encrypt (8KB)
-├─ctr-256 x 13,342 ops/sec @ 74μs/op
-├─cbc-256 x 13,664 ops/sec @ 73μs/op
-└─ecb-256 x 22,426 ops/sec @ 44μs/op
+├─ctr-256 x 12,908 ops/sec @ 77μs/op
+├─cbc-256 x 13,411 ops/sec @ 74μs/op
+└─ecb-256 x 22,681 ops/sec @ 44μs/op
 encrypt (1MB)
-├─ctr-256 x 106 ops/sec @ 9ms/op
-├─cbc-256 x 109 ops/sec @ 9ms/op
-└─ecb-256 x 179 ops/sec @ 5ms/op
+├─ctr-256 x 105 ops/sec @ 9ms/op
+├─cbc-256 x 108 ops/sec @ 9ms/op
+└─ecb-256 x 181 ops/sec @ 5ms/op
 ```
 
 Compare to other implementations:
@@ -558,35 +554,6 @@ gcm-256 (encrypt, 1MB)
 ├─stablelib x 27 ops/sec @ 36ms/op
 ├─noble-webcrypto x 4,059 ops/sec @ 246μs/op
 └─noble x 74 ops/sec @ 13ms/op
-```
-
-## Upgrading
-
-Upgrade from `micro-aes-gcm` package is simple:
-
-```js
-// prepare
-const key = Uint8Array.from([
-  64, 196, 127, 247, 172, 2, 34, 159, 6, 241, 30, 174, 183, 229, 41, 114, 253, 122, 119, 168, 177,
-  243, 155, 236, 164, 159, 98, 72, 162, 243, 224, 195,
-]);
-const message = 'Hello world';
-
-// previous
-import * as aes from 'micro-aes-gcm';
-const ciphertext = await aes.encrypt(key, aes.utils.utf8ToBytes(message));
-const plaintext = await aes.decrypt(key, ciphertext);
-console.log(aes.utils.bytesToUtf8(plaintext) === message);
-
-// became =>
-
-import { gcm } from '@noble/ciphers/aes';
-import { bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils';
-import { managedNonce } from '@noble/ciphers/webcrypto';
-const aes = managedNonce(gcm)(key);
-const ciphertext = aes.encrypt(utf8ToBytes(message));
-const plaintext = aes.decrypt(key, ciphertext);
-console.log(bytesToUtf8(plaintext) === message);
 ```
 
 ## Contributing & testing
