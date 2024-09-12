@@ -185,7 +185,8 @@ const data_ = chacha.decrypt(ciphertext);
 
 #### Reuse array for input and output
 
-This allows re-use Uint8Array between encryption/decryption calls (works if all plaintext or ciphertext are same size).
+To avoid additional allocations, Uint8Array can be reused
+between encryption and decryption calls.
 
 > [!NOTE]  
 > Some ciphers don't support unaligned (`byteOffset % 4 !== 0`) Uint8Array as
@@ -198,11 +199,11 @@ import { randomBytes } from '@noble/ciphers/webcrypto';
 
 const key = randomBytes(32);
 const nonce = randomBytes(12);
-
 const inputLength = 12;
 const tagLength = 16;
+
 const buf = new Uint8Array(inputLength + tagLength);
-const _data = utf8ToBytes('hello, noble');
+const _data = utf8ToBytes('hello, noble'); // length == 12
 buf.set(_data, 0); // first inputLength bytes
 const _start = buf.subarray(0, inputLength);
 
