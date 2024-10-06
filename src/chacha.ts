@@ -240,6 +240,7 @@ export const _poly1305_aead =
     abytes(nonce);
     return {
       encrypt(plaintext: Uint8Array, output?: Uint8Array) {
+        abytes(plaintext);
         const plength = plaintext.length;
         const clength = plength + tagLength;
         if (output) {
@@ -254,6 +255,7 @@ export const _poly1305_aead =
         return output;
       },
       decrypt(ciphertext: Uint8Array, output?: Uint8Array) {
+        abytes(ciphertext);
         const clength = ciphertext.length;
         const plength = clength - tagLength;
         if (clength < tagLength)
