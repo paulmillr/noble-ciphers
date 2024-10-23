@@ -2,7 +2,7 @@
 
 Audited & minimal JS implementation of Salsa20, ChaCha and AES.
 
-- 🔒 Audited
+- 🔒 [**Audited**](#security) by an independent security firm
 - 🔻 Tree-shakeable: unused code is excluded from your builds
 - 🏎 Fast: hand-optimized for caveats of JS engines
 - 🔍 Reliable: property-based / cross-library / wycheproof tests ensure correctness
