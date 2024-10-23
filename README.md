@@ -1,8 +1,8 @@
 # noble-ciphers
 
-Auditable & minimal JS implementation of Salsa20, ChaCha and AES.
+Audited & minimal JS implementation of Salsa20, ChaCha and AES.
 
-- 🔒 Auditable
+- 🔒 Audited
 - 🔻 Tree-shakeable: unused code is excluded from your builds
 - 🏎 Fast: hand-optimized for caveats of JS engines
 - 🔍 Reliable: property-based / cross-library / wycheproof tests ensure correctness
@@ -394,7 +394,12 @@ GCM / SIV are not ideal:
 
 ## Security
 
-The library has not been independently audited yet.
+The library has been independently audited:
+
+- at version 1.0.0, in Sep 2024, by [cure53](https://cure53.de)
+  - PDFs: [in-repo](./audit/2024-09-cure53-audit-nbl4.pdf)
+  - [Changes since audit](https://github.com/paulmillr/noble-ciphers/compare/1.0.0..main)
+  - Scope: everything
 
 It is tested against property-based, cross-library and Wycheproof vectors,
 and has fuzzing by [Guido Vranken's cryptofuzz](https://github.com/guidovranken/cryptofuzz).
