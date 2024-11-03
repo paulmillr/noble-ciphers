@@ -261,8 +261,9 @@ describe('handle byte offsets correctly', () => {
       // Key + nonce with offset
       const keyOffset = new Uint8Array(v.keyLen + 1).fill(2).subarray(1);
       const nonceOffset = new Uint8Array(v.nonceLen + 1).fill(3).subarray(1);
+      const stream_c2 = v.stream(key, nonce);
       const streamOffset = v.stream(keyOffset, nonceOffset);
-      const encryptedOffset = stream_c.encrypt(data);
+      const encryptedOffset = stream_c2.encrypt(data);
       deepStrictEqual(encryptedOffset, encrypted_c);
       const decryptedOffset = streamOffset.decrypt(encryptedOffset);
       deepStrictEqual(decryptedOffset, data);

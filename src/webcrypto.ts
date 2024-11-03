@@ -103,10 +103,13 @@ function generate(algo: BlockMode) {
     abytes(nonce);
     const keyParams = { name: algo, length: key.length * 8 };
     const cryptParams = getCryptParams(algo, nonce, AAD);
+    let consumed = false;
     return {
       // keyLength,
       encrypt(plaintext: Uint8Array) {
         abytes(plaintext);
+        if (consumed) throw new Error('Cannot encrypt() twice with same key / nonce');
+        consumed = true;
         return utils.encrypt(key, keyParams, cryptParams, plaintext);
       },
       decrypt(ciphertext: Uint8Array) {

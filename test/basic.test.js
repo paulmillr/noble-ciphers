@@ -1,4 +1,4 @@
-const { deepStrictEqual } = require('assert');
+const { deepStrictEqual, throws } = require('assert');
 const { should, describe } = require('micro-should');
 const { hex } = require('@scure/base');
 const { managedNonce, randomBytes } = require('../webcrypto.js');
@@ -78,11 +78,11 @@ describe('Basic', () => {
     });
 
     should(`${k}: round-trip`, () => {
-      const { c, key, nonce, copy } = initCipher(opts);
       // slice, so cipher has no way to corrupt msg
       const msg = new Uint8Array(2).fill(12);
       const msgCopy = msg.slice();
       if (checkBlockSize(opts, msgCopy.length)) {
+        const { c, key, nonce, copy } = initCipher(opts);
         deepStrictEqual(c.decrypt(c.encrypt(msgCopy)), msg);
         deepStrictEqual(msg, msgCopy);
       }
@@ -90,9 +90,12 @@ describe('Basic', () => {
       const msg2 = new Uint8Array(2048).fill(255);
       const msg2Copy = msg2.slice();
       if (checkBlockSize(opts, msg2Copy.length)) {
+        const { c, key, nonce, copy } = initCipher(opts);
         deepStrictEqual(c.decrypt(c.encrypt(msg2)), msg2);
         deepStrictEqual(msg2, msg2Copy);
       }
+
+      const { c, key, nonce, copy } = initCipher(opts);
       const msg3 = new Uint8Array(256);
       const msg3Copy = msg3.slice();
       if (!checkBlockSize(opts, msg3Copy.length)) {
@@ -104,18 +107,18 @@ describe('Basic', () => {
       deepStrictEqual(nonce, copy.nonce);
     });
     should(`${k}: different sizes`, () => {
-      const { c, key, nonce, copy } = initCipher(opts);
       for (let i = 0; i < 2048; i++) {
         const msg = new Uint8Array(i).fill(i);
         const msgCopy = msg.slice();
         if (checkBlockSize(opts, msgCopy.length)) {
+          const { c, key, nonce, copy } = initCipher(opts);
           deepStrictEqual(c.decrypt(c.encrypt(msg)), msg);
           deepStrictEqual(msg, msgCopy);
+
+          deepStrictEqual(key, copy.key);
+          deepStrictEqual(nonce, copy.nonce);
         }
       }
-      // Verify that key/nonce is not modified
-      deepStrictEqual(key, copy.key);
-      deepStrictEqual(nonce, copy.nonce);
     });
     for (let i = 0; i < 8; i++) {
       should(`${k} (unalign ${i})`, () => {
@@ -132,6 +135,132 @@ describe('Basic', () => {
         }
       });
     }
+
+    const msg_10 = new Uint8Array(10);
+    if (checkBlockSize(opts, msg_10.length) && !k.endsWith('_managedNonce')) {
+      should(`${k}: prohibit encrypting twice`, () => {
+        const { c } = initCipher(opts);
+        c.encrypt(msg_10);
+        throws(() => {
+          c.encrypt(msg_10);
+        });
+      });
+    }
+  }
+});
+
+// In basic.test.js, add after existing tests:
+
+describe('input validation', () => {
+  const INVALID_BYTE_ARRAYS = [
+    undefined,
+    null,
+    123,
+    'string',
+    {},
+    [],
+    new Uint16Array(4),
+    new Uint32Array(4),
+    new Float32Array(4),
+  ];
+
+  for (const k in CIPHERS) {
+    const opts = CIPHERS[k];
+    const { fn, keyLen } = opts;
+
+    if (k.includes('managed')) continue;
+    describe(k, () => {
+      // Constructor tests
+      should('reject invalid key', () => {
+        const nonce = new Uint8Array(fn.nonceLength);
+        const aad = new Uint8Array(16);
+
+        for (const invalid of INVALID_BYTE_ARRAYS) {
+          throws(() => fn(invalid, nonce), 'non-u8a');
+        }
+
+        // Test wrong key length
+        const msg = new Uint8Array(1);
+        throws(() => fn(new Uint8Array(keyLen + 1), nonce).encrypt(msg), 'key length + 1');
+        throws(() => fn(new Uint8Array(keyLen - 1), nonce).encrypt(msg), 'key length - 1');
+      });
+
+      if (fn.nonceLength) {
+        should('reject invalid nonce', () => {
+          const key = new Uint8Array(keyLen);
+          const aad = new Uint8Array(16);
+
+          for (const invalid of INVALID_BYTE_ARRAYS) {
+            throws(() => fn(key, invalid));
+          }
+
+          // Test wrong nonce length
+          if (fn.varSizeNonce) return;
+          const msg = new Uint8Array(1);
+          throws(() => fn(key, new Uint8Array(fn.nonceLength + 1)).encrypt(msg));
+          throws(() => fn(key, new Uint8Array(fn.nonceLength - 1)).encrypt(msg));
+        });
+      }
+
+      if (fn.tagLength && k !== 'xsalsa20poly1305') {
+        should('reject invalid AAD', () => {
+          const key = new Uint8Array(keyLen);
+          const nonce = new Uint8Array(fn.nonceLength);
+
+          for (const invalid of INVALID_BYTE_ARRAYS) {
+            if (invalid == null) return;
+            throws(() => fn(key, nonce, invalid));
+          }
+        });
+      }
+
+      // Method tests
+      should('reject invalid encrypt input', () => {
+        const key = new Uint8Array(keyLen);
+        const nonce = fn.nonceLength ? new Uint8Array(fn.nonceLength) : undefined;
+        const cipher = nonce ? fn(key, nonce) : fn(key);
+
+        for (const invalid of INVALID_BYTE_ARRAYS) {
+          throws(() => cipher.encrypt(invalid));
+        }
+      });
+
+      should('reject invalid decrypt input', () => {
+        const key = new Uint8Array(keyLen);
+        const nonce = fn.nonceLength ? new Uint8Array(fn.nonceLength) : undefined;
+        const cipher = nonce ? fn(key, nonce) : fn(key);
+
+        for (const invalid of INVALID_BYTE_ARRAYS) {
+          throws(() => cipher.decrypt(invalid));
+        }
+      });
+
+      if (opts.blockSize) {
+        should('validate block size on encrypt', () => {
+          const key = new Uint8Array(keyLen);
+          const nonce = fn.nonceLength ? new Uint8Array(fn.nonceLength) : undefined;
+          const cipher = nonce ? fn(key, nonce) : fn(key);
+
+          // Test invalid block size if padding is disabled
+          if (opts.disablePadding) {
+            throws(() => cipher.encrypt(new Uint8Array(opts.blockSize - 1)));
+            throws(() => cipher.encrypt(new Uint8Array(opts.blockSize + 1)));
+          }
+        });
+      }
+
+      if (fn.tagLength) {
+        should('validate tag length on decrypt', () => {
+          const key = new Uint8Array(keyLen);
+          const nonce = new Uint8Array(fn.nonceLength);
+          const cipher = fn(key, nonce);
+
+          // Test ciphertext lengths that would result in invalid tag
+          throws(() => cipher.decrypt(new Uint8Array(fn.tagLength - 1)));
+          throws(() => cipher.decrypt(new Uint8Array(15)));
+        });
+      }
+    });
   }
 });
 

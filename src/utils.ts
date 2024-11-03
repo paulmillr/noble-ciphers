@@ -192,6 +192,7 @@ export type Cipher = {
   encrypt(plaintext: Uint8Array): Uint8Array;
   decrypt(ciphertext: Uint8Array): Uint8Array;
 };
+export type OneTimeCipher = Cipher;
 
 export type AsyncCipher = {
   encrypt(plaintext: Uint8Array): Promise<Uint8Array>;
@@ -205,17 +206,62 @@ export type CipherWithOutput = Cipher & {
 
 // Params is outside return type, so it is accessible before calling constructor
 // If function support multiple nonceLength's, we return best one
-export type CipherParams = { blockSize: number; nonceLength?: number; tagLength?: number };
+export type CipherParams = {
+  blockSize: number;
+  nonceLength?: number;
+  tagLength?: number;
+  varSizeNonce?: boolean;
+};
 export type CipherCons<T extends any[]> = (key: Uint8Array, ...args: T) => Cipher;
 /**
  * @__NO_SIDE_EFFECTS__
  */
 export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
   params: P,
-  c: C
+  constructor: C
 ): C & P => {
-  Object.assign(c, params);
-  return c as C & P;
+  function wrappedCipher(key: Uint8Array, ...args: any[]): CipherWithOutput {
+    // Validate key
+    abytes(key);
+
+    // Validate nonce if nonceLength is present
+    if (params.nonceLength !== undefined) {
+      const nonce = args[0];
+      if (!nonce) throw new Error('nonce / iv required');
+      if (params.varSizeNonce) abytes(nonce);
+      else abytes(nonce, params.nonceLength);
+    }
+
+    // Validate AAD if tagLength present
+    const tagl = params.tagLength;
+    if (tagl && args[1] !== undefined) {
+      abytes(args[1]);
+    }
+
+    const cipher = constructor(key, ...args);
+
+    // Create wrapped cipher with validation and single-use encryption
+    let called = false;
+    const wrCipher = {
+      encrypt(data: Uint8Array, output?: Uint8Array) {
+        if (called) throw new Error('cannot encrypt() twice with same key + nonce');
+        called = true;
+        abytes(data);
+        return (cipher as CipherWithOutput).encrypt(data, output);
+      },
+      decrypt(data: Uint8Array, output?: Uint8Array) {
+        abytes(data);
+        if (tagl && data.length < tagl)
+          throw new Error(`ciphertext is smaller than tagLength=${tagl}`);
+        return (cipher as CipherWithOutput).decrypt(data, output);
+      },
+    };
+
+    return wrCipher;
+  }
+
+  Object.assign(wrappedCipher, params);
+  return wrappedCipher as C & P;
 };
 
 export type XorStream = (
@@ -225,6 +271,13 @@ export type XorStream = (
   output?: Uint8Array,
   counter?: number
 ) => Uint8Array;
+
+export function getDst(expectedLength: number, dst?: Uint8Array) {
+  if (!dst) return new Uint8Array(expectedLength);
+  abytes(dst, expectedLength);
+  if (!isAligned32(dst)) throw new Error('unaligned output');
+  return dst;
+}
 
 // Polyfill for Safari 14
 export function setBigUint64(

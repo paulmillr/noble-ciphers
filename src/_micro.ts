@@ -209,7 +209,7 @@ const _1 = BigInt(1);
 // Can be speed-up using BigUint64Array, but would be more complicated
 export function poly1305(msg: Uint8Array, key: Uint8Array): Uint8Array {
   abytes(msg);
-  abytes(key);
+  abytes(key, 32);
   let acc = _0;
   const r = bytesToNumberLE(key.subarray(0, 16)) & CLAMP_R;
   const s = bytesToNumberLE(key.subarray(16));
@@ -255,11 +255,8 @@ function computeTag(
 export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
   function xsalsa20poly1305(key: Uint8Array, nonce: Uint8Array) {
-    abytes(key);
-    abytes(nonce);
     return {
       encrypt(plaintext: Uint8Array) {
-        abytes(plaintext);
         const m = concatBytes(new Uint8Array(32), plaintext);
         const c = xsalsa20(key, nonce, m);
         const authKey = c.subarray(0, 32);
@@ -268,12 +265,11 @@ export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(
         return concatBytes(tag, data);
       },
       decrypt(ciphertext: Uint8Array) {
-        abytes(ciphertext);
-        if (ciphertext.length < 16) throw new Error('encrypted data must be at least 16 bytes');
         const c = concatBytes(new Uint8Array(16), ciphertext);
+        const passedTag = c.subarray(16, 32);
         const authKey = xsalsa20(key, nonce, new Uint8Array(32));
         const tag = poly1305(c.subarray(32), authKey);
-        if (!equalBytes(c.subarray(16, 32), tag)) throw new Error('invalid poly1305 tag');
+        if (!equalBytes(tag, passedTag)) throw new Error('invalid poly1305 tag');
         return xsalsa20(key, nonce, c).subarray(32);
       },
     };
@@ -292,24 +288,17 @@ export const _poly1305_aead =
   (fn: XorStream) =>
   (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher => {
     const tagLength = 16;
-    const keyLength = 32;
-    abytes(key, keyLength);
-    abytes(nonce);
     return {
       encrypt(plaintext: Uint8Array) {
-        abytes(plaintext);
         const res = fn(key, nonce, plaintext, undefined, 1);
         const tag = computeTag(fn, key, nonce, res, AAD);
         return concatBytes(res, tag);
       },
       decrypt(ciphertext: Uint8Array) {
-        abytes(ciphertext);
-        if (ciphertext.length < tagLength)
-          throw new Error(`encrypted data must be at least ${tagLength} bytes`);
         const passedTag = ciphertext.subarray(-tagLength);
         const data = ciphertext.subarray(0, -tagLength);
         const tag = computeTag(fn, key, nonce, data, AAD);
-        if (!equalBytes(passedTag, tag)) throw new Error('invalid poly1305 tag');
+        if (!equalBytes(tag, passedTag)) throw new Error('invalid poly1305 tag');
         return fn(key, nonce, data, undefined, 1);
       },
     };

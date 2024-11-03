@@ -225,13 +225,15 @@ function decrypt(xk: Uint32Array, s0: number, s1: number, s2: number, s3: number
   return { s0: t0, s1: t1, s2: t2, s3: t3 };
 }
 
-function getDst(len: number, dst?: Uint8Array) {
-  if (dst === undefined) return new Uint8Array(len);
-  abytes(dst);
-  if (dst.length < len)
-    throw new Error(`aes: wrong destination length, expected at least ${len}, got: ${dst.length}`);
-  if (!isAligned32(dst)) throw new Error('unaligned dst');
-  return dst;
+function getDst(len: number, output?: Uint8Array): Uint8Array {
+  if (output === undefined) return new Uint8Array(len);
+  abytes(output);
+  if (output.length < len)
+    throw new Error(
+      `aes: wrong destination length, expected at least ${len}, got: ${output.length}`
+    );
+  if (!isAligned32(output)) throw new Error('unaligned output');
+  return output;
 }
 
 // TODO: investigate merging with ctr32
@@ -324,8 +326,6 @@ function ctr32(
 export const ctr = wrapCipher(
   { blockSize: 16, nonceLength: 16 },
   function ctr(key: Uint8Array, nonce: Uint8Array): CipherWithOutput {
-    abytes(key);
-    abytes(nonce, BLOCK_SIZE);
     function processCtr(buf: Uint8Array, dst?: Uint8Array) {
       abytes(buf);
       if (dst !== undefined) {
@@ -351,7 +351,7 @@ function validateBlockDecrypt(data: Uint8Array) {
   abytes(data);
   if (data.length % BLOCK_SIZE !== 0) {
     throw new Error(
-      `aes/(cbc-ecb).decrypt ciphertext should consist of blocks with size ${BLOCK_SIZE}`
+      `aes-(cbc/ecb).decrypt ciphertext should consist of blocks with size ${BLOCK_SIZE}`
     );
   }
 }
@@ -404,7 +404,6 @@ export type BlockOpts = { disablePadding?: boolean };
 export const ecb = wrapCipher(
   { blockSize: 16 },
   function ecb(key: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
-    abytes(key);
     const pcks5 = !opts.disablePadding;
     return {
       encrypt(plaintext: Uint8Array, dst?: Uint8Array) {
@@ -449,8 +448,6 @@ export const ecb = wrapCipher(
 export const cbc = wrapCipher(
   { blockSize: 16, nonceLength: 16 },
   function cbc(key: Uint8Array, iv: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
-    abytes(key);
-    abytes(iv, 16);
     const pcks5 = !opts.disablePadding;
     return {
       encrypt(plaintext: Uint8Array, dst?: Uint8Array) {
@@ -511,8 +508,6 @@ export const cbc = wrapCipher(
 export const cfb = wrapCipher(
   { blockSize: 16, nonceLength: 16 },
   function cfb(key: Uint8Array, iv: Uint8Array): CipherWithOutput {
-    abytes(key);
-    abytes(iv, 16);
     function processCfb(src: Uint8Array, isEncrypt: boolean, dst?: Uint8Array) {
       abytes(src);
       const srcLen = src.length;
@@ -584,11 +579,8 @@ function computeTag(
  * As for nonce size, prefer 12-byte, instead of 8-byte.
  */
 export const gcm = wrapCipher(
-  { blockSize: 16, nonceLength: 12, tagLength: 16 },
+  { blockSize: 16, nonceLength: 12, tagLength: 16, varSizeNonce: true },
   function gcm(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
-    abytes(key);
-    abytes(nonce);
-    if (AAD !== undefined) abytes(AAD);
     // NIST 800-38d doesn't enforce minimum nonce length.
     // We enforce 8 bytes for compat with openssl.
     // 12 bytes are recommended. More than 12 bytes would be converted into 12.
@@ -621,7 +613,6 @@ export const gcm = wrapCipher(
     }
     return {
       encrypt(plaintext: Uint8Array) {
-        abytes(plaintext);
         const { xk, authKey, counter, tagMask } = deriveKeys();
         const out = new Uint8Array(plaintext.length + tagLength);
         const toClean: (Uint8Array | Uint32Array)[] = [xk, authKey, counter, tagMask];
@@ -634,9 +625,6 @@ export const gcm = wrapCipher(
         return out;
       },
       decrypt(ciphertext: Uint8Array) {
-        abytes(ciphertext);
-        if (ciphertext.length < tagLength)
-          throw new Error(`aes/gcm: ciphertext less than tagLen (${tagLength})`);
         const { xk, authKey, counter, tagMask } = deriveKeys();
         const toClean: (Uint8Array | Uint32Array)[] = [xk, authKey, tagMask, counter];
         if (!isAligned32(ciphertext)) toClean.push((ciphertext = copyBytes(ciphertext)));
@@ -665,7 +653,7 @@ const limit = (name: string, min: number, max: number) => (value: number) => {
  * RFC 8452, https://datatracker.ietf.org/doc/html/rfc8452
  */
 export const siv = wrapCipher(
-  { blockSize: 16, nonceLength: 12, tagLength: 16 },
+  { blockSize: 16, nonceLength: 12, tagLength: 16, varSizeNonce: true },
   function siv(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
     const tagLength = 16;
     // From RFC 8452: Section 6
@@ -674,12 +662,8 @@ export const siv = wrapCipher(
     const NONCE_LIMIT = limit('nonce', 12, 12);
     const CIPHER_LIMIT = limit('ciphertext', 16, 2 ** 36 + 16);
     abytes(key, 16, 24, 32);
-    abytes(nonce);
     NONCE_LIMIT(nonce.length);
-    if (AAD !== undefined) {
-      abytes(AAD);
-      AAD_LIMIT(AAD.length);
-    }
+    if (AAD !== undefined) AAD_LIMIT(AAD.length);
     function deriveKeys() {
       const xk = expandKeyLE(key);
       const encKey = new Uint8Array(key.length);
@@ -732,7 +716,6 @@ export const siv = wrapCipher(
     }
     return {
       encrypt(plaintext: Uint8Array) {
-        abytes(plaintext);
         PLAIN_LIMIT(plaintext.length);
         const { encKey, authKey } = deriveKeys();
         const tag = _computeTag(encKey, authKey, plaintext);
@@ -746,7 +729,6 @@ export const siv = wrapCipher(
         return out;
       },
       decrypt(ciphertext: Uint8Array) {
-        abytes(ciphertext);
         CIPHER_LIMIT(ciphertext.length);
         const tag = ciphertext.subarray(-tagLength);
         const { encKey, authKey } = deriveKeys();
@@ -872,7 +854,6 @@ export const aeskw = wrapCipher(
   { blockSize: 8 },
   (kek: Uint8Array): Cipher => ({
     encrypt(plaintext: Uint8Array) {
-      abytes(plaintext);
       if (!plaintext.length || plaintext.length % 8 !== 0)
         throw new Error('invalid plaintext length');
       if (plaintext.length === 8)
@@ -882,7 +863,6 @@ export const aeskw = wrapCipher(
       return out;
     },
     decrypt(ciphertext: Uint8Array) {
-      abytes(ciphertext);
       // ciphertext must be at least 24 bytes and a multiple of 8 bytes
       // 24 because should have at least two block (1 iv + 2).
       // Replace with 16 to enable '8-byte keys'
@@ -946,7 +926,6 @@ export const aeskwp = wrapCipher(
   { blockSize: 8 },
   (kek: Uint8Array): Cipher => ({
     encrypt(plaintext: Uint8Array) {
-      abytes(plaintext);
       if (!plaintext.length) throw new Error('invalid plaintext length');
       const padded = Math.ceil(plaintext.length / 8) * 8;
       const out = new Uint8Array(8 + padded);
@@ -958,7 +937,6 @@ export const aeskwp = wrapCipher(
       return out;
     },
     decrypt(ciphertext: Uint8Array) {
-      abytes(ciphertext);
       // 16 because should have at least one block
       if (ciphertext.length < 16) throw new Error('invalid ciphertext length');
       const out = copyBytes(ciphertext);

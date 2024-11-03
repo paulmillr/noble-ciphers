@@ -1,6 +1,5 @@
 // prettier-ignore
 import { createCipher, rotl } from './_arx.js';
-import { bytes as abytes } from './_assert.js';
 import { poly1305 } from './_poly1305.js';
 import {
   CipherWithOutput,
@@ -8,6 +7,7 @@ import {
   clean,
   createView,
   equalBytes,
+  getDst,
   setBigUint64,
   wrapCipher,
 } from './utils.js';
@@ -236,18 +236,10 @@ export const _poly1305_aead =
   (xorStream: XorStream) =>
   (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): CipherWithOutput => {
     const tagLength = 16;
-    abytes(key, 32);
-    abytes(nonce);
     return {
       encrypt(plaintext: Uint8Array, output?: Uint8Array) {
-        abytes(plaintext);
         const plength = plaintext.length;
-        const clength = plength + tagLength;
-        if (output) {
-          abytes(output, clength);
-        } else {
-          output = new Uint8Array(clength);
-        }
+        output = getDst(plength + tagLength, output);
         xorStream(key, nonce, plaintext, output, 1);
         const tag = computeTag(xorStream, key, nonce, output.subarray(0, -tagLength), AAD);
         output.set(tag, plength); // append tag
@@ -255,16 +247,7 @@ export const _poly1305_aead =
         return output;
       },
       decrypt(ciphertext: Uint8Array, output?: Uint8Array) {
-        abytes(ciphertext);
-        const clength = ciphertext.length;
-        const plength = clength - tagLength;
-        if (clength < tagLength)
-          throw new Error(`encrypted data must be at least ${tagLength} bytes`);
-        if (output) {
-          abytes(output, plength);
-        } else {
-          output = new Uint8Array(plength);
-        }
+        output = getDst(ciphertext.length - tagLength, output);
         const data = ciphertext.subarray(0, -tagLength);
         const passedTag = ciphertext.subarray(-tagLength);
         const tag = computeTag(xorStream, key, nonce, data, AAD);
