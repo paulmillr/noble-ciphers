@@ -72,6 +72,9 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 
 ## Examples
 
+> [!NOTE]  
+> Use different nonce every time `encrypt()` is done.
+
 #### Encrypt with XChaCha20-Poly1305
 
 ```js
@@ -100,8 +103,8 @@ import { utf8ToBytes } from '@noble/ciphers/utils';
 import { randomBytes } from '@noble/ciphers/webcrypto';
 const key = randomBytes(32);
 const nonce = randomBytes(24);
-const aes = gcm(key, nonce);
 const data = utf8ToBytes('hello, noble');
+const aes = gcm(key, nonce);
 const ciphertext = aes.encrypt(data);
 const data_ = aes.decrypt(ciphertext); // utils.bytesToUtf8(data_) === data
 ```
@@ -112,21 +115,22 @@ const data_ = aes.decrypt(ciphertext); // utils.bytesToUtf8(data_) === data
 import { gcm, siv, ctr, cfb, cbc, ecb } from '@noble/ciphers/aes';
 import { randomBytes } from '@noble/ciphers/webcrypto';
 const plaintext = new Uint8Array(32).fill(16);
-const key = randomBytes(32); // 24 for AES-192, 16 for AES-128
 for (let cipher of [gcm, siv]) {
-  const stream = cipher(key, randomBytes(12));
-  const ciphertext_ = stream.encrypt(plaintext);
-  const plaintext_ = stream.decrypt(ciphertext_);
+  const key = randomBytes(32); // 24 for AES-192, 16 for AES-128
+  const nonce = randomBytes(12);
+  const ciphertext_ = cipher(key, nonce).encrypt(plaintext);
+  const plaintext_ = cipher(key, nonce).decrypt(ciphertext_);
 }
-for (const cipher of [ctr, cbc, cbc]) {
-  const stream = cipher(key, randomBytes(16));
-  const ciphertext_ = stream.encrypt(plaintext);
-  const plaintext_ = stream.decrypt(ciphertext_);
+for (const cipher of [ctr, cbc, cfb]) {
+  const key = randomBytes(32); // 24 for AES-192, 16 for AES-128
+  const nonce = randomBytes(16);
+  const ciphertext_ = cipher(key, nonce).encrypt(plaintext);
+  const plaintext_ = cipher(key, nonce).decrypt(ciphertext_);
 }
 for (const cipher of [ecb]) {
-  const stream = cipher(key);
-  const ciphertext_ = stream.encrypt(plaintext);
-  const plaintext_ = stream.decrypt(ciphertext_);
+  const key = randomBytes(32); // 24 for AES-192, 16 for AES-128
+  const ciphertext_ = cipher(key).encrypt(plaintext);
+  const plaintext_ = cipher(key).decrypt(ciphertext_);
 }
 ```
 
@@ -142,14 +146,14 @@ import { gcm, ctr, cbc, randomBytes } from '@noble/ciphers/webcrypto';
 const plaintext = new Uint8Array(32).fill(16);
 const key = randomBytes(32);
 for (const cipher of [gcm]) {
-  const stream = cipher(key, randomBytes(12));
-  const ciphertext_ = await stream.encrypt(plaintext);
-  const plaintext_ = await stream.decrypt(ciphertext_);
+  const nonce = randomBytes(12);
+  const ciphertext_ = await cipher(key, nonce).encrypt(plaintext);
+  const plaintext_ = await cipher(key, nonce).decrypt(ciphertext_);
 }
 for (const cipher of [ctr, cbc]) {
-  const stream = cipher(key, randomBytes(16));
-  const ciphertext_ = await stream.encrypt(plaintext);
-  const plaintext_ = await stream.decrypt(ciphertext_);
+  const nonce = randomBytes(16);
+  const ciphertext_ = await cipher(key, nonce).encrypt(plaintext);
+  const plaintext_ = await cipher(key, nonce).decrypt(ciphertext_);
 }
 ```
 
@@ -378,14 +382,18 @@ of a random function. See [draft-irtf-cfrg-aead-limits](https://datatracker.ietf
 For non-deterministic (not ECB) schemes, initialization vector (IV) is mixed to block/key;
 and each new round either depends on previous block's key, or on some counter.
 
-- ECB — simple deterministic replacement. Dangerous: always map x to y. See [AES Penguin](https://words.filippo.io/the-ecb-penguin/)
-- CBC — key is previous round’s block. Hard to use: need proper padding, also needs MAC
-- CTR — counter, allows to create streaming cipher. Requires good IV. Parallelizable. OK, but no MAC
-- GCM — modern CTR, parallel, with MAC
-- SIV — synthetic initialization vector, nonce-misuse-resistant. Guarantees that, when a nonce is repeated,
-  the only security loss is that identical plaintexts will produce identical ciphertexts.
-- XTS — used in hard drives. Similar to ECB (deterministic), but has `[i][j]`
-  tweak arguments corresponding to sector i and 16-byte block (part of sector) j. Not authenticated!
+- ECB (Electronic Codebook): Deterministic encryption; identical plaintext blocks yield identical ciphertexts. Insecure due to pattern leakage.
+  See [AES Penguin](https://words.filippo.io/the-ecb-penguin/)
+- CBC (Cipher Block Chaining): Each plaintext block is XORed with the previous ciphertext block before encryption.
+  Hard to use: requires proper padding and an IV. Needs a separate MAC.
+- CTR (Counter Mode): Turns a block cipher into a stream cipher using a counter and IV (nonce).
+  Efficient and parallelizable. Requires a unique nonce per encryption. Better, but still needs a separate MAC.
+- GCM (Galois/Counter Mode): Combines CTR mode with polynomial MAC. Efficient and widely used.
+- SIV (Synthetic IV): Nonce-misuse-resistant mode; repeating nonces reveal only if plaintexts are identical.
+  Maintains security even if nonces are reused.
+- XTS: Designed for disk encryption.
+  Similar to ECB (deterministic), but has `[i][j]` tweak arguments corresponding to sector i and 16-byte block (part of sector) j.
+  Lacks MAC.
 
 GCM / SIV are not ideal:
 
