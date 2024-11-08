@@ -72,7 +72,7 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 
 ## Examples
 
-> [!NOTE]  
+> [!NOTE]
 > Use different nonce every time `encrypt()` is done.
 
 #### Encrypt with XChaCha20-Poly1305
@@ -138,7 +138,7 @@ for (const cipher of [ecb]) {
 
 Noble implements AES. Sometimes people want to use built-in `crypto.subtle` instead. However, it has terrible API. We simplify access to built-ins.
 
-> [!NOTE]  
+> [!NOTE]
 > Webcrypto methods are always async.
 
 ```js
@@ -192,7 +192,7 @@ const data_ = chacha.decrypt(ciphertext);
 To avoid additional allocations, Uint8Array can be reused
 between encryption and decryption calls.
 
-> [!NOTE]  
+> [!NOTE]
 > Some ciphers don't support unaligned (`byteOffset % 4 !== 0`) Uint8Array as
 > destination. It can decrease performance, making the optimization pointless.
 
@@ -405,9 +405,10 @@ GCM / SIV are not ideal:
 The library has been independently audited:
 
 - at version 1.0.0, in Sep 2024, by [cure53](https://cure53.de)
-  - PDFs: [in-repo](./audit/2024-09-cure53-audit-nbl4.pdf)
+  - PDFs: [website](https://cure53.de/audit-report_noble-crypto-libs.pdf), [in-repo](./audit/2024-09-cure53-audit-nbl4.pdf)
   - [Changes since audit](https://github.com/paulmillr/noble-ciphers/compare/1.0.0..main)
   - Scope: everything
+  - The audit has been funded by [OpenSats](https://opensats.org)
 
 It is tested against property-based, cross-library and Wycheproof vectors,
 and has fuzzing by [Guido Vranken's cryptofuzz](https://github.com/guidovranken/cryptofuzz).
