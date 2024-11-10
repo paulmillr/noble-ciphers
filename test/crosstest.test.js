@@ -24,11 +24,15 @@ function chunks(array, length) {
   return chunks;
 }
 
+const empty = new Uint8Array(0);
+
+const nodeCiphers = new Set(crypto.getCiphers());
+
 const nodeTagCipher = (name) => {
   return {
     encrypt: (buf, opts) => {
       const res = [];
-      const c = crypto.createCipheriv(name, opts.key, opts.iv);
+      const c = crypto.createCipheriv(name, opts.key, opts.iv || empty);
       if (opts.aad) c.setAAD(opts.aad);
       for (const b of chunks(buf, 1 * GB)) res.push(c.update(b));
       res.push(c.final());
@@ -38,7 +42,7 @@ const nodeTagCipher = (name) => {
     decrypt: (buf, opts) => {
       const ciphertext = buf.slice(0, -16);
       const authTag = buf.slice(-16);
-      const decipher = crypto.createDecipheriv(name, opts.key, opts.iv);
+      const decipher = crypto.createDecipheriv(name, opts.key, opts.iv || empty);
       if (opts.aad) c.setAAD(opts.aad);
       decipher.setAuthTag(authTag);
       const res = [];
@@ -53,7 +57,7 @@ const nodeCipher = (name, pcks7 = true) => {
   return {
     encrypt: (buf, opts) => {
       const res = [];
-      const c = crypto.createCipheriv(name, opts.key, opts.iv);
+      const c = crypto.createCipheriv(name, opts.key, opts.iv || empty);
       c.setAutoPadding(pcks7); // disable  pkcs7Padding
       for (const b of chunks(buf, 1 * GB)) res.push(c.update(b));
       res.push(c.final());
@@ -62,7 +66,7 @@ const nodeCipher = (name, pcks7 = true) => {
     decrypt: (buf, opts) => {
       const ciphertext = buf.slice();
       const res = [];
-      const c = crypto.createDecipheriv(name, opts.key, opts.iv);
+      const c = crypto.createDecipheriv(name, opts.key, opts.iv || empty);
       c.setAutoPadding(pcks7); // disable  pkcs7Padding
       for (const b of chunks(ciphertext, 1 * GB)) res.push(c.update(b));
       res.push(c.final());
@@ -223,7 +227,7 @@ const CIPHERS = {
   },
   chacha20poly1305: {
     opts: { key: buf(32), iv: buf(12) },
-    node: nodeTagCipher('chacha20-poly1305'),
+    node: nodeCiphers.has('chacha20-poly1305') && nodeTagCipher('chacha20-poly1305'),
     noble: {
       encrypt: (buf, opts) => chacha20poly1305(opts.key, opts.iv).encrypt(buf),
       decrypt: (buf, opts) => chacha20poly1305(opts.key, opts.iv).decrypt(buf),
@@ -245,7 +249,7 @@ const CIPHERS = {
   },
   aes128_wrap: {
     opts: { key: buf(16), iv: buf(8).fill(0xa6) }, // Node is fun and is not broken at all.
-    node: nodeCipher('aes128-wrap'),
+    node: nodeCiphers.has('aes128-wrap') && nodeCipher('aes128-wrap'),
     noble: {
       encrypt: (buf, opts) => aes.aeskw(opts.key).encrypt(buf),
       decrypt: (buf, opts) => aes.aeskw(opts.key).decrypt(buf),
@@ -253,7 +257,7 @@ const CIPHERS = {
   },
   aes192_wrap: !SMALL_KEYS && {
     opts: { key: buf(24), iv: buf(8).fill(0xa6) }, // Node is fun and is not broken at all.
-    node: nodeCipher('aes192-wrap'),
+    node: nodeCiphers.has('aes192-wrap') && nodeCipher('aes192-wrap'),
     noble: {
       encrypt: (buf, opts) => aes.aeskw(opts.key).encrypt(buf),
       decrypt: (buf, opts) => aes.aeskw(opts.key).decrypt(buf),
@@ -261,7 +265,7 @@ const CIPHERS = {
   },
   aes256_wrap: !SMALL_KEYS && {
     opts: { key: buf(32), iv: buf(8).fill(0xa6) }, // Node is fun and is not broken at all.
-    node: nodeCipher('aes256-wrap'),
+    node: nodeCiphers.has('aes256-wrap') && nodeCipher('aes256-wrap'),
     noble: {
       encrypt: (buf, opts) => aes.aeskw(opts.key).encrypt(buf),
       decrypt: (buf, opts) => aes.aeskw(opts.key).decrypt(buf),
@@ -270,7 +274,7 @@ const CIPHERS = {
   chacha20: {
     opts: { key: buf(32), iv: buf(12), iv16: concatBytes(new Uint8Array(4), buf(12)) },
     // padded iv
-    node: {
+    node: nodeCiphers.has('chacha20') && {
       encrypt: (buf, opts) => {
         const c = crypto.createCipheriv('chacha20', opts.key, opts.iv16);
         const res = c.update(buf);
