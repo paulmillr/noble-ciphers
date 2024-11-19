@@ -47,7 +47,14 @@ const TYPE_TEST_OPT = [
 
 const TYPE_TEST_NOT_BOOL = [false, true];
 const TYPE_TEST_NOT_BYTES = ['', 'test', '1', new Uint8Array([]), new Uint8Array([1, 2, 3])];
-const TYPE_TEST_NOT_STR = [' 1 2 3 4 5', '010203040x', 'abcdefgh', '1 2 3 4 5 ', 'bee', new String('1234')];
+const TYPE_TEST_NOT_STR = [
+  ' 1 2 3 4 5',
+  '010203040x',
+  'abcdefgh',
+  '1 2 3 4 5 ',
+  'bee',
+  new String('1234'),
+];
 const TYPE_TEST_NOT_INT = [-0.0, 0, 1];
 
 const TYPE_TEST = {
@@ -55,7 +62,12 @@ const TYPE_TEST = {
   bytes: TYPE_TEST_BASE.concat(TYPE_TEST_NOT_INT, TYPE_TEST_NOT_BOOL),
   boolean: TYPE_TEST_BASE.concat(TYPE_TEST_NOT_INT, TYPE_TEST_NOT_BYTES),
   hex: TYPE_TEST_BASE.concat(TYPE_TEST_NOT_INT, TYPE_TEST_NOT_BOOL, TYPE_TEST_NOT_STR),
-  hash: TYPE_TEST_BASE.concat(TYPE_TEST_NOT_BOOL, TYPE_TEST_NOT_INT, TYPE_TEST_NOT_BYTES, TYPE_TEST_OPT),
+  hash: TYPE_TEST_BASE.concat(
+    TYPE_TEST_NOT_BOOL,
+    TYPE_TEST_NOT_INT,
+    TYPE_TEST_NOT_BYTES,
+    TYPE_TEST_OPT
+  ),
 };
 
 function median(list) {
