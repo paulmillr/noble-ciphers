@@ -5,7 +5,7 @@ const { managedNonce, randomBytes } = require('../webcrypto.js');
 const { siv, gcm, ctr, ecb, cbc, cfb, aeskw, aeskwp } = require('../aes.js');
 const { xsalsa20poly1305 } = require('../salsa.js');
 const { chacha20poly1305, xchacha20poly1305 } = require('../chacha.js');
-const { unalign } = require('./utils.js');
+const { unalign, TYPE_TEST } = require('./utils.js');
 const { BinaryFF1 } = require('../ff1.js');
 const micro = require('../_micro.js');
 
@@ -152,17 +152,7 @@ describe('Basic', () => {
 // In basic.test.js, add after existing tests:
 
 describe('input validation', () => {
-  const INVALID_BYTE_ARRAYS = [
-    undefined,
-    null,
-    123,
-    'string',
-    {},
-    [],
-    new Uint16Array(4),
-    new Uint32Array(4),
-    new Float32Array(4),
-  ];
+  const INVALID_BYTE_ARRAYS = TYPE_TEST.bytes;
 
   for (const k in CIPHERS) {
     const opts = CIPHERS[k];
