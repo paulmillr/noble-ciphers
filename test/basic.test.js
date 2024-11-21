@@ -1,12 +1,10 @@
 const { deepStrictEqual, throws } = require('assert');
 const { should, describe } = require('micro-should');
-const { hex } = require('@scure/base');
 const { managedNonce, randomBytes } = require('../webcrypto.js');
 const { siv, gcm, ctr, ecb, cbc, cfb, aeskw, aeskwp } = require('../aes.js');
 const { xsalsa20poly1305 } = require('../salsa.js');
 const { chacha20poly1305, xchacha20poly1305 } = require('../chacha.js');
 const { unalign, TYPE_TEST } = require('./utils.js');
-const { BinaryFF1 } = require('../ff1.js');
 const micro = require('../_micro.js');
 
 const CIPHERS = {

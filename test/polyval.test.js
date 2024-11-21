@@ -1,8 +1,8 @@
 const { deepStrictEqual } = require('assert');
 const { should, describe } = require('micro-should');
-const { hex } = require('@scure/base');
 const utils = require('../utils.js');
 const { ghash, polyval, _toGHASHKey } = require('../_polyval.js');
+const hex = { decode: utils.hexToBytes, encode: utils.bytesToHex };
 
 // https://datatracker.ietf.org/doc/html/rfc8452#appendix-C
 const VECTORS = require('./vectors/siv.json');

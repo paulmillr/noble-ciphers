@@ -1,6 +1,6 @@
 const { deepStrictEqual, throws } = require('assert');
 const { should, describe } = require('micro-should');
-const { hex, base64 } = require('@scure/base');
+const { base64 } = require('@scure/base');
 const { salsa20, hsalsa, xsalsa20, xsalsa20poly1305 } = require('../salsa.js');
 const {
   chacha20orig,
@@ -29,6 +29,7 @@ const sigma32 = utils.utf8ToBytes('expand 32-byte k');
 const sigma16_32 = utils.u32(sigma16);
 const sigma32_32 = utils.u32(sigma32);
 const { u32 } = utils;
+const hex = { decode: utils.hexToBytes, encode: utils.bytesToHex };
 
 const getKey = (key) => {
   if (key.length === 32) return { key, sigma: sigma32_32 };
