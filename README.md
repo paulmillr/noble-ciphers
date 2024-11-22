@@ -9,7 +9,7 @@ Audited & minimal JS implementation of Salsa20, ChaCha and AES.
 - 💼 AES: ECB, CBC, CTR, CFB, GCM, SIV (nonce misuse-resistant), AESKW, AESKWP
 - 💃 Salsa20, ChaCha, XSalsa20, XChaCha, ChaCha8, ChaCha12, Poly1305
 - 🥈 Two AES implementations: pure JS or friendly wrapper around webcrypto
-- 🪶 53KB (9KB gzipped) for everything, 7KB (3KB gzipped) for ChaCha build
+- 🪶 29KB (11KB gzipped) for everything, 7KB (3KB gzipped) for ChaCha build
 
 Take a glance at [GitHub Discussions](https://github.com/paulmillr/noble-ciphers/discussions) for questions and support.
 
