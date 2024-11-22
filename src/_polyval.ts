@@ -90,7 +90,7 @@ class GHASH implements Hash<GHASH> {
     }
     const W = estimateWindow(expectedLength || 1024);
     if (![1, 2, 4, 8].includes(W))
-      throw new Error(`ghash: wrong window size=${W}, should be 2, 4 or 8`);
+      throw new Error('ghash: invalid window size, expected 2, 4 or 8');
     this.W = W;
     const bits = 128; // always 128 bits;
     const windows = bits / W;

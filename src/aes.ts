@@ -122,7 +122,7 @@ export function expandKeyLE(key: Uint8Array): Uint32Array {
   abytes(key);
   const len = key.length;
   if (![16, 24, 32].includes(len))
-    throw new Error(`aes: wrong key size: should be 16, 24 or 32, got: ${len}`);
+    throw new Error('aes: invalid key size, should be 16, 24 or 32, got ' + len);
   const { sbox2 } = tableEncoding;
   const toClean = [];
   if (!isAligned32(key)) toClean.push((key = copyBytes(key)));
@@ -230,9 +230,9 @@ function getDst(len: number, output?: Uint8Array): Uint8Array {
   abytes(output);
   if (output.length < len)
     throw new Error(
-      `aes: wrong destination length, expected at least ${len}, got: ${output.length}`
+      'aes: invalid destination length, expected at least ' + len + ', got: ' + output.length
     );
-  if (!isAligned32(output)) throw new Error('unaligned output');
+  if (!isAligned32(output)) throw new Error('destination must not be unaligned');
   return output;
 }
 
@@ -351,7 +351,7 @@ function validateBlockDecrypt(data: Uint8Array) {
   abytes(data);
   if (data.length % BLOCK_SIZE !== 0) {
     throw new Error(
-      `aes-(cbc/ecb).decrypt ciphertext should consist of blocks with size ${BLOCK_SIZE}`
+      'aes-(cbc/ecb).decrypt ciphertext should consist of blocks with size ' + BLOCK_SIZE
     );
   }
 }
@@ -642,8 +642,10 @@ export const gcm = wrapCipher(
 );
 
 const limit = (name: string, min: number, max: number) => (value: number) => {
-  if (!Number.isSafeInteger(value) || min > value || value > max)
-    throw new Error(`${name}: invalid value=${value}, must be [${min}..${max}]`);
+  if (!Number.isSafeInteger(value) || min > value || value > max) {
+    const minmax = '[' + min + '..' + max + ']';
+    throw new Error('' + name + ': expected value in range ' + minmax + ', got ' + value);
+  }
 };
 
 /**
@@ -749,11 +751,9 @@ export const siv = wrapCipher(
   }
 );
 
-function isBytes32(a: unknown): a is Uint8Array {
+function isBytes32(a: unknown): a is Uint32Array {
   return (
-    a != null &&
-    typeof a === 'object' &&
-    (a instanceof Uint32Array || a.constructor.name === 'Uint32Array')
+    a instanceof Uint32Array || (ArrayBuffer.isView(a) && a.constructor.name === 'Uint32Array')
   );
 }
 

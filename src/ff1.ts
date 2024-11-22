@@ -24,7 +24,7 @@ function NUMradix(radix: number, data: number[]): bigint {
 }
 
 function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: number[]) {
-  if (radix > 2 ** 16 - 1) throw new Error(`Invalid radix: ${radix}`);
+  if (radix > 2 ** 16 - 1) throw new Error('invalid radix ' + radix);
   // radix**minlen ≥ 100
   const minLen = Math.ceil(Math.log(100) / Math.log(radix));
   const maxLen = 2 ** 32 - 1;

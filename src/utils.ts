@@ -69,8 +69,7 @@ export function hexToBytes(hex: string): Uint8Array {
 
 export function hexToNumber(hex: string): bigint {
   if (typeof hex !== 'string') throw new Error('hex string expected, got ' + typeof hex);
-  // Big Endian
-  return BigInt(hex === '' ? '0' : `0x${hex}`);
+  return BigInt(hex === '' ? '0' : '0x' + hex); // Big Endian
 }
 
 // BE: Big Endian, LE: Little Endian
@@ -109,7 +108,7 @@ declare const TextDecoder: any;
  * @example utf8ToBytes('abc') // new Uint8Array([97, 98, 99])
  */
 export function utf8ToBytes(str: string): Uint8Array {
-  if (typeof str !== 'string') throw new Error(`string expected, got ${typeof str}`);
+  if (typeof str !== 'string') throw new Error('string expected');
   return new Uint8Array(new TextEncoder().encode(str)); // https://bugzil.la/1681809
 }
 
@@ -129,7 +128,7 @@ export type Input = Uint8Array | string;
 export function toBytes(data: Input): Uint8Array {
   if (typeof data === 'string') data = utf8ToBytes(data);
   else if (isBytes(data)) data = copyBytes(data);
-  else throw new Error(`Uint8Array expected, got ${typeof data}`);
+  else throw new Error('Uint8Array expected, got ' + typeof data);
   return data;
 }
 
@@ -251,7 +250,7 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
       decrypt(data: Uint8Array, output?: Uint8Array) {
         abytes(data);
         if (tagl && data.length < tagl)
-          throw new Error(`ciphertext is smaller than tagLength=${tagl}`);
+          throw new Error('invalid ciphertext length: smaller than tagLength=' + tagl);
         return (cipher as CipherWithOutput).decrypt(data, output);
       },
     };
