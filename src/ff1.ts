@@ -1,4 +1,4 @@
-import { number as anumber, bytes as abytes } from './_assert.js';
+import { anumber, abytes } from './_assert.js';
 import { unsafe } from './aes.js';
 import { Cipher, bytesToNumberBE, clean, numberToBytesBE } from './utils.js';
 // NOTE: no point in inlining encrypt instead of encryptBlock, since BigInt stuff will be slow

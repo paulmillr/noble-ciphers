@@ -1,7 +1,7 @@
 /*! noble-ciphers - MIT License (c) 2023 Paul Miller (paulmillr.com) */
 // prettier-ignore
 import { createCipher, rotl } from './_arx.js';
-import { bytes as abytes } from './_assert.js';
+import { abytes } from './_assert.js';
 import {
   Cipher,
   XorStream,

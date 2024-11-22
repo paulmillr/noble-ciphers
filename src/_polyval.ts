@@ -1,4 +1,4 @@
-import { bytes as abytes, exists as aexists, output as aoutput } from './_assert.js';
+import { abytes, aexists, aoutput } from './_assert.js';
 import { clean, copyBytes, createView, Hash, Input, toBytes, u32 } from './utils.js';
 
 // GHash from AES-GCM and its little-endian "mirror image" Polyval from AES-SIV.

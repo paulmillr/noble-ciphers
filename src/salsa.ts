@@ -1,5 +1,5 @@
 import { createCipher, rotl } from './_arx.js';
-import { bytes as abytes } from './_assert.js';
+import { abytes } from './_assert.js';
 import { poly1305 } from './_poly1305.js';
 import { Cipher, clean, equalBytes, getDst, wrapCipher } from './utils.js';
 

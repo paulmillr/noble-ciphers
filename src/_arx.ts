@@ -1,5 +1,5 @@
 // Basic utils for ARX (add-rotate-xor) salsa and chacha ciphers.
-import { bool as abool, bytes as abytes, number as anumber } from './_assert.js';
+import { abool, abytes, anumber } from './_assert.js';
 import { XorStream, checkOpts, clean, copyBytes, u32 } from './utils.js';
 
 /*

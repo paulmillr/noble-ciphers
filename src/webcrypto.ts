@@ -7,7 +7,7 @@
 //
 // Use full path so that Node.js can rewrite it to `cryptoNode.js`.
 import { crypto } from '@noble/ciphers/crypto';
-import { bytes as abytes, number } from './_assert.js';
+import { abytes, anumber } from './_assert.js';
 import { AsyncCipher, Cipher, concatBytes } from './utils.js';
 
 /**
@@ -44,7 +44,7 @@ type CipherWithNonce = ((key: Uint8Array, nonce: Uint8Array, ...args: any[]) => 
 
 // Uses CSPRG for nonce, nonce injected in ciphertext
 export function managedNonce<T extends CipherWithNonce>(fn: T): RemoveNonce<T> {
-  number(fn.nonceLength);
+  anumber(fn.nonceLength);
   return ((key: Uint8Array, ...args: any[]): any => ({
     encrypt(plaintext: Uint8Array, ...argsEnc: any[]) {
       const { nonceLength } = fn;
@@ -120,9 +120,9 @@ function generate(algo: BlockMode) {
   };
 }
 
-export const cbc = generate(mode.CBC);
-export const ctr = generate(mode.CTR);
-export const gcm = generate(mode.GCM);
+export const cbc = /* @__PURE__ */ (() => generate(mode.CBC))();
+export const ctr = /* @__PURE__ */ (() => generate(mode.CTR))();
+export const gcm = /* @__PURE__ */ (() => generate(mode.GCM))();
 
 // // Type tests
 // import { siv, gcm, ctr, ecb, cbc } from '../aes.js';

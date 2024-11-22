@@ -1,5 +1,5 @@
 // prettier-ignore
-import { bytes as abytes } from './_assert.js';
+import { abytes } from './_assert.js';
 import { ghash, polyval } from './_polyval.js';
 import {
   Cipher,
@@ -325,7 +325,7 @@ function ctr32(
  */
 export const ctr = wrapCipher(
   { blockSize: 16, nonceLength: 16 },
-  function ctr(key: Uint8Array, nonce: Uint8Array): CipherWithOutput {
+  function aesctr(key: Uint8Array, nonce: Uint8Array): CipherWithOutput {
     function processCtr(buf: Uint8Array, dst?: Uint8Array) {
       abytes(buf);
       if (dst !== undefined) {
@@ -403,7 +403,7 @@ export type BlockOpts = { disablePadding?: boolean };
  */
 export const ecb = wrapCipher(
   { blockSize: 16 },
-  function ecb(key: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
+  function aesecb(key: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
     const pcks5 = !opts.disablePadding;
     return {
       encrypt(plaintext: Uint8Array, dst?: Uint8Array) {
@@ -447,7 +447,7 @@ export const ecb = wrapCipher(
  */
 export const cbc = wrapCipher(
   { blockSize: 16, nonceLength: 16 },
-  function cbc(key: Uint8Array, iv: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
+  function aescbc(key: Uint8Array, iv: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
     const pcks5 = !opts.disablePadding;
     return {
       encrypt(plaintext: Uint8Array, dst?: Uint8Array) {
@@ -507,7 +507,7 @@ export const cbc = wrapCipher(
  */
 export const cfb = wrapCipher(
   { blockSize: 16, nonceLength: 16 },
-  function cfb(key: Uint8Array, iv: Uint8Array): CipherWithOutput {
+  function aescfb(key: Uint8Array, iv: Uint8Array): CipherWithOutput {
     function processCfb(src: Uint8Array, isEncrypt: boolean, dst?: Uint8Array) {
       abytes(src);
       const srcLen = src.length;
@@ -580,7 +580,7 @@ function computeTag(
  */
 export const gcm = wrapCipher(
   { blockSize: 16, nonceLength: 12, tagLength: 16, varSizeNonce: true },
-  function gcm(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
+  function aesgcm(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
     // NIST 800-38d doesn't enforce minimum nonce length.
     // We enforce 8 bytes for compat with openssl.
     // 12 bytes are recommended. More than 12 bytes would be converted into 12.
@@ -654,7 +654,7 @@ const limit = (name: string, min: number, max: number) => (value: number) => {
  */
 export const siv = wrapCipher(
   { blockSize: 16, nonceLength: 12, tagLength: 16, varSizeNonce: true },
-  function siv(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
+  function aessiv(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
     const tagLength = 16;
     // From RFC 8452: Section 6
     const AAD_LIMIT = limit('AAD', 0, 2 ** 36);
