@@ -1,20 +1,16 @@
 {
   "name": "benchmark",
   "private": true,
-  "version": "0.1.0",
-  "description": "benchmarks",
-  "main": "index.js",
   "type": "module",
   "scripts": {
     "bench": "node index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "MIT",
   "dependencies": {
+    "@noble/ciphers": "file:.."
+  },
+  "devDependencies": {
     "@chainsafe/as-chacha20poly1305": "0.1.0",
     "@devtomio/sodium": "0.3.0",
-    "@noble/ciphers": "file:noble-ciphers.tgz",
     "@stablelib/aes": "1.0.1",
     "@stablelib/chacha": "1.0.1",
     "@stablelib/chacha20poly1305": "1.0.1",
@@ -29,5 +25,6 @@
     "aes-js": "3.1.2",
     "libsodium-wrappers": "0.7.11",
     "tweetnacl": "1.0.3"
-  }
+  },
+  "version": ""
 }
