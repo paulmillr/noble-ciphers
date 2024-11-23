@@ -6,8 +6,8 @@ See [README's Security section](./README.md#security) for detailed description o
 
 | Version | Supported          |
 | ------- | ------------------ |
-| >=1.0.0   | :white_check_mark: |
-| <1.0.0   | :x:                |
+| >=1.1.0   | :white_check_mark: |
+| <1.1.0   | :x:                |
 
 ## Reporting a Vulnerability
 

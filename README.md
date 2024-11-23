@@ -45,7 +45,7 @@ A standalone file
 ```js
 // import * from '@noble/ciphers'; // Error: use sub-imports, to ensure small app size
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
-// import { xchacha20poly1305 } from 'npm:@noble/ciphers@1.0.0/chacha'; // Deno
+// import { xchacha20poly1305 } from 'npm:@noble/ciphers@1.1.0/chacha'; // Deno
 ```
 
 - [Examples](#examples)
