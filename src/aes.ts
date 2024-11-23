@@ -32,7 +32,7 @@ Resources:
 
 const BLOCK_SIZE = 16;
 const BLOCK_SIZE32 = 4;
-const EMPTY_BLOCK = new Uint8Array(BLOCK_SIZE);
+const EMPTY_BLOCK = /* @__PURE__ */ new Uint8Array(BLOCK_SIZE);
 const POLY = 0x11b; // 1 + x + x**3 + x**4 + x**8
 
 // TODO: remove multiplication, binary ops only
@@ -323,7 +323,7 @@ function ctr32(
  * CTR: counter mode. Creates stream cipher.
  * Requires good IV. Parallelizable. OK, but no MAC.
  */
-export const ctr = wrapCipher(
+export const ctr = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 16 },
   function aesctr(key: Uint8Array, nonce: Uint8Array): CipherWithOutput {
     function processCtr(buf: Uint8Array, dst?: Uint8Array) {
@@ -401,7 +401,7 @@ export type BlockOpts = { disablePadding?: boolean };
  * ECB: Electronic CodeBook. Simple deterministic replacement.
  * Dangerous: always map x to y. See [AES Penguin](https://words.filippo.io/the-ecb-penguin/).
  */
-export const ecb = wrapCipher(
+export const ecb = /* @__PURE__ */ wrapCipher(
   { blockSize: 16 },
   function aesecb(key: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
     const pcks5 = !opts.disablePadding;
@@ -445,7 +445,7 @@ export const ecb = wrapCipher(
  * CBC: Cipher-Block-Chaining. Key is previous round’s block.
  * Fragile: needs proper padding. Unauthenticated: needs MAC.
  */
-export const cbc = wrapCipher(
+export const cbc = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 16 },
   function aescbc(key: Uint8Array, iv: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
     const pcks5 = !opts.disablePadding;
@@ -505,7 +505,7 @@ export const cbc = wrapCipher(
  * CFB: Cipher Feedback Mode. The input for the block cipher is the previous cipher output.
  * Unauthenticated: needs MAC.
  */
-export const cfb = wrapCipher(
+export const cfb = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 16 },
   function aescfb(key: Uint8Array, iv: Uint8Array): CipherWithOutput {
     function processCfb(src: Uint8Array, isEncrypt: boolean, dst?: Uint8Array) {
@@ -578,7 +578,7 @@ function computeTag(
  * Unsafe to use random nonces under the same key, due to collision chance.
  * As for nonce size, prefer 12-byte, instead of 8-byte.
  */
-export const gcm = wrapCipher(
+export const gcm = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 12, tagLength: 16, varSizeNonce: true },
   function aesgcm(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
     // NIST 800-38d doesn't enforce minimum nonce length.
@@ -654,7 +654,7 @@ const limit = (name: string, min: number, max: number) => (value: number) => {
  * plaintexts will produce identical ciphertexts.
  * RFC 8452, https://datatracker.ietf.org/doc/html/rfc8452
  */
-export const siv = wrapCipher(
+export const siv = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 12, tagLength: 16, varSizeNonce: true },
   function aessiv(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
     const tagLength = 16;
@@ -841,7 +841,7 @@ const AESW = {
   },
 };
 
-const AESKW_IV = new Uint8Array(8).fill(0xa6); // A6A6A6A6A6A6A6A6
+const AESKW_IV = /* @__PURE__ */ new Uint8Array(8).fill(0xa6); // A6A6A6A6A6A6A6A6
 
 /**
  * AES-KW (key-wrap). Injects static IV into plaintext, adds counter, encrypts 6 times.
@@ -850,7 +850,7 @@ const AESKW_IV = new Uint8Array(8).fill(0xa6); // A6A6A6A6A6A6A6A6
  * [RFC 3394](https://datatracker.ietf.org/doc/rfc3394/),
  * [NIST.SP.800-38F](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38F.pdf).
  */
-export const aeskw = wrapCipher(
+export const aeskw = /* @__PURE__ */ wrapCipher(
   { blockSize: 8 },
   (kek: Uint8Array): Cipher => ({
     encrypt(plaintext: Uint8Array) {
@@ -922,7 +922,7 @@ const AESKWP_IV = 0xa65959a6; // single u32le value
  * Second u32 of IV is used as counter for length.
  * [RFC 5649](https://www.rfc-editor.org/rfc/rfc5649)
  */
-export const aeskwp = wrapCipher(
+export const aeskwp = /* @__PURE__ */ wrapCipher(
   { blockSize: 8 },
   (kek: Uint8Array): Cipher => ({
     encrypt(plaintext: Uint8Array) {

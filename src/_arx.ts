@@ -44,7 +44,6 @@ const sigma16 = _utf8ToBytes('expand 16-byte k');
 const sigma32 = _utf8ToBytes('expand 32-byte k');
 const sigma16_32 = u32(sigma16);
 const sigma32_32 = u32(sigma32);
-export const sigma = sigma32_32.slice();
 
 export function rotl(a: number, b: number): number {
   return (a << b) | (a >>> (32 - b));
@@ -160,9 +159,9 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
     // Key & sigma
     // key=16 -> sigma16, k=key|key
     // key=32 -> sigma32, k=key
-    let l = key.length,
-      k: Uint8Array,
-      sigma: Uint32Array;
+    let l = key.length;
+    let k: Uint8Array;
+    let sigma: Uint32Array;
     if (l === 32) {
       toClean.push((k = copyBytes(key)));
       sigma = sigma32_32;
