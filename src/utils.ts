@@ -270,11 +270,14 @@ export type XorStream = (
   counter?: number
 ) => Uint8Array;
 
-export function getDst(expectedLength: number, dst?: Uint8Array) {
-  if (!dst) return new Uint8Array(expectedLength);
-  abytes(dst, expectedLength);
-  if (!isAligned32(dst)) throw new Error('unaligned output');
-  return dst;
+export function getOutput(expectedLength: number, out?: Uint8Array, onlyAligned = true) {
+  if (out === undefined) return new Uint8Array(expectedLength);
+  if (out.length < expectedLength)
+    throw new Error(
+      'invalid output length, expected at least ' + expectedLength + ', got: ' + out.length
+    );
+  if (onlyAligned && !isAligned32(out)) throw new Error('invalid output, must be aligned');
+  return out.subarray(0, expectedLength).fill(0);
 }
 
 // Polyfill for Safari 14
