@@ -44,10 +44,10 @@ type CipherWithNonce = ((key: Uint8Array, nonce: Uint8Array, ...args: any[]) => 
 
 // Uses CSPRG for nonce, nonce injected in ciphertext
 export function managedNonce<T extends CipherWithNonce>(fn: T): RemoveNonce<T> {
-  anumber(fn.nonceLength);
+  const { nonceLength } = fn;
+  anumber(nonceLength);
   return ((key: Uint8Array, ...args: any[]): any => ({
     encrypt(plaintext: Uint8Array, ...argsEnc: any[]) {
-      const { nonceLength } = fn;
       const nonce = randomBytes(nonceLength);
       const ciphertext = (fn(key, nonce, ...args).encrypt as any)(plaintext, ...argsEnc);
       const out = concatBytes(nonce, ciphertext);
@@ -55,7 +55,6 @@ export function managedNonce<T extends CipherWithNonce>(fn: T): RemoveNonce<T> {
       return out;
     },
     decrypt(ciphertext: Uint8Array, ...argsDec: any[]) {
-      const { nonceLength } = fn;
       const nonce = ciphertext.subarray(0, nonceLength);
       const data = ciphertext.subarray(nonceLength);
       return (fn(key, nonce, ...args).decrypt as any)(data, ...argsDec);
