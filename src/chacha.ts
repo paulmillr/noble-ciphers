@@ -7,7 +7,7 @@ import {
   clean,
   createView,
   equalBytes,
-  getDst,
+  getOutput,
   setBigUint64,
   wrapCipher,
 } from './utils.js';
@@ -239,7 +239,7 @@ export const _poly1305_aead =
     return {
       encrypt(plaintext: Uint8Array, output?: Uint8Array) {
         const plength = plaintext.length;
-        output = getDst(plength + tagLength, output);
+        output = getOutput(plength + tagLength, output, false);
         xorStream(key, nonce, plaintext, output, 1);
         const tag = computeTag(xorStream, key, nonce, output.subarray(0, -tagLength), AAD);
         output.set(tag, plength); // append tag
@@ -247,7 +247,7 @@ export const _poly1305_aead =
         return output;
       },
       decrypt(ciphertext: Uint8Array, output?: Uint8Array) {
-        output = getDst(ciphertext.length - tagLength, output);
+        output = getOutput(ciphertext.length - tagLength, output, false);
         const data = ciphertext.subarray(0, -tagLength);
         const passedTag = ciphertext.subarray(-tagLength);
         const tag = computeTag(xorStream, key, nonce, data, AAD);

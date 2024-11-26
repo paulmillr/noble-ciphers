@@ -1,7 +1,7 @@
 import { createCipher, rotl } from './_arx.js';
 import { abytes } from './_assert.js';
 import { poly1305 } from './_poly1305.js';
-import { Cipher, clean, equalBytes, getDst, wrapCipher } from './utils.js';
+import { Cipher, clean, equalBytes, getOutput, wrapCipher } from './utils.js';
 
 // Salsa20 stream cipher was released in 2005.
 // Salsa's goal was to implement AES replacement that does not rely on S-Boxes,
@@ -126,12 +126,7 @@ export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(
       encrypt(plaintext: Uint8Array, output?: Uint8Array) {
         // This is small optimization (calculate auth key with same call as encryption itself) makes it hard
         // to separate tag calculation and encryption itself, since 32 byte is half-block of salsa (64 byte)
-        const clength = plaintext.length + 32;
-        if (output) {
-          abytes(output, clength);
-        } else {
-          output = new Uint8Array(clength);
-        }
+        output = getOutput(plaintext.length + 32, output, false);
         output.set(plaintext, 32);
         xsalsa20(key, nonce, output, output);
         const authKey = output.subarray(0, 32);
@@ -142,7 +137,8 @@ export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(
         return output.subarray(tagLength);
       },
       decrypt(ciphertext: Uint8Array, output?: Uint8Array) {
-        output = getDst(ciphertext.length + 32, output); // 32 is authKey length
+        abytes(ciphertext);
+        output = getOutput(ciphertext.length + 32, output, false);
         // Create new ciphertext array:
         // tmp part      auth tag                 ciphertext
         // [bytes 0..32] [bytes 32..48]           [bytes 48..]
