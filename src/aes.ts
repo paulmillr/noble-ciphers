@@ -9,6 +9,7 @@ import {
   copyBytes,
   createView,
   equalBytes,
+  getOutput,
   isAligned32,
   setBigUint64,
   u32,
@@ -225,23 +226,12 @@ function decrypt(xk: Uint32Array, s0: number, s1: number, s2: number, s3: number
   return { s0: t0, s1: t1, s2: t2, s3: t3 };
 }
 
-function getDst(len: number, output?: Uint8Array): Uint8Array {
-  if (output === undefined) return new Uint8Array(len);
-  abytes(output);
-  if (output.length < len)
-    throw new Error(
-      'aes: invalid destination length, expected at least ' + len + ', got: ' + output.length
-    );
-  if (!isAligned32(output)) throw new Error('destination must not be unaligned');
-  return output;
-}
-
 // TODO: investigate merging with ctr32
 function ctrCounter(xk: Uint32Array, nonce: Uint8Array, src: Uint8Array, dst?: Uint8Array) {
   abytes(nonce, BLOCK_SIZE);
   abytes(src);
   const srcLen = src.length;
-  dst = getDst(srcLen, dst);
+  dst = getOutput(srcLen, dst);
   const ctr = nonce;
   const c32 = u32(ctr);
   // Fill block (empty, ctr=0)
@@ -287,7 +277,7 @@ function ctr32(
 ) {
   abytes(nonce, BLOCK_SIZE);
   abytes(src);
-  dst = getDst(src.length, dst);
+  dst = getOutput(src.length, dst);
   const ctr = nonce; // write new value to nonce, so it can be re-used
   const c32 = u32(ctr);
   const view = createView(ctr);
@@ -369,7 +359,7 @@ function validateBlockEncrypt(plaintext: Uint8Array, pcks5: boolean, dst?: Uint8
     if (!left) left = BLOCK_SIZE; // if no bytes left, create empty padding block
     outLen = outLen + left;
   }
-  const out = getDst(outLen, dst);
+  const out = getOutput(outLen, dst);
   const o = u32(out);
   return { b, o, out };
 }
@@ -425,7 +415,7 @@ export const ecb = /* @__PURE__ */ wrapCipher(
       decrypt(ciphertext: Uint8Array, dst?: Uint8Array) {
         validateBlockDecrypt(ciphertext);
         const xk = expandKeyDecLE(key);
-        const out = getDst(ciphertext.length, dst);
+        const out = getOutput(ciphertext.length, dst);
         const toClean: (Uint8Array | Uint32Array)[] = [xk];
         if (!isAligned32(ciphertext)) toClean.push((ciphertext = copyBytes(ciphertext)));
         const b = u32(ciphertext);
@@ -481,7 +471,7 @@ export const cbc = /* @__PURE__ */ wrapCipher(
         const toClean: (Uint8Array | Uint32Array)[] = [xk];
         if (!isAligned32(_iv)) toClean.push((_iv = copyBytes(_iv)));
         const n32 = u32(_iv);
-        const out = getDst(ciphertext.length, dst);
+        const out = getOutput(ciphertext.length, dst);
         if (!isAligned32(ciphertext)) toClean.push((ciphertext = copyBytes(ciphertext)));
         const b = u32(ciphertext);
         const o = u32(out);
@@ -511,7 +501,7 @@ export const cfb = /* @__PURE__ */ wrapCipher(
     function processCfb(src: Uint8Array, isEncrypt: boolean, dst?: Uint8Array) {
       abytes(src);
       const srcLen = src.length;
-      dst = getDst(srcLen, dst);
+      dst = getOutput(srcLen, dst);
       const xk = expandKeyLE(key);
       let _iv = iv;
       const toClean: (Uint8Array | Uint32Array)[] = [xk];
