@@ -1,6 +1,6 @@
 {
   "name": "@noble/ciphers",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Audited & minimal JS implementation of Salsa20, ChaCha and AES",
   "files": [
     "esm",
