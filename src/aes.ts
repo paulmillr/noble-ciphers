@@ -359,9 +359,9 @@ function validateBlockEncrypt(plaintext: Uint8Array, pcks5: boolean, dst?: Uint8
     if (!left) left = BLOCK_SIZE; // if no bytes left, create empty padding block
     outLen = outLen + left;
   }
-  const out = getOutput(outLen, dst);
-  const o = u32(out);
-  return { b, o, out };
+  dst = getOutput(outLen, dst);
+  const o = u32(dst);
+  return { b, o, out: dst };
 }
 
 function validatePCKS(data: Uint8Array, pcks5: boolean) {
@@ -415,17 +415,17 @@ export const ecb = /* @__PURE__ */ wrapCipher(
       decrypt(ciphertext: Uint8Array, dst?: Uint8Array) {
         validateBlockDecrypt(ciphertext);
         const xk = expandKeyDecLE(key);
-        const out = getOutput(ciphertext.length, dst);
+        dst = getOutput(ciphertext.length, dst);
         const toClean: (Uint8Array | Uint32Array)[] = [xk];
         if (!isAligned32(ciphertext)) toClean.push((ciphertext = copyBytes(ciphertext)));
         const b = u32(ciphertext);
-        const o = u32(out);
+        const o = u32(dst);
         for (let i = 0; i + 4 <= b.length; ) {
           const { s0, s1, s2, s3 } = decrypt(xk, b[i + 0], b[i + 1], b[i + 2], b[i + 3]);
           (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
         }
         clean(...toClean);
-        return validatePCKS(out, pcks5);
+        return validatePCKS(dst, pcks5);
       },
     };
   }
@@ -471,10 +471,10 @@ export const cbc = /* @__PURE__ */ wrapCipher(
         const toClean: (Uint8Array | Uint32Array)[] = [xk];
         if (!isAligned32(_iv)) toClean.push((_iv = copyBytes(_iv)));
         const n32 = u32(_iv);
-        const out = getOutput(ciphertext.length, dst);
+        dst = getOutput(ciphertext.length, dst);
         if (!isAligned32(ciphertext)) toClean.push((ciphertext = copyBytes(ciphertext)));
         const b = u32(ciphertext);
-        const o = u32(out);
+        const o = u32(dst);
         // prettier-ignore
         let s0 = n32[0], s1 = n32[1], s2 = n32[2], s3 = n32[3];
         for (let i = 0; i + 4 <= b.length; ) {
@@ -485,7 +485,7 @@ export const cbc = /* @__PURE__ */ wrapCipher(
           (o[i++] = o0 ^ ps0), (o[i++] = o1 ^ ps1), (o[i++] = o2 ^ ps2), (o[i++] = o3 ^ ps3);
         }
         clean(...toClean);
-        return validatePCKS(out, pcks5);
+        return validatePCKS(dst, pcks5);
       },
     };
   }
