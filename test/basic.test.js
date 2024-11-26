@@ -94,7 +94,7 @@ describe('Basic', () => {
       }
 
       const { c, key, nonce, copy } = initCipher(opts);
-      const msg3 = new Uint8Array(256);
+      const msg3 = new Uint8Array(256).fill(3);
       const msg3Copy = msg3.slice();
       if (!checkBlockSize(opts, msg3Copy.length)) {
         deepStrictEqual(c.decrypt(c.encrypt(msg3Copy)), msg3);
@@ -133,6 +133,57 @@ describe('Basic', () => {
         }
       });
     }
+
+    should('unaligned', () => {
+      if (!['xsalsa20poly1305', 'xchacha20poly1305', 'chacha20poly1305'].includes(k)) return;
+      if (k.includes('managedNonce')) return;
+
+      const isSalsa = k.includes('salsa');
+
+      const { fn, keyLen } = opts;
+      const msg = new TextEncoder().encode('hello');
+
+      const key = randomBytes(keyLen);
+      const nonce = randomBytes(fn.nonceLength);
+
+      const sample_enc = fn(key.slice(), nonce.slice()).encrypt(msg);
+
+      const L = msg.length;
+      const ciphertextLen = sample_enc.length;
+
+      const tmp = new Uint8Array(512).fill(5);
+      for (let start = 0; start < 32; start++) {
+        const i = {};
+        i.p_start = start;
+        i.p_end = start + L; // .encrypt() output needs L + 32
+        if (isSalsa) {
+          i.c_start = i.p_end;
+          i.c_end = i.c_start + L + 32;
+
+          i.dec_start = i.c_end;
+          i.dec_end = i.dec_start + L + 48;
+        } else {
+          i.c_start = i.p_end;
+          i.c_end = i.c_start + ciphertextLen;
+
+          i.dec_start = i.c_end;
+          i.dec_end = i.dec_start + L;
+        }
+        tmp.set(msg, i.p_start);
+        const cipher = fn(key, nonce);
+        const buf_p = tmp.subarray(i.p_start, i.p_end);
+        const buf_dec = tmp.subarray(i.dec_start, i.dec_end);
+
+        // Encrypt
+        let ciphertext = cipher.encrypt(buf_p, tmp.subarray(i.c_start, i.c_end));
+        deepStrictEqual(ciphertext, sample_enc, '.encrypt() differs');
+
+        // Decrypt
+        let plaintext = cipher.decrypt(ciphertext, buf_dec);
+        deepStrictEqual(msg, plaintext, '.decrypt() differs');
+      }
+      // deepStrictEqual(data.subarray(0, 8), data.subarray(32, 40))
+    });
 
     const msg_10 = new Uint8Array(10);
     if (checkBlockSize(opts, msg_10.length) && !k.endsWith('_managedNonce')) {
