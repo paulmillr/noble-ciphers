@@ -607,7 +607,7 @@ export const gcm = /* @__PURE__ */ wrapCipher(
         const out = new Uint8Array(plaintext.length + tagLength);
         const toClean: (Uint8Array | Uint32Array)[] = [xk, authKey, counter, tagMask];
         if (!isAligned32(plaintext)) toClean.push((plaintext = copyBytes(plaintext)));
-        ctr32(xk, false, counter, plaintext, out);
+        ctr32(xk, false, counter, plaintext, out.subarray(0, plaintext.length));
         const tag = _computeTag(authKey, tagMask, out.subarray(0, out.length - tagLength));
         toClean.push(tag);
         out.set(tag, plaintext.length);

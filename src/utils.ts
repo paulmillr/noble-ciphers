@@ -272,7 +272,7 @@ export type XorStream = (
 
 export function getOutput(expectedLength: number, out?: Uint8Array, onlyAligned = true) {
   if (out === undefined) return new Uint8Array(expectedLength);
-  if (out.length < expectedLength)
+  if (out.length !== expectedLength)
     throw new Error(
       'invalid output length, expected at least ' + expectedLength + ', got: ' + out.length
     );
