@@ -186,11 +186,14 @@ describe('Basic', () => {
     });
 
     should('be able to reuse input and output arrays', () => {
+      // TODO: test AES
+      // TODO: test different values of FILL_BYTE
+
       if (!['xsalsa20poly1305', 'xchacha20poly1305', 'chacha20poly1305'].includes(k)) return;
       if (k.includes('managedNonce')) return;
       const isSalsa = k === 'xsalsa20poly1305';
       const { fn, keyLen } = opts;
-      const TMP_FILL_BYTE = 0; // TODO: try different values
+      const TMP_FILL_BYTE = 0;
 
       const msg = new TextEncoder().encode('hello');
       const key = new Uint8Array(keyLen).fill(1);
