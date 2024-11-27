@@ -185,6 +185,49 @@ describe('Basic', () => {
       // deepStrictEqual(data.subarray(0, 8), data.subarray(32, 40))
     });
 
+    should('be able to reuse input and output arrays', () => {
+      if (!['xsalsa20poly1305', 'xchacha20poly1305', 'chacha20poly1305'].includes(k)) return;
+      if (k.includes('managedNonce')) return;
+      const isSalsa = k === 'xsalsa20poly1305';
+      const { fn, keyLen } = opts;
+      const TMP_FILL_BYTE = 0; // TODO: try different values
+
+      const msg = new TextEncoder().encode('hello');
+      const key = new Uint8Array(keyLen).fill(1);
+      const nonce = new Uint8Array(fn.nonceLength).fill(2);
+      let tmp;
+      const get = () => fn(key, nonce);
+      const initTmp = () => tmp = new Uint8Array(64).fill(TMP_FILL_BYTE);
+
+      const encryptedMsg = get().encrypt(msg);
+      const decryptedMsg = fn(key, nonce).decrypt(encryptedMsg); // == msg
+      deepStrictEqual(decryptedMsg, msg, 'decryption works');
+
+      const L = msg.length;
+
+      // To encrypt 5-byte input, salsa needs 5 + 32 byte (half-block) output.
+      //   However, it would effectively ONLY use 5 + 16 bytes (nonce size).
+      //   And the output would be 5 + 16.
+      // To encrypt 5-byte input, chacha needs 5 + 16 byte (nonce size) output
+
+      // Part 1: Simply use existing `tmp`
+      initTmp();
+      deepStrictEqual(get().encrypt(msg, tmp.subarray(0, isSalsa ? L + 32 : L + 16)), encryptedMsg, 'example 1');
+console.log(encryptedMsg.length)
+      // To decrypt 
+      deepStrictEqual(get().decrypt(encryptedMsg, tmp.subarray(0, isSalsa ? L + 48 : 5)), msg, 'example 2');
+
+      // Part 2: Share `tmp` between input and output
+      if (isSalsa) return;
+      initTmp();
+      tmp.set(msg, 0);
+      const reusedEnc = get().encrypt(msg, tmp.subarray(0, isSalsa ? L + 32 : L + 16));
+      deepStrictEqual(reusedEnc, encryptedMsg, 'example 3');
+
+      const reusedDec = get().decrypt(reusedEnc, tmp.subarray(0, isSalsa ? L + 48 : 5));
+      deepStrictEqual(reusedDec, msg, 'example 4');
+    });
+
     const msg_10 = new Uint8Array(10);
     if (checkBlockSize(opts, msg_10.length) && !k.endsWith('_managedNonce')) {
       should(`${k}: prohibit encrypting twice`, () => {
