@@ -203,18 +203,20 @@ import { randomBytes } from '@noble/ciphers/webcrypto';
 
 const key = randomBytes(32);
 const nonce = randomBytes(12);
-const inputLength = 12;
 const tagLength = 16;
 
+const input = utf8ToBytes('hello, noble'); // length == 12
+const inputLength = 12;
+
+// plaintext + ciphertext + tag: 28 bytes
 const buf = new Uint8Array(inputLength + inputLength + tagLength);
-const _data = utf8ToBytes('hello, noble'); // length == 12
-buf.set(_data, 0); // first inputLength bytes
-const _start = buf.subarray(0, inputLength);
-const _end = buf.subarray(inputLength);
+buf.set(msg, 0); // first inputLength bytes
+const _start = buf.subarray(0, inputLength); // 0..12
+const _end = buf.subarray(inputLength); // 12..28
 
 const chacha = chacha20poly1305(key, nonce);
 chacha.encrypt(_start, _end);
-chacha.decrypt(_end, _start); // _start now same as _data
+chacha.decrypt(_end, _start); // _start now same as msg
 ```
 
 #### All imports
