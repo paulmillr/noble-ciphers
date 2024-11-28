@@ -206,14 +206,15 @@ const nonce = randomBytes(12);
 const inputLength = 12;
 const tagLength = 16;
 
-const buf = new Uint8Array(inputLength + tagLength);
+const buf = new Uint8Array(inputLength + inputLength + tagLength);
 const _data = utf8ToBytes('hello, noble'); // length == 12
 buf.set(_data, 0); // first inputLength bytes
 const _start = buf.subarray(0, inputLength);
+const _end = buf.subarray(inputLength);
 
 const chacha = chacha20poly1305(key, nonce);
-chacha.encrypt(_start, buf);
-chacha.decrypt(buf, _start); // _start now same as _data
+chacha.encrypt(_start, _end);
+chacha.decrypt(_end, _start); // _start now same as _data
 ```
 
 #### All imports
