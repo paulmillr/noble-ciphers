@@ -2,7 +2,7 @@ const { deepStrictEqual, throws } = require('assert');
 const fc = require('fast-check');
 const { describe, should } = require('micro-should');
 const { TYPE_TEST, unalign } = require('./utils.js');
-const { bytesToHex, concatBytes, hexToBytes } = require('../utils.js');
+const { bytesToHex, concatBytes, hexToBytes, overlapBytes } = require('../utils.js');
 
 describe('utils', () => {
   const staticHexVectors = [
@@ -57,6 +57,41 @@ describe('utils', () => {
       })
     )
   );
+  should('sameBytes', () => {
+    // Basic
+    const buffer = new ArrayBuffer(20);
+    const a = new Uint8Array(buffer, 0, 10); // Bytes 0-9
+    const b = new Uint8Array(buffer, 5, 10); // Bytes 5-14
+    const c = new Uint8Array(buffer, 10, 10); // Bytes 10-19
+    const d = new Uint8Array(new ArrayBuffer(20), 0, 10); // Different buffer
+    deepStrictEqual(overlapBytes(a, b), true);
+    deepStrictEqual(overlapBytes(a, c), false);
+    deepStrictEqual(overlapBytes(b, c), true);
+    deepStrictEqual(overlapBytes(a, d), false);
+    // Scan
+    const res = [];
+    const main = new Uint8Array(8 + 4); // 2byte + first + 2byte
+    const first = main.subarray(2).subarray(0, 8);
+    for (let i = 0; i < main.length; i++) {
+      const second = main.subarray(i).subarray(0, 1); // one byte window
+      deepStrictEqual(second, new Uint8Array(1));
+      res.push(overlapBytes(first, second));
+    }
+    deepStrictEqual(res, [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+    ]);
+  });
 });
 
 describe('utils etc', () => {

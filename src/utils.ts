@@ -133,6 +133,17 @@ export function toBytes(data: Input): Uint8Array {
 }
 
 /**
+ * Checks if two U8A use same underlying buffer and overlaps (will corrupt and break if input and output same)
+ */
+export function overlapBytes(a: Uint8Array, b: Uint8Array): boolean {
+  return (
+    a.buffer === b.buffer && // probably will fail with some obscure proxies, but this is best we can do
+    a.byteOffset < b.byteOffset + b.byteLength && // a starts before b end
+    b.byteOffset < a.byteOffset + a.byteLength // b starts before a end
+  );
+}
+
+/**
  * Copies several Uint8Arrays into one.
  */
 export function concatBytes(...arrays: Uint8Array[]): Uint8Array {
@@ -237,6 +248,14 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
     }
 
     const cipher = constructor(key, ...args);
+    const checkOutput = (fnLength: number, data: Uint8Array, output?: Uint8Array) => {
+      if (output !== undefined) {
+        if (fnLength !== 2) throw new Error('cipher output not supported');
+        abytes(output);
+        if (overlapBytes(data, output))
+          throw new Error('input and output use same buffer and overlap');
+      }
+    };
 
     // Create wrapped cipher with validation and single-use encryption
     let called = false;
@@ -245,10 +264,12 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
         if (called) throw new Error('cannot encrypt() twice with same key + nonce');
         called = true;
         abytes(data);
+        checkOutput(cipher.encrypt.length, data, output);
         return (cipher as CipherWithOutput).encrypt(data, output);
       },
       decrypt(data: Uint8Array, output?: Uint8Array) {
         abytes(data);
+        checkOutput(cipher.decrypt.length, data, output);
         if (tagl && data.length < tagl)
           throw new Error('invalid ciphertext length: smaller than tagLength=' + tagl);
         return (cipher as CipherWithOutput).decrypt(data, output);
@@ -273,11 +294,9 @@ export type XorStream = (
 export function getOutput(expectedLength: number, out?: Uint8Array, onlyAligned = true) {
   if (out === undefined) return new Uint8Array(expectedLength);
   if (out.length !== expectedLength)
-    throw new Error(
-      'invalid output length, expected at least ' + expectedLength + ', got: ' + out.length
-    );
+    throw new Error('invalid output length, expected ' + expectedLength + ', got: ' + out.length);
   if (onlyAligned && !isAligned32(out)) throw new Error('invalid output, must be aligned');
-  return out.subarray(0, expectedLength).fill(0);
+  return out.fill(0);
 }
 
 // Polyfill for Safari 14

@@ -133,6 +133,78 @@ describe('Basic', () => {
         }
       });
     }
+    should(`${k} (re-use)`, () => {
+      const { fn, keyLen } = opts;
+      const msg = new Uint8Array(2 * opts.fn.blockSize).fill(12);
+      const key = randomBytes(keyLen);
+      const nonce = randomBytes(fn.nonceLength);
+      const AAD = randomBytes(64);
+      let cipher = fn(key, nonce, AAD);
+      // Not supported!
+      if (k.startsWith('micro')) return;
+      if (k.startsWith('gcm')) return;
+      if (k.startsWith('siv')) return;
+      if (k.startsWith('aeskw')) return;
+      // Wrapper changes length :(
+      if (cipher.encrypt.length === 2) {
+        // Tmp buffer
+        let outLen = msg.length;
+        if (fn.tagLength) outLen += fn.tagLength;
+        if (k === 'xsalsa20poly1305') outLen += 16;
+        if (k.includes('cbc') || k.includes('ecb')) outLen += 16;
+        // Expected result
+        cipher = fn(key, nonce, AAD);
+        const exp = cipher.encrypt(msg);
+        const out = new Uint8Array(outLen);
+        // First pass
+        cipher = fn(key, nonce, AAD);
+        const res = cipher.encrypt(msg, out);
+        deepStrictEqual(res, exp);
+        // check if res is output
+        deepStrictEqual(res, out.subarray(res.byteOffset, res.byteOffset + res.length));
+        deepStrictEqual(res.buffer, out.buffer); // make sure that underlying array buffer is same
+        // Second pass
+        out.fill(42);
+        cipher = fn(key, nonce, AAD);
+        const res2 = cipher.encrypt(msg, out);
+        deepStrictEqual(res2, exp);
+        deepStrictEqual(res2, out.subarray(res2.byteOffset, res2.byteOffset + res2.length));
+        deepStrictEqual(res2.buffer, out.buffer); // make sure that underlying array buffer is same
+        // Throws on same buffer:
+        cipher = fn(key, nonce, AAD);
+        out.set(msg);
+        const msg2 = out.subarray(0, msg.length);
+        throws(() => cipher.encrypt(msg2, out));
+      }
+      if (cipher.decrypt.length === 2) {
+        // Expected result
+        cipher = fn(key, nonce, AAD);
+        const input = cipher.encrypt(msg);
+        // Tmp buffer
+        let outLen = msg.length;
+        if (k.endsWith('xsalsa20poly1305')) outLen += 32 + 16;
+        if (k.includes('cbc') || k.includes('ecb')) outLen += 16;
+        const out = new Uint8Array(outLen);
+        // First pass
+        const res = cipher.decrypt(input, out);
+        deepStrictEqual(res, msg);
+        deepStrictEqual(res, out.subarray(res.byteOffset, res.byteOffset + res.length));
+        deepStrictEqual(res.buffer, out.buffer); // make sure that underlying array buffer is same
+        // Second pass
+        out.fill(42);
+        const res2 = cipher.decrypt(input, out);
+        deepStrictEqual(res2, msg);
+        deepStrictEqual(res2, out.subarray(res2.byteOffset, res2.byteOffset + res2.length));
+        deepStrictEqual(res2.buffer, out.buffer); // make sure that underlying array buffer is same
+        // Throws on same buffer:
+        const tmp = new Uint8Array(Math.max(out.length, input.length));
+        tmp.set(input);
+        const out2 = tmp.subarray(0, out.length);
+        const input2 = tmp.subarray(0, input.length);
+        throws(() => cipher.decrypt(input2, out2));
+      }
+    });
+    // Human tests ^, AI abomination v
 
     should('unaligned', () => {
       if (!['xsalsa20poly1305', 'xchacha20poly1305', 'chacha20poly1305'].includes(k)) return;
