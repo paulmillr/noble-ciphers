@@ -203,21 +203,22 @@ import { randomBytes } from '@noble/ciphers/webcrypto';
 
 const key = randomBytes(32);
 const nonce = randomBytes(12);
-const tagLength = 16;
+const chacha = chacha20poly1305(key, nonce);
 
 const input = utf8ToBytes('hello, noble'); // length == 12
-const inputLength = 12;
+const inputLength = input.length;
+const tagLength = 16;
 
-// plaintext + ciphertext + tag: 28 bytes
-const buf = new Uint8Array(inputLength + inputLength + tagLength);
-buf.set(msg, 0); // first inputLength bytes
-const _start = buf.subarray(0, inputLength); // 0..12
-const _end = buf.subarray(inputLength); // 12..28
+const buf = new Uint8Array(inputLength + tagLength);
+const start = buf.subarray(0, inputLength);
+start.set(input); // copy input to buf
 
-const chacha = chacha20poly1305(key, nonce);
-chacha.encrypt(_start, _end);
-chacha.decrypt(_end, _start); // _start now same as msg
+chacha.encrypt(start, buf); // encrypt into `buf`
+chacha.decrypt(buf, start); // decrypt into `start`
 ```
+
+xsalsa20poly1305 also supports this, but requires 32 additional bytes for encryption / decryption,
+due to its inner workings.
 
 #### All imports
 
