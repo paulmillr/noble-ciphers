@@ -144,6 +144,17 @@ export function overlapBytes(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 /**
+ * If input and output overlap and input starts before output, we will overwrite end of input before
+ * we start processing it, so this is not supported for most ciphers (except chacha/salse, which designed with this)
+ */
+export function complexOverlapBytes(input: Uint8Array, output: Uint8Array) {
+  // This is very cursed. It works somehow, but I'm completely unsure,
+  // reasoning about overlapping aligned windows is very hard.
+  if (overlapBytes(input, output) && input.byteOffset < output.byteOffset)
+    throw new Error('complex overlap of input and output is not supported');
+}
+
+/**
  * Copies several Uint8Arrays into one.
  */
 export function concatBytes(...arrays: Uint8Array[]): Uint8Array {
@@ -248,15 +259,12 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
     }
 
     const cipher = constructor(key, ...args);
-    const checkOutput = (fnLength: number, data: Uint8Array, output?: Uint8Array) => {
+    const checkOutput = (fnLength: number, output?: Uint8Array) => {
       if (output !== undefined) {
         if (fnLength !== 2) throw new Error('cipher output not supported');
         abytes(output);
-        if (overlapBytes(data, output))
-          throw new Error('input and output use same buffer and overlap');
       }
     };
-
     // Create wrapped cipher with validation and single-use encryption
     let called = false;
     const wrCipher = {
@@ -264,14 +272,14 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
         if (called) throw new Error('cannot encrypt() twice with same key + nonce');
         called = true;
         abytes(data);
-        checkOutput(cipher.encrypt.length, data, output);
+        checkOutput(cipher.encrypt.length, output);
         return (cipher as CipherWithOutput).encrypt(data, output);
       },
       decrypt(data: Uint8Array, output?: Uint8Array) {
         abytes(data);
-        checkOutput(cipher.decrypt.length, data, output);
         if (tagl && data.length < tagl)
           throw new Error('invalid ciphertext length: smaller than tagLength=' + tagl);
+        checkOutput(cipher.decrypt.length, output);
         return (cipher as CipherWithOutput).decrypt(data, output);
       },
     };
@@ -296,7 +304,7 @@ export function getOutput(expectedLength: number, out?: Uint8Array, onlyAligned 
   if (out.length !== expectedLength)
     throw new Error('invalid output length, expected ' + expectedLength + ', got: ' + out.length);
   if (onlyAligned && !isAligned32(out)) throw new Error('invalid output, must be aligned');
-  return out.fill(0);
+  return out;
 }
 
 // Polyfill for Safari 14

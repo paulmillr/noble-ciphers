@@ -15,6 +15,8 @@ import {
   u32,
   u8,
   wrapCipher,
+  complexOverlapBytes,
+  overlapBytes,
 } from './utils.js';
 
 /*
@@ -232,6 +234,7 @@ function ctrCounter(xk: Uint32Array, nonce: Uint8Array, src: Uint8Array, dst?: U
   abytes(src);
   const srcLen = src.length;
   dst = getOutput(srcLen, dst);
+  complexOverlapBytes(src, dst);
   const ctr = nonce;
   const c32 = u32(ctr);
   // Fill block (empty, ctr=0)
@@ -360,6 +363,7 @@ function validateBlockEncrypt(plaintext: Uint8Array, pcks5: boolean, dst?: Uint8
     outLen = outLen + left;
   }
   dst = getOutput(outLen, dst);
+  complexOverlapBytes(plaintext, dst);
   const o = u32(dst);
   return { b, o, out: dst };
 }
@@ -418,6 +422,7 @@ export const ecb = /* @__PURE__ */ wrapCipher(
         dst = getOutput(ciphertext.length, dst);
         const toClean: (Uint8Array | Uint32Array)[] = [xk];
         if (!isAligned32(ciphertext)) toClean.push((ciphertext = copyBytes(ciphertext)));
+        complexOverlapBytes(ciphertext, dst);
         const b = u32(ciphertext);
         const o = u32(dst);
         for (let i = 0; i + 4 <= b.length; ) {
@@ -473,6 +478,7 @@ export const cbc = /* @__PURE__ */ wrapCipher(
         const n32 = u32(_iv);
         dst = getOutput(ciphertext.length, dst);
         if (!isAligned32(ciphertext)) toClean.push((ciphertext = copyBytes(ciphertext)));
+        complexOverlapBytes(ciphertext, dst);
         const b = u32(ciphertext);
         const o = u32(dst);
         // prettier-ignore
@@ -502,6 +508,7 @@ export const cfb = /* @__PURE__ */ wrapCipher(
       abytes(src);
       const srcLen = src.length;
       dst = getOutput(srcLen, dst);
+      if (overlapBytes(src, dst)) throw new Error('overlapping src and dst not supported.');
       const xk = expandKeyLE(key);
       let _iv = iv;
       const toClean: (Uint8Array | Uint32Array)[] = [xk];

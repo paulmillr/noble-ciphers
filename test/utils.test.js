@@ -57,7 +57,7 @@ describe('utils', () => {
       })
     )
   );
-  should('sameBytes', () => {
+  should('overlapBytes', () => {
     // Basic
     const buffer = new ArrayBuffer(20);
     const a = new Uint8Array(buffer, 0, 10); // Bytes 0-9
@@ -91,6 +91,20 @@ describe('utils', () => {
       false,
       false,
     ]);
+    const main2 = new Uint8Array(buffer, 5, 10); // main
+    const inside = new Uint8Array(buffer, 6, 4); // left overlap
+    const leftOverlap = new Uint8Array(buffer, 0, 6); // left overlap
+    const rightOverlap = new Uint8Array(buffer, 9, 10); // right overlap
+    const before = new Uint8Array(buffer, 0, 5); // before
+    const after = new Uint8Array(buffer, 15, 5); // after
+
+    deepStrictEqual(overlapBytes(before, main2), false);
+    deepStrictEqual(overlapBytes(after, main2), false);
+    deepStrictEqual(overlapBytes(leftOverlap, rightOverlap), false);
+
+    deepStrictEqual(overlapBytes(main2, leftOverlap), true);
+    deepStrictEqual(overlapBytes(main2, rightOverlap), true);
+    deepStrictEqual(overlapBytes(main2, inside), true);
   });
 });
 

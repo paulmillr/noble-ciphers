@@ -6,6 +6,7 @@ const { xsalsa20poly1305 } = require('../salsa.js');
 const { chacha20poly1305, xchacha20poly1305 } = require('../chacha.js');
 const { unalign, TYPE_TEST } = require('./utils.js');
 const micro = require('../_micro.js');
+const { isAligned32, overlapBytes } = require('../utils.js');
 
 const CIPHERS = {
   xsalsa20poly1305: { fn: xsalsa20poly1305, keyLen: 32, withNonce: true },
@@ -133,79 +134,186 @@ describe('Basic', () => {
         }
       });
     }
+    const overlapTest = (a, b, cb) => {
+      const buffer = new Uint8Array(a.length + b.length);
+      let inputPos = 0;
+      let outputPos = a.length;
+      const t = () => {
+        const aBuf = buffer.subarray(inputPos, inputPos + a.length);
+        const bBuf = buffer.subarray(outputPos, outputPos + b.length);
+        cb(aBuf, bBuf, buffer);
+      };
+      for (; outputPos > 0; outputPos--) t(); // first we decreate outputPos
+      for (; inputPos <= b.length; inputPos++) t(); // then we move inputPos
+    };
+    const getIntersection = (a, b) => {
+      if (a.buffer !== b.buffer) return new Uint8Array(0);
+      const overlapStart = Math.max(a.byteOffset, b.byteOffset);
+      const overlapEnd = Math.min(a.byteOffset + a.byteLength, b.byteOffset + b.byteLength);
+      if (overlapStart >= overlapEnd) return new Uint8Array(0);
+      return new Uint8Array(a.buffer, overlapStart, overlapEnd - overlapStart);
+    };
+    // should('overlapTest test', () => {
+    //   // Test:
+    //   overlapTest(new Uint8Array(5), new Uint8Array(4), (a, b, all) => {
+    //     all.fill(0);
+    //     a.fill(1);
+    //     b.fill(2);
+    //     getIntersection(a, b).fill(3);
+    //     console.log('AB', a, b, all);
+    //   });
+    //   throw 'lol';
+    // });
+
     should(`${k} (re-use)`, () => {
       const { fn, keyLen } = opts;
-      const msg = new Uint8Array(2 * opts.fn.blockSize).fill(12);
+
       const key = randomBytes(keyLen);
       const nonce = randomBytes(fn.nonceLength);
       const AAD = randomBytes(64);
+
       let cipher = fn(key, nonce, AAD);
-      // Not supported!
-      if (k.startsWith('micro')) return;
-      if (k.startsWith('gcm')) return;
-      if (k.startsWith('siv')) return;
-      if (k.startsWith('aeskw')) return;
-      // Wrapper changes length :(
-      if (cipher.encrypt.length === 2) {
-        // Tmp buffer
-        let outLen = msg.length;
-        if (fn.tagLength) outLen += fn.tagLength;
-        if (k === 'xsalsa20poly1305') outLen += 16;
-        if (k.includes('cbc') || k.includes('ecb')) outLen += 16;
-        // Expected result
+      // Throws if output provided to function without output support
+      if (['micro', 'gcm', 'siv', 'aeskw'].map((i) => k.includes(i)).includes(true)) {
+        const msg = randomBytes(2 * opts.fn.blockSize);
+        throws(() => cipher.encrypt(msg, new Uint8Array(msg.length)));
         cipher = fn(key, nonce, AAD);
         const exp = cipher.encrypt(msg);
-        const out = new Uint8Array(outLen);
-        // First pass
-        cipher = fn(key, nonce, AAD);
-        const res = cipher.encrypt(msg, out);
-        deepStrictEqual(res, exp);
-        // check if res is output
-        deepStrictEqual(res, out.subarray(res.byteOffset, res.byteOffset + res.length));
-        deepStrictEqual(res.buffer, out.buffer); // make sure that underlying array buffer is same
-        // Second pass
-        out.fill(42);
-        cipher = fn(key, nonce, AAD);
-        const res2 = cipher.encrypt(msg, out);
-        deepStrictEqual(res2, exp);
-        deepStrictEqual(res2, out.subarray(res2.byteOffset, res2.byteOffset + res2.length));
-        deepStrictEqual(res2.buffer, out.buffer); // make sure that underlying array buffer is same
-        // Throws on same buffer:
-        cipher = fn(key, nonce, AAD);
-        out.set(msg);
-        const msg2 = out.subarray(0, msg.length);
-        throws(() => cipher.encrypt(msg2, out));
+        throws(() => cipher.decrypt(exp, new Uint8Array(exp.length)));
+        return;
       }
-      if (cipher.decrypt.length === 2) {
-        // Expected result
-        cipher = fn(key, nonce, AAD);
-        const input = cipher.encrypt(msg);
-        // Tmp buffer
-        let outLen = msg.length;
-        if (k.endsWith('xsalsa20poly1305')) outLen += 32 + 16;
-        if (k.includes('cbc') || k.includes('ecb')) outLen += 16;
-        const out = new Uint8Array(outLen);
-        // First pass
-        const res = cipher.decrypt(input, out);
-        deepStrictEqual(res, msg);
-        deepStrictEqual(res, out.subarray(res.byteOffset, res.byteOffset + res.length));
-        deepStrictEqual(res.buffer, out.buffer); // make sure that underlying array buffer is same
-        // Second pass
-        out.fill(42);
-        const res2 = cipher.decrypt(input, out);
-        deepStrictEqual(res2, msg);
-        deepStrictEqual(res2, out.subarray(res2.byteOffset, res2.byteOffset + res2.length));
-        deepStrictEqual(res2.buffer, out.buffer); // make sure that underlying array buffer is same
-        // Throws on same buffer:
-        const tmp = new Uint8Array(Math.max(out.length, input.length));
-        tmp.set(input);
-        const out2 = tmp.subarray(0, out.length);
-        const input2 = tmp.subarray(0, input.length);
-        throws(() => cipher.decrypt(input2, out2));
+      const pcksOutput = (len) => {
+        const remaining = len % fn.blockSize;
+        let left = fn.blockSize - remaining;
+        if (!left) left = fn.blockSize; // if no bytes left, create empty padding block
+        return left;
+      };
+
+      const messageLengths = [
+        4,
+        8,
+        fn.blockSize,
+        2 * fn.blockSize,
+        5 * fn.blockSize,
+        10 * fn.blockSize,
+      ];
+      messageLengths.push((1.5 * fn.blockSize) | 0);
+      messageLengths.push((1.75 * fn.blockSize) | 0);
+
+      const stats = { e_ok: 0, e_fail: 0, d_ok: 0, d_fail: 0 };
+      for (const msgLen of messageLengths) {
+        const msg = randomBytes(msgLen);
+        const key = randomBytes(keyLen);
+        const nonce = randomBytes(fn.nonceLength);
+        const AAD = randomBytes(64);
+        let cipher = fn(key, nonce, AAD);
+        const mayThrow = ['cbc', 'ctr', 'ecb'].map((i) => k.includes(i)).includes(true);
+        const pkcs5 = ['cbc', 'ecb'].map((i) => k.includes(i)).includes(true);
+        for (let fillByte = 0; fillByte < 256; fillByte++) {
+          // Wrapper changes length :(
+          if (cipher.encrypt.length === 2) {
+            // Tmp buffer
+            let outLen = msg.length;
+            if (fn.tagLength) outLen += fn.tagLength;
+            if (k === 'xsalsa20poly1305') outLen += 16;
+            if (pkcs5) outLen += pcksOutput(msg.length);
+            // Expected result
+            cipher = fn(key, nonce, AAD);
+            const exp = cipher.encrypt(msg);
+            const out = new Uint8Array(outLen);
+            // First pass
+            cipher = fn(key, nonce, AAD);
+            const res = cipher.encrypt(msg, out);
+            deepStrictEqual(res, exp);
+            // check if res is output
+            deepStrictEqual(res, out.subarray(res.byteOffset, res.byteOffset + res.length));
+            deepStrictEqual(res.buffer, out.buffer); // make sure that underlying array buffer is same
+            // Second pass
+            out.fill(fillByte);
+            cipher = fn(key, nonce, AAD);
+            const res2 = cipher.encrypt(msg, out);
+            deepStrictEqual(res2, exp);
+            deepStrictEqual(res2, out.subarray(res2.byteOffset, res2.byteOffset + res2.length));
+            deepStrictEqual(res2.buffer, out.buffer); // make sure that underlying array buffer is same
+            // Overlap
+            cipher = fn(key, nonce, AAD);
+            out.fill(fillByte);
+            out.set(msg);
+            const msg2 = out.subarray(0, msg.length);
+            // CFB cannot support overlap
+            if (k.includes('cfb')) return throws(() => cipher.encrypt(msg2, out));
+            deepStrictEqual(cipher.encrypt(msg2, out), exp);
+
+            overlapTest(msg2, out, (msg2, out2, all) => {
+              all.fill(fillByte);
+              msg2.set(msg);
+              cipher = fn(key, nonce, AAD);
+              let newOut;
+              try {
+                newOut = cipher.encrypt(msg2, out2);
+                stats.e_ok++;
+              } catch (e) {
+                stats.e_fail++;
+                if (mayThrow) return;
+                throw e;
+              }
+              deepStrictEqual(newOut.buffer, all.buffer); // make sure that underlying array buffer is same
+              deepStrictEqual(newOut.buffer, out2.buffer); // make sure that underlying array buffer is same
+              deepStrictEqual(newOut, exp);
+            });
+          }
+          if (cipher.decrypt.length === 2) {
+            // Expected result
+            cipher = fn(key, nonce, AAD);
+            const input = cipher.encrypt(msg);
+            // Tmp buffer
+            let outLen = msg.length;
+            if (k.endsWith('xsalsa20poly1305')) outLen += 32 + 16;
+            if (pkcs5) outLen += pcksOutput(msg.length);
+            const out = new Uint8Array(outLen);
+            // First pass
+            const res = cipher.decrypt(input, out);
+            deepStrictEqual(res, msg);
+            deepStrictEqual(res, out.subarray(res.byteOffset, res.byteOffset + res.length));
+            deepStrictEqual(res.buffer, out.buffer); // make sure that underlying array buffer is same
+            // Second pass
+            out.fill(fillByte);
+            const res2 = cipher.decrypt(input, out);
+            deepStrictEqual(res2, msg);
+            deepStrictEqual(res2, out.subarray(res2.byteOffset, res2.byteOffset + res2.length));
+            deepStrictEqual(res2.buffer, out.buffer); // make sure that underlying array buffer is same
+            // Overlap
+            const tmp = new Uint8Array(Math.max(out.length, input.length));
+            tmp.fill(fillByte);
+            tmp.set(input);
+            const out2 = tmp.subarray(0, out.length);
+            const input2 = tmp.subarray(0, input.length);
+            // CFB cannot support overlap
+            if (k.includes('cfb')) return throws(() => cipher.decrypt(input2, out2));
+            deepStrictEqual(cipher.decrypt(input2, out2), msg);
+
+            overlapTest(input2, out2, (input2, out2, all) => {
+              all.fill(fillByte);
+              input2.set(input);
+              let newOut;
+              try {
+                newOut = cipher.decrypt(input2, out2);
+                stats.d_ok++;
+              } catch (e) {
+                stats.d_fail++;
+                if (mayThrow) return;
+                throw e;
+              }
+              deepStrictEqual(newOut.buffer, all.buffer); // make sure that underlying array buffer is same
+              deepStrictEqual(newOut.buffer, out2.buffer); // make sure that underlying array buffer is same
+              deepStrictEqual(newOut, msg);
+            });
+          }
+        }
       }
+      console.log('OVERLAP STATS', k, stats);
     });
     // Human tests ^, AI abomination v
-
     should('unaligned', () => {
       if (!['xsalsa20poly1305', 'xchacha20poly1305', 'chacha20poly1305'].includes(k)) return;
       if (k.includes('managedNonce')) return;
@@ -255,6 +363,59 @@ describe('Basic', () => {
         deepStrictEqual(msg, plaintext, '.decrypt() differs');
       }
       // deepStrictEqual(data.subarray(0, 8), data.subarray(32, 40))
+    });
+
+    should('be able to reuse input and output arrays', () => {
+      // TODO: test AES
+      // TODO: test different values of FILL_BYTE
+
+      if (!['xsalsa20poly1305', 'xchacha20poly1305', 'chacha20poly1305'].includes(k)) return;
+      if (k.includes('managedNonce')) return;
+      const isSalsa = k === 'xsalsa20poly1305';
+      const { fn, keyLen } = opts;
+      const TMP_FILL_BYTE = 0;
+
+      const msg = new TextEncoder().encode('hello');
+      const key = new Uint8Array(keyLen).fill(1);
+      const nonce = new Uint8Array(fn.nonceLength).fill(2);
+      let tmp;
+      const get = () => fn(key, nonce);
+      const initTmp = () => (tmp = new Uint8Array(64).fill(TMP_FILL_BYTE));
+
+      const encryptedMsg = get().encrypt(msg);
+      const decryptedMsg = fn(key, nonce).decrypt(encryptedMsg); // == msg
+      deepStrictEqual(decryptedMsg, msg, 'decryption works');
+
+      const L = msg.length;
+
+      // To encrypt 5-byte input, salsa needs 5 + 32 byte (half-block) output.
+      //   However, it would effectively ONLY use 5 + 16 bytes (nonce size).
+      //   And the output would be 5 + 16.
+      // To encrypt 5-byte input, chacha needs 5 + 16 byte (nonce size) output
+
+      // Part 1: Simply use existing `tmp`
+      initTmp();
+      deepStrictEqual(
+        get().encrypt(msg, tmp.subarray(0, isSalsa ? L + 32 : L + 16)),
+        encryptedMsg,
+        'example 1'
+      );
+      console.log(encryptedMsg.length);
+      // To decrypt
+      deepStrictEqual(
+        get().decrypt(encryptedMsg, tmp.subarray(0, isSalsa ? L + 48 : 5)),
+        msg,
+        'example 2'
+      );
+
+      // Part 2: Share `tmp` between input and output
+      initTmp();
+      tmp.set(msg, 0);
+      const reusedEnc = get().encrypt(msg, tmp.subarray(0, isSalsa ? L + 32 : L + 16));
+      deepStrictEqual(reusedEnc, encryptedMsg, 'example 3');
+
+      const reusedDec = get().decrypt(reusedEnc, tmp.subarray(0, isSalsa ? L + 48 : 5));
+      deepStrictEqual(reusedDec, msg, 'example 4');
     });
 
     const msg_10 = new Uint8Array(10);

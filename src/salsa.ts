@@ -121,42 +121,38 @@ export const xsalsa20 = /* @__PURE__ */ createCipher(salsaCore, {
 export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
   (key: Uint8Array, nonce: Uint8Array): Cipher => {
-    const tagLength = 16;
     return {
       encrypt(plaintext: Uint8Array, output?: Uint8Array) {
-        // This is small optimization (calculate auth key with same call as encryption itself) makes it hard
-        // to separate tag calculation and encryption itself, since 32 byte is half-block of salsa (64 byte)
-        output = getOutput(plaintext.length + 32, output, false);
+        // xsalsa20poly1305 optimizes by calculating auth key during the same call as encryption.
+        // Unfortunately, makes it hard to separate tag calculation & encryption itself,
+        // because 32 bytes is half-block of 64-byte salsa.
+        output = getOutput(plaintext.length + 32, output, false); // need 32 additional bytes, see above
+        const authKey = output.subarray(0, 32); // output[0..32] = poly1305 auth key
+        const ciphPlaintext = output.subarray(32); // output[32..] = plaintext, then ciphertext
         output.set(plaintext, 32);
-        xsalsa20(key, nonce, output, output);
-        const authKey = output.subarray(0, 32);
-        const tag = poly1305(output.subarray(32), authKey);
-        // Clean auth key, even though JS provides no guarantees about memory cleaning
-        output.set(tag, tagLength);
-        clean(output.subarray(0, tagLength), tag);
-        return output.subarray(tagLength);
+        clean(authKey); // authKey is produced by xoring with zeros
+        xsalsa20(key, nonce, output, output); // output = stream ^ output; authKey = stream ^ zeros(32)
+        const tag = poly1305(ciphPlaintext, authKey); // calculate tag over ciphertext
+        output.set(tag, 16); // output[16..32] = tag
+        clean(output.subarray(0, 16), tag); // clean-up authKey remnants & copy of tag
+        return output.subarray(16); // return output[16..]
       },
       decrypt(ciphertext: Uint8Array, output?: Uint8Array) {
+        // tmp part     passed tag    ciphertext
+        // [0..32]      [32..48]      [48..]
         abytes(ciphertext);
         output = getOutput(ciphertext.length + 32, output, false);
-        // Create new ciphertext array:
-        // tmp part      auth tag                 ciphertext
-        // [bytes 0..32] [bytes 32..48]           [bytes 48..]
-        // 16 instead of 32, because we already have 16 byte tag
-        output.set(ciphertext, 32);
-        // Each xsalsa20 calls to hsalsa to calculate key, but seems not much perf difference
-        // Separate call to calculate authkey, since first bytes contains tag
-        // Here we use first 32 bytes for authKey
-        const authKeyBuf = output.subarray(0, 32);
-        clean(authKeyBuf);
-        const authKey = xsalsa20(key, nonce, authKeyBuf, authKeyBuf);
-        const tag = poly1305(output.subarray(48), authKey); // alloc
-        if (!equalBytes(output.subarray(32, 48), tag)) throw new Error('invalid tag');
-        // NOTE: first 32 bytes skipped (used for authKey)
-        xsalsa20(key, nonce, output.subarray(16), output.subarray(16));
-        // Cleanup
-        clean(output.subarray(0, 32 + 16), tag);
-        return output.subarray(32 + 16);
+        const tmp = output.subarray(0, 32); // output[0..32] is used to calc authKey
+        const passedTag = output.subarray(32, 48); // output[32..48] = passed tag
+        const ciphPlaintext = output.subarray(48); // output[48..] = ciphertext, then plaintext
+        output.set(ciphertext, 32); // copy ciphertext into output
+        clean(tmp); // authKey is produced by xoring with zeros
+        const authKey = xsalsa20(key, nonce, tmp, tmp); // authKey = stream ^ zeros(32)
+        const tag = poly1305(ciphPlaintext, authKey); // calculate tag over ciphertext
+        if (!equalBytes(passedTag, tag)) throw new Error('invalid tag');
+        xsalsa20(key, nonce, output.subarray(16), output.subarray(16)); // output = stream ^ output[16..]
+        clean(tmp, passedTag, tag);
+        return ciphPlaintext; // return output[48..], skipping zeroized output[0..48]
       },
     };
   }

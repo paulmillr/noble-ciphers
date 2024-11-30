@@ -240,8 +240,10 @@ export const _poly1305_aead =
       encrypt(plaintext: Uint8Array, output?: Uint8Array) {
         const plength = plaintext.length;
         output = getOutput(plength + tagLength, output, false);
-        xorStream(key, nonce, plaintext, output, 1);
-        const tag = computeTag(xorStream, key, nonce, output.subarray(0, -tagLength), AAD);
+        output.set(plaintext);
+        const oPlain = output.subarray(0, -tagLength);
+        xorStream(key, nonce, oPlain, oPlain, 1);
+        const tag = computeTag(xorStream, key, nonce, oPlain, AAD);
         output.set(tag, plength); // append tag
         clean(tag);
         return output;
@@ -252,7 +254,8 @@ export const _poly1305_aead =
         const passedTag = ciphertext.subarray(-tagLength);
         const tag = computeTag(xorStream, key, nonce, data, AAD);
         if (!equalBytes(passedTag, tag)) throw new Error('invalid tag');
-        xorStream(key, nonce, data, output, 1);
+        output.set(ciphertext.subarray(0, -tagLength));
+        xorStream(key, nonce, output, output, 1); // start stream with i=1
         clean(tag);
         return output;
       },

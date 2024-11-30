@@ -22,6 +22,7 @@ unrolled loops (https://en.wikipedia.org/wiki/Loop_unrolling).
 */
 
 function bytesToNumberLE(bytes: Uint8Array): bigint {
+  abytes(bytes);
   return hexToNumber(bytesToHex(Uint8Array.from(bytes).reverse()));
 }
 
@@ -254,7 +255,7 @@ function computeTag(
  */
 export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
-  function xsalsa20poly1305(key: Uint8Array, nonce: Uint8Array) {
+  function xsalsapoly(key: Uint8Array, nonce: Uint8Array) {
     return {
       encrypt(plaintext: Uint8Array) {
         const m = concatBytes(new Uint8Array(32), plaintext);
@@ -290,16 +291,16 @@ export const _poly1305_aead =
     const tagLength = 16;
     return {
       encrypt(plaintext: Uint8Array) {
-        const res = fn(key, nonce, plaintext, undefined, 1);
-        const tag = computeTag(fn, key, nonce, res, AAD);
-        return concatBytes(res, tag);
+        const data = fn(key, nonce, plaintext, undefined, 1); // stream from i=1
+        const tag = computeTag(fn, key, nonce, data, AAD);
+        return concatBytes(data, tag);
       },
       decrypt(ciphertext: Uint8Array) {
         const passedTag = ciphertext.subarray(-tagLength);
         const data = ciphertext.subarray(0, -tagLength);
         const tag = computeTag(fn, key, nonce, data, AAD);
         if (!equalBytes(tag, passedTag)) throw new Error('invalid poly1305 tag');
-        return fn(key, nonce, data, undefined, 1);
+        return fn(key, nonce, data, undefined, 1); // stream from i=1
       },
     };
   };
