@@ -68,7 +68,7 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 - [Speed](#speed)
 - [Upgrading](#upgrading)
 - [Contributing & testing](#contributing--testing)
-- [Resources](#resources)
+- [License](#license)
 
 ## Examples
 
