@@ -319,6 +319,8 @@ If you can't use it, prefer AES-GCM-SIV, or AES-GCM.
 - Don't re-use keys between different protocols
   - For example, using secp256k1 key in AES can be bad
   - Use hkdf or, at least, a hash function to create sub-key instead
+- If you need AES, only use AES-256 for new protocols
+  - For post-quantum security
 
 ### Nonces
 
