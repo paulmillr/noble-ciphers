@@ -76,7 +76,7 @@ const nodeCipher = (name, pcks7 = true) => {
 };
 
 function buf(n) {
-  return new Uint8Array(n).fill(n);
+  return new Uint8Array(n).fill(n % 251);
 }
 // TODO: re-use in benchmarks?
 // There is more ciphers, also 192 versions

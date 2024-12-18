@@ -1,6 +1,11 @@
 import { deepStrictEqual } from 'assert';
 import { compare } from 'micro-bmark';
 
+export const onlyNoble = process.argv[2] === 'noble';
+export function buf(n) {
+  return new Uint8Array(n).fill(n % 251);
+}
+
 // type Buffers = ({size: string, samples: number, data: Uint8Array})[];
 export async function crossValidate(buffers, ciphers) {
   // Verify that things we bench actually work
@@ -64,10 +69,6 @@ export async function validateHashes(buffers, HASHES) {
   console.log('Libraries cross-validated against each other correctly');
 }
 
-export const onlyNoble = process.argv[2] === 'noble';
-export function buf(n) {
-  return new Uint8Array(n).fill(n);
-}
 export async function benchmarkOnlyNoble(buffers, ciphers) {
   const nobleImpls = [];
   // chacha20_poly1305: {
