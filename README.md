@@ -483,9 +483,9 @@ chacha20 x 1,506,024 ops/sec @ 664ns/op
 xchacha20 x 1,064,962 ops/sec @ 939ns/op
 chacha8 x 1,683,501 ops/sec @ 594ns/op
 chacha12 x 1,628,664 ops/sec @ 614ns/op
-aes-256-ecb x 775,193 ops/sec @ 1μs/op
-aes-256-cbc x 738,552 ops/sec @ 1μs/op
-aes-256-ctr x 737,463 ops/sec @ 1μs/op
+aes-ecb-256 x 775,193 ops/sec @ 1μs/op
+aes-cbc-256 x 738,552 ops/sec @ 1μs/op
+aes-ctr-256 x 737,463 ops/sec @ 1μs/op
 
 1MB
 xsalsa20poly1305 x 205 ops/sec @ 4ms/op
@@ -500,10 +500,10 @@ chacha20 x 506 ops/sec @ 1ms/op
 xchacha20 x 506 ops/sec @ 1ms/op
 chacha8 x 956 ops/sec @ 1ms/op
 chacha12 x 735 ops/sec @ 1ms/op
-aes-256-ecb x 229 ops/sec @ 4ms/op
-aes-256-cbc x 110 ops/sec @ 9ms/op
-aes-256-ctr x 115 ops/sec @ 8ms/op
-
+# Wrapper over built-in webcrypto
+webcrypto ctr-256 x 5,068 ops/sec @ 197μs/op
+webcrypto cbc-256 x 1,116 ops/sec @ 895μs/op
+webcrypto gcm-256 x 4,374 ops/sec @ 228μs/op ± 1.69% [172μs..7ms]
 ```
 
 Compare to other implementations:
