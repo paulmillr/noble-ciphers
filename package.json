@@ -11,8 +11,8 @@
     "*.d.ts.map"
   ],
   "scripts": {
-    "bench": "node benchmark/aead.js noble && node benchmark/ciphers.js noble",
-    "bench:all": "node benchmark/{aead,ciphers,poly}.js",
+    "bench": "node benchmark/noble.js",
+    "bench:compare": "node benchmark/{aead,ciphers,poly}.js",
     "bench:install": "cd benchmark; npm install; npm install .. --install-links",
     "build": "npm run build:clean; tsc && tsc -p tsconfig.esm.json",
     "build:release": "cd build && npm i && npm run build:release",
