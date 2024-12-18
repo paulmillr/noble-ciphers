@@ -524,21 +524,18 @@ chacha (encrypt, 1MB)
 └─noble x 474 ops/sec @ 2ms/op
 
 ctr-256 (encrypt, 1MB)
-├─node x 3,530 ops/sec @ 283μs/op
 ├─stablelib x 70 ops/sec @ 14ms/op
 ├─aesjs x 31 ops/sec @ 32ms/op
 ├─noble-webcrypto x 4,589 ops/sec @ 217μs/op
 └─noble x 107 ops/sec @ 9ms/op
 
 cbc-256 (encrypt, 1MB)
-├─node x 993 ops/sec @ 1ms/op
 ├─stablelib x 63 ops/sec @ 15ms/op
 ├─aesjs x 29 ops/sec @ 34ms/op
 ├─noble-webcrypto x 1,087 ops/sec @ 919μs/op
 └─noble x 110 ops/sec @ 9ms/op
 
 gcm-256 (encrypt, 1MB)
-├─node x 3,196 ops/sec @ 312μs/op
 ├─stablelib x 27 ops/sec @ 36ms/op
 ├─noble-webcrypto x 4,059 ops/sec @ 246μs/op
 └─noble x 74 ops/sec @ 13ms/op
