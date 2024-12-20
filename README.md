@@ -435,6 +435,7 @@ The library uses T-tables for AES, which
 [leak access timings](https://cr.yp.to/antiforgery/cachetiming-20050414.pdf).
 This is also done in [OpenSSL](https://github.com/openssl/openssl/blob/2f33265039cdbd0e4589c80970e02e208f3f94d2/crypto/aes/aes_core.c#L706) and
 [Go stdlib](https://cs.opensource.google/go/go/+/refs/tags/go1.22.6:src/crypto/aes/const.go;l=90) for performance reasons.
+The analysis was mentioned in [hal-04652991](https://hal.science/hal-04652991/document).
 
 ### Supply chain security
 
