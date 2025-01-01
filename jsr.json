@@ -1,0 +1,34 @@
+{
+  "name": "@noble/ciphers",
+  "version": "1.1.3",
+  "exports": {
+    ".": "./src/index.ts",
+    "./_arx": "./src/_arx.ts",
+    "./_assert": "./src/_assert.ts",
+    "./_micro": "./src/_micro.ts",
+    "./_poly1305": "./src/_poly1305.ts",
+    "./_polyval": "./src/_polyval.ts",
+    "./aes": "./src/aes.ts",
+    "./crypto": "./src/crypto.ts",
+    "./chacha": "./src/chacha.ts",
+    "./ff1": "./src/ff1.ts",
+    "./salsa": "./src/salsa.ts",
+    "./utils": "./src/utils.ts",
+    "./webcrypto": "./src/webcrypto.ts"
+  },
+  "imports": {
+    "@noble/ciphers/crypto": "./src/crypto.ts"
+  },
+  "publish": {
+    "include": [
+      "src",
+      "jsr.json",
+      "LICENSE",
+      "README.md"
+    ],
+    "exclude": [
+      "src/cryptoNode.ts"
+    ]
+  },
+  "license": "MIT"
+}
