@@ -2,7 +2,19 @@ const { deepStrictEqual, throws } = require('assert');
 const fc = require('fast-check');
 const { describe, should } = require('micro-should');
 const { TYPE_TEST, unalign } = require('./utils.js');
-const { bytesToHex, concatBytes, hexToBytes, overlapBytes } = require('../utils.js');
+const assert = require('../_assert.js');
+const {
+  createView,
+  bytesToHex,
+  concatBytes,
+  hexToBytes,
+  overlapBytes,
+  toBytes,
+  bytesToUtf8,
+  getOutput,
+  setBigUint64,
+  u64Lengths,
+} = require('../utils.js');
 
 describe('utils', () => {
   const staticHexVectors = [
@@ -105,6 +117,118 @@ describe('utils', () => {
     deepStrictEqual(overlapBytes(main2, leftOverlap), true);
     deepStrictEqual(overlapBytes(main2, rightOverlap), true);
     deepStrictEqual(overlapBytes(main2, inside), true);
+  });
+  should('bytesToUtf8', () => {
+    deepStrictEqual(bytesToUtf8(new Uint8Array([97, 98, 99])), 'abc');
+  });
+  should('toBytes', () => {
+    deepStrictEqual(toBytes(new Uint8Array([97, 98, 99])), new Uint8Array([97, 98, 99]));
+    deepStrictEqual(toBytes('abc'), new Uint8Array([97, 98, 99]));
+    throws(() => toBytes(1));
+  });
+  should('getOutput', () => {
+    deepStrictEqual(getOutput(32), new Uint8Array(32));
+    throws(() => getOutput(32, new Uint8Array(31)));
+    throws(() => getOutput(32, new Uint8Array(33)));
+    const t = new Uint8Array(33).subarray(1);
+    throws(() => getOutput(32, t));
+    deepStrictEqual(getOutput(32, t, false), new Uint8Array(32));
+  });
+  should('setBigUint64', () => {
+    const t = new Uint8Array(20);
+    const v = createView(t);
+    const VECTORS = [
+      {
+        n: 123n,
+        le: false,
+        hex: '000000000000007b000000000000000000000000',
+      },
+      {
+        n: 123n,
+        le: true,
+        hex: '7b00000000000000000000000000000000000000',
+      },
+      {
+        n: 2n ** 64n - 1n,
+        le: true,
+        hex: 'ffffffffffffffff000000000000000000000000',
+      },
+      {
+        n: 2n ** 64n - 1n,
+        le: true,
+        hex: '000000ffffffffffffffff000000000000000000',
+        pos: 3,
+      },
+      {
+        n: 0x123456789abcdef0n,
+        le: true,
+        hex: 'f0debc9a78563412000000000000000000000000',
+      },
+      {
+        n: 0x123456789abcdef0n,
+        le: false,
+        hex: '123456789abcdef0000000000000000000000000',
+      },
+    ];
+    const createViewMock = (u8) => {
+      const v = createView(u8);
+      return {
+        setUint32: (o, wh, isLE) => v.setUint32(o, wh, isLE),
+      };
+    };
+
+    for (const cv of [createView, createViewMock]) {
+      for (const t of VECTORS) {
+        const b = new Uint8Array(20);
+        const v = cv(b);
+        setBigUint64(v, t.pos || 0, t.n, t.le);
+        deepStrictEqual(bytesToHex(b), t.hex);
+      }
+    }
+  });
+  should('u64Lengths', () => {
+    deepStrictEqual(bytesToHex(u64Lengths(new Uint8Array(10))), '00000000000000000a00000000000000');
+    deepStrictEqual(
+      bytesToHex(u64Lengths(new Uint8Array(10), new Uint8Array(7))),
+      '07000000000000000a00000000000000'
+    );
+  });
+});
+
+describe('assert', () => {
+  should('anumber', () => {
+    deepStrictEqual(assert.anumber(10), undefined);
+    throws(() => assert.anumber(1.2));
+    throws(() => assert.anumber('1'));
+    throws(() => assert.anumber(true));
+    throws(() => assert.anumber(NaN));
+  });
+  should('abytes', () => {
+    deepStrictEqual(assert.abytes(new Uint8Array(0)), undefined);
+    deepStrictEqual(assert.abytes(Buffer.alloc(10)), undefined);
+    deepStrictEqual(assert.abytes(new Uint8Array(10)), undefined);
+    assert.abytes(new Uint8Array(11), 11, 12);
+    assert.abytes(new Uint8Array(12), 12, 12);
+    throws(() => assert.abytes('test'));
+    throws(() => assert.abytes(new Uint8Array(10), 11, 12));
+    throws(() => assert.abytes(new Uint8Array(10), 11, 12));
+  });
+  should('ahash', () => {
+    const sha256 = () => {};
+    sha256.blockLen = 1;
+    sha256.outputLen = 1;
+    sha256.create = () => {};
+    deepStrictEqual(assert.ahash(sha256), undefined);
+    throws(() => assert.ahash({}));
+    throws(() => assert.ahash({ blockLen: 1, outputLen: 1, create: () => {} }));
+  });
+  should('aexists', () => {
+    deepStrictEqual(assert.aexists({}), undefined);
+    throws(() => assert.aexists({ destroyed: true }));
+  });
+  should('aoutput', () => {
+    deepStrictEqual(assert.aoutput(new Uint8Array(10), { outputLen: 5 }), undefined);
+    throws(() => assert.aoutput(new Uint8Array(1), { outputLen: 5 }));
   });
 });
 

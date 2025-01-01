@@ -1,4 +1,4 @@
-const { deepStrictEqual } = require('assert');
+const { deepStrictEqual, throws } = require('assert');
 const { describe, should } = require('micro-should');
 const { FF1, BinaryFF1 } = require('../ff1.js');
 const v = require('./vectors/ff1.json');
@@ -110,6 +110,9 @@ describe('FF1', () => {
       const res = ff1.decrypt(fromHex(v.exp));
       deepStrictEqual(res, fromHex(v.data), i);
     }
+  });
+  should('throw on wrong radix', () => {
+    throws(() => FF1(1, new Uint8Array(10)).encrypt([1]));
   });
 });
 

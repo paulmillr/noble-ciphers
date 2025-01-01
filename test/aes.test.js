@@ -3,6 +3,7 @@ const { should, describe } = require('micro-should');
 const { createCipheriv, createDecipheriv } = require('node:crypto');
 const { bytesToHex, concatBytes, hexToBytes } = require('../utils.js');
 const { ecb, cbc, ctr, siv, gcm, aeskw, aeskwp } = require('../aes.js');
+const web = require('../webcrypto.js');
 // https://datatracker.ietf.org/doc/html/rfc8452#appendix-C
 const NIST_VECTORS = require('./vectors/nist_800_38a.json');
 const VECTORS = require('./vectors/siv.json');
@@ -62,6 +63,18 @@ describe('AES', () => {
         deepStrictEqual(c.decrypt(ciphertext), plaintext);
         deepStrictEqual(c.encrypt(plaintext), ciphertext);
       });
+      if (t.name === 'ctr') {
+        should(`${t.name}: web`, async () => {
+          let c;
+          const cipher = web.ctr;
+          if (t.iv) c = cipher(hex.decode(t.key), hex.decode(t.iv || ''), { disablePadding: true });
+          else c = cipher(hex.decode(t.key), { disablePadding: true });
+          const ciphertext = concatBytes(...t.blocks.map((i) => hex.decode(i.ciphertext)));
+          const plaintext = concatBytes(...t.blocks.map((i) => hex.decode(i.plaintext)));
+          deepStrictEqual(await c.decrypt(ciphertext), plaintext);
+          deepStrictEqual(await c.encrypt(plaintext), ciphertext);
+        });
+      }
     }
   });
   describe('GCM-SIV', () => {
@@ -78,20 +91,25 @@ describe('AES', () => {
         });
       }
     }
+    should(`throws on lengths`, () => {
+      siv(new Uint8Array(32), new Uint8Array(12), new Uint8Array(12));
+      throws(() => siv(new Uint8Array(32), new Uint8Array(11), new Uint8Array(12))); // nonce
+      throws(() => siv(new Uint8Array(33), new Uint8Array(12), new Uint8Array(12))); // key
+    });
   });
 
   describe('Wycheproof', () => {
     const cases = [
       { name: 'GCM-SIV', groups: aes_gcm_siv_test.testGroups, cipher: 'siv' },
-      { name: 'GCM', groups: aes_gcm_test.testGroups, cipher: 'gcm' },
-      { name: 'CBC', groups: aes_cbc_test.testGroups, cipher: 'cbc' }, // PCKS5 is enabled by default
+      { name: 'GCM', groups: aes_gcm_test.testGroups, cipher: 'gcm', webcipher: web.gcm },
+      { name: 'CBC', groups: aes_cbc_test.testGroups, cipher: 'cbc', webcipher: web.cbc }, // PCKS5 is enabled by default
     ];
     for (const c of cases) {
       for (const g of c.groups) {
         const name = `Wycheproof/${c.name}/${g.ivSize}/${g.keySize}/${g.tagSize}/${g.type}`;
         for (let i = 0; i < g.tests.length; i++) {
           const t = g.tests[i];
-          should(`${name}: ${i}`, () => {
+          should(`${name}: ${i}`, async () => {
             const ct = concatBytes(hex.decode(t.ct), hex.decode(t.tag || ''));
             const msg = hex.decode(t.msg);
             const cipher = CIPHERS[c.cipher];
@@ -101,6 +119,16 @@ describe('AES', () => {
               const ct = concatBytes(hex.decode(t.ct), hex.decode(t.tag || ''));
               deepStrictEqual(a.decrypt(ct), msg);
               deepStrictEqual(a.encrypt(msg), ct);
+              // Webcrypto has different limits
+              if (c.webcipher && t.iv.length !== 16 && t.iv.length % 16 === 0) {
+                const wc = c.webcipher(
+                  hex.decode(t.key),
+                  hex.decode(t.iv),
+                  hex.decode(t.aad || '')
+                );
+                deepStrictEqual(await wc.decrypt(ct), msg);
+                deepStrictEqual(await wc.encrypt(msg), ct);
+              }
             } else {
               throws(() =>
                 cipher(hex.decode(t.key), hex.decode(t.iv), hex.decode(t.aad || '')).decrypt(ct)
@@ -179,6 +207,9 @@ describe('AES', () => {
           }
         }
       }
+    });
+    should('throws on 8 byte keys', () => {
+      throws(() => aeskw(new Uint8Array(8)).encrypt(new Uint8Array(8)));
     });
     should('KWP', () => {
       // https://www.rfc-editor.org/rfc/rfc5649

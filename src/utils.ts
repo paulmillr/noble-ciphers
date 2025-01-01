@@ -6,8 +6,6 @@ export type TypedArray = Int8Array | Uint8ClampedArray | Uint8Array |
 
 // Cast array to different type
 export const u8 = (arr: TypedArray) => new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
-export const u16 = (arr: TypedArray) =>
-  new Uint16Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 2));
 export const u32 = (arr: TypedArray) =>
   new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
 
@@ -85,19 +83,6 @@ export function numberToBytesBE(n: number | bigint, len: number): Uint8Array {
 // call of async fn will return Promise, which will be fullfiled only on
 // next scheduler queue processing step and this is exactly what we need.
 export const nextTick = async () => {};
-
-// Returns control to thread each 'tick' ms to avoid blocking
-export async function asyncLoop(iters: number, tick: number, cb: (i: number) => void) {
-  let ts = Date.now();
-  for (let i = 0; i < iters; i++) {
-    cb(i);
-    // Date.now() is not monotonic, so in case if clock goes backwards we return return control too
-    const diff = Date.now() - ts;
-    if (diff >= 0 && diff < tick) continue;
-    await nextTick();
-    ts += diff;
-  }
-}
 
 // Global symbols in both browsers and Node.js since v11
 // See https://github.com/microsoft/TypeScript/issues/31535

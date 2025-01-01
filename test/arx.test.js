@@ -1,13 +1,15 @@
 const { deepStrictEqual, throws } = require('assert');
 const { should, describe } = require('micro-should');
 const { base64 } = require('@scure/base');
-const { salsa20, hsalsa, xsalsa20, xsalsa20poly1305 } = require('../salsa.js');
+const { salsa20, hsalsa, xsalsa20, xsalsa20poly1305, secretbox } = require('../salsa.js');
 const {
   chacha20orig,
   hchacha,
   xchacha20,
   chacha20poly1305,
   xchacha20poly1305,
+  chacha12,
+  chacha20,
 } = require('../chacha.js');
 const { poly1305 } = require('../_poly1305.js');
 const slow = require('../_micro.js');
@@ -105,6 +107,23 @@ describe('chacha', () => {
       deepStrictEqual(hex.encode(res2), v.stream);
     }
   });
+  should('short key', () => {
+    const res = chacha20orig(
+      new Uint8Array(16).fill(1),
+      new Uint8Array(8).fill(2),
+      new Uint8Array(10).fill(10)
+    );
+    deepStrictEqual(hex.encode(res), '4ad24b21cba95a002754');
+  });
+  should('small nonce', () => {
+    throws(() =>
+      chacha20orig(
+        new Uint8Array(16).fill(1),
+        new Uint8Array(6).fill(2),
+        new Uint8Array(10).fill(10)
+      )
+    );
+  });
 
   // test taken from draft-arciszewski-xchacha-03 section 2.2.1
   // see https://tools.ietf.org/html/draft-arciszewski-xchacha-03#section-2.2.1
@@ -170,6 +189,14 @@ describe('chacha', () => {
       '93b93111c1a55dd7421a10184974c7c5';
     deepStrictEqual(hex.encode(xchacha20(key, nonce, plaintext)), ciphertext);
     deepStrictEqual(hex.encode(slow.xchacha20(key, nonce, plaintext)), ciphertext);
+  });
+  should('output length', () => {
+    for (const fn of [chacha12, chacha20, chacha20orig, xchacha20, xsalsa20, salsa20]) {
+      // thows on output < data
+      throws(() =>
+        fn(new Uint8Array(32), new Uint8Array(16), new Uint8Array(10), new Uint8Array(9))
+      );
+    }
   });
 });
 
@@ -239,6 +266,12 @@ should('tweetnacl secretbox compat', () => {
     const cSlow = slow.xsalsa20poly1305(key, nonce);
     deepStrictEqual(hex.encode(cSlow.encrypt(msg)), hex.encode(exp), i);
     deepStrictEqual(hex.encode(cSlow.decrypt(exp)), hex.encode(msg), i);
+    // Secret box (micro)
+    deepStrictEqual(slow.secretbox(key, nonce).seal(msg), exp);
+    deepStrictEqual(slow.secretbox(key, nonce).open(exp), msg);
+    // Secret box
+    deepStrictEqual(secretbox(key, nonce).seal(msg), exp);
+    deepStrictEqual(secretbox(key, nonce).open(exp), msg);
   }
 });
 

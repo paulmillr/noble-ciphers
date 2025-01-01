@@ -65,7 +65,7 @@ describe('Basic', () => {
     const opts = CIPHERS[k];
     should(`${k}: blockSize`, () => {
       const { c, key, nonce, copy } = initCipher(opts);
-      const msg = new Uint8Array(opts.fn.blockSize).fill(12);
+      const msg = new Uint8Array(opts.blockSize).fill(12);
       const msgCopy = msg.slice();
       if (checkBlockSize(opts, msgCopy.length)) {
         deepStrictEqual(c.decrypt(c.encrypt(msgCopy)), msg);
@@ -75,7 +75,14 @@ describe('Basic', () => {
         deepStrictEqual(nonce, copy.nonce);
       }
     });
-
+    if (opts.blockSize) {
+      should(`${k}: wrong blockSize`, () => {
+        const { c } = initCipher(opts);
+        const msg = new Uint8Array(opts.blockSize - 1).fill(12);
+        throws(() => c.encrypt(msg));
+        throws(() => c.decrypt(msg));
+      });
+    }
     should(`${k}: round-trip`, () => {
       // slice, so cipher has no way to corrupt msg
       const msg = new Uint8Array(2).fill(12);
