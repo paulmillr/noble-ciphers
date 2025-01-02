@@ -10,7 +10,7 @@ import * as aesw from '@noble/ciphers/webcrypto';
 const buffers = [
   // { size: '16B', samples: 1_500_000, data: buf(16) }, // common block size
   // { size: '32B', samples: 1_500_000, data: buf(32) },
-  { size: '64B', samples: 1_000_000, data: buf(64) },
+  { size: '64B', samples: 500_000, data: buf(64) },
   // { size: '1KB', samples: 50_000, data: buf(1024) },
   // { size: '8KB', samples: 10_000, data: buf(1024 * 8) },
   { size: '1MB', samples: 100, data: buf(1024 * 1024) },
@@ -22,7 +22,7 @@ async function main() {
   const nonce8 = buf(8);
   const nonce16 = buf(16);
   const nonce24 = buf(24);
-  for (let i = 0; i < 100000; i++) xsalsa20poly1305(key, nonce24).encrypt(buf(64)); // warm-up
+  for (let i = 0; i < 100_000; i++) xsalsa20poly1305(key, nonce24).encrypt(buf(64)); // warm-up
   for (const { size, samples: i, data: buf } of buffers) {
     console.log(size);
     await mark('xsalsa20poly1305', i, () => xsalsa20poly1305(key, nonce24).encrypt(buf));
@@ -45,7 +45,7 @@ async function main() {
     if (size === '1MB') {
       console.log('# Wrapper over built-in webcrypto');
       await mark('webcrypto ctr-256', 5000, () => aesw.ctr(key, nonce16).encrypt(buf));
-      await mark('webcrypto cbc-256', 5000, () => aesw.cbc(key, nonce16).encrypt(buf));
+      await mark('webcrypto cbc-256', 1000, () => aesw.cbc(key, nonce16).encrypt(buf));
       await mark('webcrypto gcm-256', 5000, () => aesw.gcm(key, nonce).encrypt(buf));
     }
     console.log();
