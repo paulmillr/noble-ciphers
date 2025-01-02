@@ -53,6 +53,7 @@ export function rotl(a: number, b: number): number {
   return (a << b) | (a >>> (32 - b));
 }
 
+/** Ciphers must use u32 for efficiency. */
 export type CipherCoreFn = (
   sigma: Uint32Array,
   key: Uint32Array,
@@ -62,6 +63,7 @@ export type CipherCoreFn = (
   rounds?: number
 ) => void;
 
+/** Method which extends key + short nonce into larger nonce / diff key. */
 export type ExtendNonceFn = (
   sigma: Uint32Array,
   key: Uint32Array,
@@ -69,11 +71,16 @@ export type ExtendNonceFn = (
   output: Uint32Array
 ) => void;
 
+/** ARX cipher options.
+ * * `allowShortKeys` for 16-byte keys
+ * * `counterLength` in bytes
+ * * `counterRight`: right: `nonce|counter`; left: `counter|nonce`
+ * */
 export type CipherOpts = {
   allowShortKeys?: boolean; // Original salsa / chacha allow 16-byte keys
   extendNonceFn?: ExtendNonceFn;
   counterLength?: number;
-  counterRight?: boolean; // right: nonce|counter; left: counter|nonce
+  counterRight?: boolean;
   rounds?: number;
 };
 
@@ -131,6 +138,7 @@ function runCipher(
   }
 }
 
+/** Creates ARX-like (ChaCha, Salsa) cipher stream from core function. */
 export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
   const { allowShortKeys, extendNonceFn, counterLength, counterRight, rounds } = checkOpts(
     { allowShortKeys: false, counterLength: 8, counterRight: false, rounds: 20 },

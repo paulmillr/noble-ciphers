@@ -124,7 +124,8 @@ const xPowers = /* @__PURE__ */ (() => {
   return p;
 })();
 
-export function expandKeyLE(key: Uint8Array): Uint32Array {
+/** Key expansion used in CTR. */
+function expandKeyLE(key: Uint8Array): Uint32Array {
   abytes(key);
   const len = key.length;
   if (![16, 24, 32].includes(len))
@@ -148,7 +149,7 @@ export function expandKeyLE(key: Uint8Array): Uint32Array {
   return xk;
 }
 
-export function expandKeyDecLE(key: Uint8Array): Uint32Array {
+function expandKeyDecLE(key: Uint8Array): Uint32Array {
   const encKey = expandKeyLE(key);
   const xk = encKey.slice();
   const Nk = encKey.length;
@@ -417,6 +418,7 @@ function padPCKS(left: Uint8Array) {
   return tmp32;
 }
 
+/** Options for ECB and CBC. */
 export type BlockOpts = { disablePadding?: boolean };
 
 /**
@@ -1001,7 +1003,7 @@ export const aeskwp: ((kek: Uint8Array) => Cipher) & {
   })
 );
 
-// Private, unsafe low-level methods. Can change at any time.
+/** Unsafe low-level internal methods. May change at any time. */
 export const unsafe: {
   expandKeyLE: typeof expandKeyLE;
   expandKeyDecLE: typeof expandKeyDecLE;

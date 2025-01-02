@@ -302,4 +302,5 @@ export function wrapConstructorWithKey<H extends Hash<H>>(
   return hashC;
 }
 
+/** Poly1305 MAC from RFC 8439. */
 export const poly1305: CHash = wrapConstructorWithKey((key) => new Poly1305(key));

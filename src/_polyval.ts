@@ -234,7 +234,7 @@ class Polyval extends GHASH {
   }
 }
 
-export type CHash = ReturnType<typeof wrapConstructorWithKey>;
+export type CHashPV = ReturnType<typeof wrapConstructorWithKey>;
 function wrapConstructorWithKey<H extends Hash<H>>(
   hashCons: (key: Input, expectedLength?: number) => Hash<H>
 ): {
@@ -252,9 +252,12 @@ function wrapConstructorWithKey<H extends Hash<H>>(
   return hashC;
 }
 
-export const ghash: CHash = wrapConstructorWithKey(
+/** GHash MAC for AES-GCM. */
+export const ghash: CHashPV = wrapConstructorWithKey(
   (key, expectedLength) => new GHASH(key, expectedLength)
 );
-export const polyval: CHash = wrapConstructorWithKey(
+
+/** Polyval MAC for AES-SIV. */
+export const polyval: CHashPV = wrapConstructorWithKey(
   (key, expectedLength) => new Polyval(key, expectedLength)
 );
