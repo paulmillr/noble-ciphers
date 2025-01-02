@@ -22,6 +22,12 @@ import {
  * @module
  */
 
+export type ARXCipherN = ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
+  blockSize: number;
+  nonceLength: number;
+  tagLength: number;
+};
+
 function bytesToNumberLE(bytes: Uint8Array): bigint {
   abytes(bytes);
   return hexToNumber(bytesToHex(Uint8Array.from(bytes).reverse()));
@@ -92,7 +98,7 @@ function salsaCore(
 }
 
 // prettier-ignore
-export function hsalsa(s: Uint32Array, k: Uint32Array, i: Uint32Array, o32: Uint32Array) {
+export function hsalsa(s: Uint32Array, k: Uint32Array, i: Uint32Array, o32: Uint32Array): void {
   const x = new Uint32Array([
     s[0], k[0], k[1], k[2],
     k[3], s[1], i[0], i[1],
@@ -128,7 +134,7 @@ function chachaCore(
 }
 
 // prettier-ignore
-export function hchacha(s: Uint32Array, k: Uint32Array, i: Uint32Array, o32: Uint32Array) {
+export function hchacha(s: Uint32Array, k: Uint32Array, i: Uint32Array, o32: Uint32Array): void {
   const x = new Uint32Array([
     s[0], s[1], s[2], s[3],
     k[0], k[1], k[2], k[3],
@@ -146,7 +152,7 @@ export function hchacha(s: Uint32Array, k: Uint32Array, i: Uint32Array, o32: Uin
 /**
  * salsa20, 12-byte nonce.
  */
-export const salsa20 = /* @__PURE__ */ createCipher(salsaCore, {
+export const salsa20: XorStream = /* @__PURE__ */ createCipher(salsaCore, {
   allowShortKeys: true,
   counterRight: true,
 });
@@ -154,7 +160,7 @@ export const salsa20 = /* @__PURE__ */ createCipher(salsaCore, {
 /**
  * xsalsa20, 24-byte nonce.
  */
-export const xsalsa20 = /* @__PURE__ */ createCipher(salsaCore, {
+export const xsalsa20: XorStream = /* @__PURE__ */ createCipher(salsaCore, {
   counterRight: true,
   extendNonceFn: hsalsa,
 });
@@ -162,7 +168,7 @@ export const xsalsa20 = /* @__PURE__ */ createCipher(salsaCore, {
 /**
  * chacha20 non-RFC, original version by djb. 8-byte nonce, 8-byte counter.
  */
-export const chacha20orig = /* @__PURE__ */ createCipher(chachaCore, {
+export const chacha20orig: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   allowShortKeys: true,
   counterRight: false,
   counterLength: 8,
@@ -171,7 +177,7 @@ export const chacha20orig = /* @__PURE__ */ createCipher(chachaCore, {
 /**
  * chacha20 RFC 8439 (IETF / TLS). 12-byte nonce, 4-byte counter.
  */
-export const chacha20 = /* @__PURE__ */ createCipher(chachaCore, {
+export const chacha20: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 4,
 });
@@ -179,7 +185,7 @@ export const chacha20 = /* @__PURE__ */ createCipher(chachaCore, {
 /**
  * xchacha20 eXtended-nonce. https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha
  */
-export const xchacha20 = /* @__PURE__ */ createCipher(chachaCore, {
+export const xchacha20: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 8,
   extendNonceFn: hchacha,
@@ -188,7 +194,7 @@ export const xchacha20 = /* @__PURE__ */ createCipher(chachaCore, {
 /**
  * 8-round chacha from the original paper.
  */
-export const chacha8 = /* @__PURE__ */ createCipher(chachaCore, {
+export const chacha8: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 4,
   rounds: 8,
@@ -197,7 +203,7 @@ export const chacha8 = /* @__PURE__ */ createCipher(chachaCore, {
 /**
  * 12-round chacha from the original paper.
  */
-export const chacha12 = /* @__PURE__ */ createCipher(chachaCore, {
+export const chacha12: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 4,
   rounds: 12,
@@ -254,7 +260,7 @@ function computeTag(
 /**
  * xsalsa20-poly1305 eXtended-nonce (24 bytes) salsa.
  */
-export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(
+export const xsalsa20poly1305: ARXCipherN = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
   function xsalsapoly(key: Uint8Array, nonce: Uint8Array) {
     return {
@@ -281,7 +287,13 @@ export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(
 /**
  * Alias to xsalsa20-poly1305
  */
-export function secretbox(key: Uint8Array, nonce: Uint8Array) {
+export function secretbox(
+  key: Uint8Array,
+  nonce: Uint8Array
+): {
+  seal: (plaintext: Uint8Array) => Uint8Array;
+  open: (ciphertext: Uint8Array) => Uint8Array;
+} {
   const xs = xsalsa20poly1305(key, nonce);
   return { seal: xs.encrypt, open: xs.decrypt };
 }
@@ -309,7 +321,7 @@ export const _poly1305_aead =
 /**
  * chacha20-poly1305 12-byte-nonce chacha.
  */
-export const chacha20poly1305 = /* @__PURE__ */ wrapCipher(
+export const chacha20poly1305: ARXCipherN = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 12, tagLength: 16 },
   _poly1305_aead(chacha20)
 );
@@ -318,7 +330,7 @@ export const chacha20poly1305 = /* @__PURE__ */ wrapCipher(
  * xchacha20-poly1305 eXtended-nonce (24 bytes) chacha.
  * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
  */
-export const xchacha20poly1305 = /* @__PURE__ */ wrapCipher(
+export const xchacha20poly1305: ARXCipherN = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
   _poly1305_aead(xchacha20)
 );

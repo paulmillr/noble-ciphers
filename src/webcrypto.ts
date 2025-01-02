@@ -29,7 +29,7 @@ export function randomBytes(bytesLength = 32): Uint8Array {
   throw new Error('crypto.getRandomValues must be defined');
 }
 
-export function getWebcryptoSubtle() {
+export function getWebcryptoSubtle(): any {
   if (crypto && typeof crypto.subtle === 'object' && crypto.subtle != null) return crypto.subtle;
   throw new Error('crypto.subtle must be defined');
 }
@@ -68,14 +68,28 @@ export function managedNonce<T extends CipherWithNonce>(fn: T): RemoveNonce<T> {
 }
 
 // Overridable
-export const utils = {
-  async encrypt(key: Uint8Array, keyParams: any, cryptParams: any, plaintext: Uint8Array) {
+// @TODO
+export const utils: {
+  encrypt: (key: Uint8Array, ...all: any[]) => Promise<Uint8Array>;
+  decrypt: (key: Uint8Array, ...all: any[]) => Promise<Uint8Array>;
+} = {
+  async encrypt(
+    key: Uint8Array,
+    keyParams: any,
+    cryptParams: any,
+    plaintext: Uint8Array
+  ): Promise<Uint8Array> {
     const cr = getWebcryptoSubtle();
     const iKey = await cr.importKey('raw', key, keyParams, true, ['encrypt']);
     const ciphertext = await cr.encrypt(cryptParams, iKey, plaintext);
     return new Uint8Array(ciphertext);
   },
-  async decrypt(key: Uint8Array, keyParams: any, cryptParams: any, ciphertext: Uint8Array) {
+  async decrypt(
+    key: Uint8Array,
+    keyParams: any,
+    cryptParams: any,
+    ciphertext: Uint8Array
+  ): Promise<Uint8Array> {
     const cr = getWebcryptoSubtle();
     const iKey = await cr.importKey('raw', key, keyParams, true, ['decrypt']);
     const plaintext = await cr.decrypt(cryptParams, iKey, ciphertext);
@@ -124,9 +138,12 @@ function generate(algo: BlockMode) {
   };
 }
 
-export const cbc = /* @__PURE__ */ (() => generate(mode.CBC))();
-export const ctr = /* @__PURE__ */ (() => generate(mode.CTR))();
-export const gcm = /* @__PURE__ */ (() => generate(mode.GCM))();
+export const cbc: (key: Uint8Array, nonce: Uint8Array) => AsyncCipher = /* @__PURE__ */ (() =>
+  generate(mode.CBC))();
+export const ctr: (key: Uint8Array, nonce: Uint8Array) => AsyncCipher = /* @__PURE__ */ (() =>
+  generate(mode.CTR))();
+export const gcm: (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => AsyncCipher =
+  /* @__PURE__ */ (() => generate(mode.GCM))();
 
 // // Type tests
 // import { siv, gcm, ctr, ecb, cbc } from '../aes.js';

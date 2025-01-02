@@ -237,7 +237,12 @@ class Polyval extends GHASH {
 export type CHash = ReturnType<typeof wrapConstructorWithKey>;
 function wrapConstructorWithKey<H extends Hash<H>>(
   hashCons: (key: Input, expectedLength?: number) => Hash<H>
-) {
+): {
+  (msg: Input, key: Input): Uint8Array;
+  outputLen: number;
+  blockLen: number;
+  create(key: Input, expectedLength?: number): Hash<H>;
+} {
   const hashC = (msg: Input, key: Input): Uint8Array =>
     hashCons(key, msg.length).update(toBytes(msg)).digest();
   const tmp = hashCons(new Uint8Array(16), 0);
@@ -247,9 +252,9 @@ function wrapConstructorWithKey<H extends Hash<H>>(
   return hashC;
 }
 
-export const ghash = wrapConstructorWithKey(
+export const ghash: CHash = wrapConstructorWithKey(
   (key, expectedLength) => new GHASH(key, expectedLength)
 );
-export const polyval = wrapConstructorWithKey(
+export const polyval: CHash = wrapConstructorWithKey(
   (key, expectedLength) => new Polyval(key, expectedLength)
 );

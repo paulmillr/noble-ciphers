@@ -286,7 +286,14 @@ class Poly1305 implements Hash<Poly1305> {
 }
 
 export type CHash = ReturnType<typeof wrapConstructorWithKey>;
-export function wrapConstructorWithKey<H extends Hash<H>>(hashCons: (key: Input) => Hash<H>) {
+export function wrapConstructorWithKey<H extends Hash<H>>(
+  hashCons: (key: Input) => Hash<H>
+): {
+  (msg: Input, key: Input): Uint8Array;
+  outputLen: number;
+  blockLen: number;
+  create(key: Input): Hash<H>;
+} {
   const hashC = (msg: Input, key: Input): Uint8Array => hashCons(key).update(toBytes(msg)).digest();
   const tmp = hashCons(new Uint8Array(32));
   hashC.outputLen = tmp.outputLen;
@@ -295,4 +302,4 @@ export function wrapConstructorWithKey<H extends Hash<H>>(hashCons: (key: Input)
   return hashC;
 }
 
-export const poly1305 = wrapConstructorWithKey((key) => new Poly1305(key));
+export const poly1305: CHash = wrapConstructorWithKey((key) => new Poly1305(key));

@@ -1,7 +1,15 @@
 import { createCipher, rotl } from './_arx.js';
 import { abytes } from './_assert.js';
 import { poly1305 } from './_poly1305.js';
-import { CipherWithOutput, clean, equalBytes, getOutput, wrapCipher } from './utils.js';
+import {
+  CipherWithOutput,
+  clean,
+  equalBytes,
+  getOutput,
+  wrapCipher,
+  XorStream,
+  ARXCipher,
+} from './utils.js';
 
 /**
  * [Salsa20](https://cr.yp.to/snuffle.html) stream cipher, released in 2005.
@@ -75,7 +83,7 @@ function salsaCore(
 // prettier-ignore
 export function hsalsa(
   s: Uint32Array, k: Uint32Array, i: Uint32Array, o32: Uint32Array
-) {
+): void {
   let x00 = s[0], x01 = k[0], x02 = k[1], x03 = k[2],
     x04 = k[3], x05 = s[1], x06 = i[0], x07 = i[1],
     x08 = i[2], x09 = i[3], x10 = s[2], x11 = k[4],
@@ -110,7 +118,7 @@ export function hsalsa(
  * Unsafe to use random nonces under the same key, due to collision chance.
  * Prefer XSalsa instead.
  */
-export const salsa20 = /* @__PURE__ */ createCipher(salsaCore, {
+export const salsa20: XorStream = /* @__PURE__ */ createCipher(salsaCore, {
   allowShortKeys: true,
   counterRight: true,
 });
@@ -119,7 +127,7 @@ export const salsa20 = /* @__PURE__ */ createCipher(salsaCore, {
  * xsalsa20 eXtended-nonce salsa.
  * Can be safely used with random 24-byte nonces (CSPRNG).
  */
-export const xsalsa20 = /* @__PURE__ */ createCipher(salsaCore, {
+export const xsalsa20: XorStream = /* @__PURE__ */ createCipher(salsaCore, {
   counterRight: true,
   extendNonceFn: hsalsa,
 });
@@ -129,7 +137,7 @@ export const xsalsa20 = /* @__PURE__ */ createCipher(salsaCore, {
  * Can be safely used with random 24-byte nonces (CSPRNG).
  * Also known as secretbox from libsodium / nacl.
  */
-export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(
+export const xsalsa20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
   (key: Uint8Array, nonce: Uint8Array): CipherWithOutput => {
     return {
@@ -172,7 +180,13 @@ export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(
 /**
  * Alias to xsalsa20poly1305, for compatibility with libsodium / nacl
  */
-export function secretbox(key: Uint8Array, nonce: Uint8Array) {
+export function secretbox(
+  key: Uint8Array,
+  nonce: Uint8Array
+): {
+  seal: (plaintext: Uint8Array, output?: Uint8Array) => Uint8Array;
+  open: (ciphertext: Uint8Array, output?: Uint8Array) => Uint8Array;
+} {
   const xs = xsalsa20poly1305(key, nonce);
   return { seal: xs.encrypt, open: xs.decrypt };
 }

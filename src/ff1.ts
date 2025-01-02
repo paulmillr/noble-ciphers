@@ -96,13 +96,17 @@ function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: number[]
 
 const EMPTY_BUF = new Uint8Array([]);
 
-export function FF1(radix: number, key: Uint8Array, tweak: Uint8Array = EMPTY_BUF) {
+export function FF1(
+  radix: number,
+  key: Uint8Array,
+  tweak: Uint8Array = EMPTY_BUF
+): { encrypt(x: number[]): number[]; decrypt(x: number[]): number[] } {
   anumber(radix);
   abytes(key);
   abytes(tweak);
   const PQ = getRound.bind(null, radix, key, tweak);
   return {
-    encrypt(x: number[]) {
+    encrypt(x: number[]): number[] {
       const { u, round, destroy } = PQ(x);
       let [A, B] = [x.slice(0, u), x.slice(u)];
       for (let i = 0; i < 10; i++) [A, B] = round(A, B, i);
@@ -112,7 +116,7 @@ export function FF1(radix: number, key: Uint8Array, tweak: Uint8Array = EMPTY_BU
       B.fill(0);
       return res;
     },
-    decrypt(x: number[]) {
+    decrypt(x: number[]): number[] {
       const { u, round, destroy } = PQ(x);
       // The FF1.Decrypt algorithm is similar to the FF1.Encrypt algorithm;
       // the differences are in Step 6, where:

@@ -190,7 +190,13 @@ function applySbox(sbox2: Uint16Array, s0: number, s1: number, s2: number, s3: n
   );
 }
 
-function encrypt(xk: Uint32Array, s0: number, s1: number, s2: number, s3: number) {
+function encrypt(
+  xk: Uint32Array,
+  s0: number,
+  s1: number,
+  s2: number,
+  s3: number
+): { s0: number; s1: number; s2: number; s3: number } {
   const { sbox2, T01, T23 } = tableEncoding;
   let k = 0;
   (s0 ^= xk[k++]), (s1 ^= xk[k++]), (s2 ^= xk[k++]), (s3 ^= xk[k++]);
@@ -211,7 +217,18 @@ function encrypt(xk: Uint32Array, s0: number, s1: number, s2: number, s3: number
 }
 
 // Can't be merged with encrypt: arg positions for apply0123 / applySbox are different
-function decrypt(xk: Uint32Array, s0: number, s1: number, s2: number, s3: number) {
+function decrypt(
+  xk: Uint32Array,
+  s0: number,
+  s1: number,
+  s2: number,
+  s3: number
+): {
+  s0: number;
+  s1: number;
+  s2: number;
+  s3: number;
+} {
   const { sbox2, T01, T23 } = tableDecoding;
   let k = 0;
   (s0 ^= xk[k++]), (s1 ^= xk[k++]), (s2 ^= xk[k++]), (s3 ^= xk[k++]);
@@ -224,15 +241,20 @@ function decrypt(xk: Uint32Array, s0: number, s1: number, s2: number, s3: number
     (s0 = t0), (s1 = t1), (s2 = t2), (s3 = t3);
   }
   // Last round
-  const t0 = xk[k++] ^ applySbox(sbox2, s0, s3, s2, s1);
-  const t1 = xk[k++] ^ applySbox(sbox2, s1, s0, s3, s2);
-  const t2 = xk[k++] ^ applySbox(sbox2, s2, s1, s0, s3);
-  const t3 = xk[k++] ^ applySbox(sbox2, s3, s2, s1, s0);
+  const t0: number = xk[k++] ^ applySbox(sbox2, s0, s3, s2, s1);
+  const t1: number = xk[k++] ^ applySbox(sbox2, s1, s0, s3, s2);
+  const t2: number = xk[k++] ^ applySbox(sbox2, s2, s1, s0, s3);
+  const t3: number = xk[k++] ^ applySbox(sbox2, s3, s2, s1, s0);
   return { s0: t0, s1: t1, s2: t2, s3: t3 };
 }
 
 // TODO: investigate merging with ctr32
-function ctrCounter(xk: Uint32Array, nonce: Uint8Array, src: Uint8Array, dst?: Uint8Array) {
+function ctrCounter(
+  xk: Uint32Array,
+  nonce: Uint8Array,
+  src: Uint8Array,
+  dst?: Uint8Array
+): Uint8Array {
   abytes(nonce, BLOCK_SIZE);
   abytes(src);
   const srcLen = src.length;
@@ -280,7 +302,7 @@ function ctr32(
   nonce: Uint8Array,
   src: Uint8Array,
   dst?: Uint8Array
-) {
+): Uint8Array {
   abytes(nonce, BLOCK_SIZE);
   abytes(src);
   dst = getOutput(src.length, dst);
@@ -319,7 +341,10 @@ function ctr32(
  * CTR: counter mode. Creates stream cipher.
  * Requires good IV. Parallelizable. OK, but no MAC.
  */
-export const ctr = /* @__PURE__ */ wrapCipher(
+export const ctr: ((key: Uint8Array, nonce: Uint8Array) => CipherWithOutput) & {
+  blockSize: number;
+  nonceLength: number;
+} = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 16 },
   function aesctr(key: Uint8Array, nonce: Uint8Array): CipherWithOutput {
     function processCtr(buf: Uint8Array, dst?: Uint8Array) {
@@ -398,7 +423,9 @@ export type BlockOpts = { disablePadding?: boolean };
  * ECB: Electronic CodeBook. Simple deterministic replacement.
  * Dangerous: always map x to y. See [AES Penguin](https://words.filippo.io/the-ecb-penguin/).
  */
-export const ecb = /* @__PURE__ */ wrapCipher(
+export const ecb: ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
+  blockSize: number;
+} = /* @__PURE__ */ wrapCipher(
   { blockSize: 16 },
   function aesecb(key: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
     const pcks5 = !opts.disablePadding;
@@ -443,7 +470,10 @@ export const ecb = /* @__PURE__ */ wrapCipher(
  * CBC: Cipher-Block-Chaining. Key is previous round’s block.
  * Fragile: needs proper padding. Unauthenticated: needs MAC.
  */
-export const cbc = /* @__PURE__ */ wrapCipher(
+export const cbc: ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
+  blockSize: number;
+  nonceLength: number;
+} = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 16 },
   function aescbc(key: Uint8Array, iv: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
     const pcks5 = !opts.disablePadding;
@@ -504,7 +534,10 @@ export const cbc = /* @__PURE__ */ wrapCipher(
  * CFB: Cipher Feedback Mode. The input for the block cipher is the previous cipher output.
  * Unauthenticated: needs MAC.
  */
-export const cfb = /* @__PURE__ */ wrapCipher(
+export const cfb: ((key: Uint8Array, iv: Uint8Array) => CipherWithOutput) & {
+  blockSize: number;
+  nonceLength: number;
+} = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 16 },
   function aescfb(key: Uint8Array, iv: Uint8Array): CipherWithOutput {
     function processCfb(src: Uint8Array, isEncrypt: boolean, dst?: Uint8Array) {
@@ -578,7 +611,12 @@ function computeTag(
  * Unsafe to use random nonces under the same key, due to collision chance.
  * As for nonce size, prefer 12-byte, instead of 8-byte.
  */
-export const gcm = /* @__PURE__ */ wrapCipher(
+export const gcm: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
+  blockSize: number;
+  nonceLength: number;
+  tagLength: number;
+  varSizeNonce: true;
+} = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 12, tagLength: 16, varSizeNonce: true },
   function aesgcm(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
     // NIST 800-38d doesn't enforce minimum nonce length.
@@ -654,7 +692,12 @@ const limit = (name: string, min: number, max: number) => (value: number) => {
  * plaintexts will produce identical ciphertexts.
  * RFC 8452, https://datatracker.ietf.org/doc/html/rfc8452
  */
-export const siv = /* @__PURE__ */ wrapCipher(
+export const siv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
+  blockSize: number;
+  nonceLength: number;
+  tagLength: number;
+  varSizeNonce: true;
+} = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 12, tagLength: 16, varSizeNonce: true },
   function aessiv(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
     const tagLength = 16;
@@ -757,7 +800,7 @@ function isBytes32(a: unknown): a is Uint32Array {
   );
 }
 
-function encryptBlock(xk: Uint32Array, block: Uint8Array) {
+function encryptBlock(xk: Uint32Array, block: Uint8Array): Uint8Array {
   abytes(block, 16);
   if (!isBytes32(xk)) throw new Error('_encryptBlock accepts result of expandKeyLE');
   const b32 = u32(block);
@@ -766,7 +809,7 @@ function encryptBlock(xk: Uint32Array, block: Uint8Array) {
   return block;
 }
 
-function decryptBlock(xk: Uint32Array, block: Uint8Array) {
+function decryptBlock(xk: Uint32Array, block: Uint8Array): Uint8Array {
   abytes(block, 16);
   if (!isBytes32(xk)) throw new Error('_decryptBlock accepts result of expandKeyLE');
   const b32 = u32(block);
@@ -850,7 +893,9 @@ const AESKW_IV = /* @__PURE__ */ new Uint8Array(8).fill(0xa6); // A6A6A6A6A6A6A6
  * [RFC 3394](https://datatracker.ietf.org/doc/rfc3394/),
  * [NIST.SP.800-38F](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38F.pdf).
  */
-export const aeskw = /* @__PURE__ */ wrapCipher(
+export const aeskw: ((kek: Uint8Array) => Cipher) & {
+  blockSize: number;
+} = /* @__PURE__ */ wrapCipher(
   { blockSize: 8 },
   (kek: Uint8Array): Cipher => ({
     encrypt(plaintext: Uint8Array) {
@@ -922,7 +967,9 @@ const AESKWP_IV = 0xa65959a6; // single u32le value
  * Second u32 of IV is used as counter for length.
  * [RFC 5649](https://www.rfc-editor.org/rfc/rfc5649)
  */
-export const aeskwp = /* @__PURE__ */ wrapCipher(
+export const aeskwp: ((kek: Uint8Array) => Cipher) & {
+  blockSize: number;
+} = /* @__PURE__ */ wrapCipher(
   { blockSize: 8 },
   (kek: Uint8Array): Cipher => ({
     encrypt(plaintext: Uint8Array) {
@@ -955,7 +1002,16 @@ export const aeskwp = /* @__PURE__ */ wrapCipher(
 );
 
 // Private, unsafe low-level methods. Can change at any time.
-export const unsafe = {
+export const unsafe: {
+  expandKeyLE: typeof expandKeyLE;
+  expandKeyDecLE: typeof expandKeyDecLE;
+  encrypt: typeof encrypt;
+  decrypt: typeof decrypt;
+  encryptBlock: typeof encryptBlock;
+  decryptBlock: typeof decryptBlock;
+  ctrCounter: typeof ctrCounter;
+  ctr32: typeof ctr32;
+} = {
   expandKeyLE,
   expandKeyDecLE,
   encrypt,

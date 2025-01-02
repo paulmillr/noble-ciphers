@@ -2,6 +2,7 @@
 import { createCipher, rotl } from './_arx.js';
 import { poly1305 } from './_poly1305.js';
 import {
+  ARXCipher,
   CipherWithOutput,
   XorStream,
   clean,
@@ -104,7 +105,7 @@ function chachaCore(
 // prettier-ignore
 export function hchacha(
   s: Uint32Array, k: Uint32Array, i: Uint32Array, o32: Uint32Array
-) {
+): void {
   let x00 = s[0], x01 = s[1], x02 = s[2], x03 = s[3],
     x04 = k[0], x05 = k[1], x06 = k[2], x07 = k[3],
     x08 = k[4], x09 = k[5], x10 = k[6], x11 = k[7],
@@ -159,7 +160,7 @@ export function hchacha(
 /**
  * Original, non-RFC chacha20 from DJB. 8-byte nonce, 8-byte counter.
  */
-export const chacha20orig = /* @__PURE__ */ createCipher(chachaCore, {
+export const chacha20orig: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 8,
   allowShortKeys: true,
@@ -168,7 +169,7 @@ export const chacha20orig = /* @__PURE__ */ createCipher(chachaCore, {
  * ChaCha stream cipher. Conforms to RFC 8439 (IETF, TLS). 12-byte nonce, 4-byte counter.
  * With 12-byte nonce, it's not safe to use fill it with random (CSPRNG), due to collision chance.
  */
-export const chacha20 = /* @__PURE__ */ createCipher(chachaCore, {
+export const chacha20: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 4,
   allowShortKeys: false,
@@ -179,7 +180,7 @@ export const chacha20 = /* @__PURE__ */ createCipher(chachaCore, {
  * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
  * https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha
  */
-export const xchacha20 = /* @__PURE__ */ createCipher(chachaCore, {
+export const xchacha20: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 8,
   extendNonceFn: hchacha,
@@ -189,7 +190,7 @@ export const xchacha20 = /* @__PURE__ */ createCipher(chachaCore, {
 /**
  * Reduced 8-round chacha, described in original paper.
  */
-export const chacha8 = /* @__PURE__ */ createCipher(chachaCore, {
+export const chacha8: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 4,
   rounds: 8,
@@ -198,7 +199,7 @@ export const chacha8 = /* @__PURE__ */ createCipher(chachaCore, {
 /**
  * Reduced 12-round chacha, described in original paper.
  */
-export const chacha12 = /* @__PURE__ */ createCipher(chachaCore, {
+export const chacha12: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 4,
   rounds: 12,
@@ -278,7 +279,7 @@ export const _poly1305_aead =
  * Unsafe to use random nonces under the same key, due to collision chance.
  * Prefer XChaCha instead.
  */
-export const chacha20poly1305 = /* @__PURE__ */ wrapCipher(
+export const chacha20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 12, tagLength: 16 },
   _poly1305_aead(chacha20)
 );
@@ -287,7 +288,7 @@ export const chacha20poly1305 = /* @__PURE__ */ wrapCipher(
  * Can be safely used with random nonces (CSPRNG).
  * [IRTF draft](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha).
  */
-export const xchacha20poly1305 = /* @__PURE__ */ wrapCipher(
+export const xchacha20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
   _poly1305_aead(xchacha20)
 );

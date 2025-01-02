@@ -5,17 +5,18 @@ export type TypedArray = Int8Array | Uint8ClampedArray | Uint8Array |
   Uint16Array | Int16Array | Uint32Array | Int32Array;
 
 // Cast array to different type
-export const u8 = (arr: TypedArray) => new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
-export const u32 = (arr: TypedArray) =>
+export const u8 = (arr: TypedArray): Uint8Array =>
+  new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
+export const u32 = (arr: TypedArray): Uint32Array =>
   new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
 
 // Cast array to view
-export const createView = (arr: TypedArray) =>
+export const createView = (arr: TypedArray): DataView =>
   new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
 
 // big-endian hardware is rare. Just in case someone still decides to run ciphers:
 // early-throw an error because we don't support BE yet.
-export const isLE = new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44;
+export const isLE: boolean = new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44;
 if (!isLE) throw new Error('Non little-endian hardware is not supported');
 
 // Array where index 0xf0 (240) is mapped to string 'f0'
@@ -82,7 +83,7 @@ export function numberToBytesBE(n: number | bigint, len: number): Uint8Array {
 // There is no setImmediate in browser and setTimeout is slow.
 // call of async fn will return Promise, which will be fullfiled only on
 // next scheduler queue processing step and this is exactly what we need.
-export const nextTick = async () => {};
+export const nextTick = async (): Promise<void> => {};
 
 // Global symbols in both browsers and Node.js since v11
 // See https://github.com/microsoft/TypeScript/issues/31535
@@ -132,7 +133,7 @@ export function overlapBytes(a: Uint8Array, b: Uint8Array): boolean {
  * If input and output overlap and input starts before output, we will overwrite end of input before
  * we start processing it, so this is not supported for most ciphers (except chacha/salse, which designed with this)
  */
-export function complexOverlapBytes(input: Uint8Array, output: Uint8Array) {
+export function complexOverlapBytes(input: Uint8Array, output: Uint8Array): void {
   // This is very cursed. It works somehow, but I'm completely unsure,
   // reasoning about overlapping aligned windows is very hard.
   if (overlapBytes(input, output) && input.byteOffset < output.byteOffset)
@@ -169,7 +170,7 @@ export function checkOpts<T1 extends EmptyObj, T2 extends EmptyObj>(
 }
 
 // Compares 2 u8a-s in kinda constant time
-export function equalBytes(a: Uint8Array, b: Uint8Array) {
+export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
@@ -216,6 +217,15 @@ export type CipherParams = {
   nonceLength?: number;
   tagLength?: number;
   varSizeNonce?: boolean;
+};
+export type ARXCipher = ((
+  key: Uint8Array,
+  nonce: Uint8Array,
+  AAD?: Uint8Array
+) => CipherWithOutput) & {
+  blockSize: number;
+  nonceLength: number;
+  tagLength: number;
 };
 export type CipherCons<T extends any[]> = (key: Uint8Array, ...args: T) => Cipher;
 /**
@@ -284,7 +294,11 @@ export type XorStream = (
   counter?: number
 ) => Uint8Array;
 
-export function getOutput(expectedLength: number, out?: Uint8Array, onlyAligned = true) {
+export function getOutput(
+  expectedLength: number,
+  out?: Uint8Array,
+  onlyAligned = true
+): Uint8Array {
   if (out === undefined) return new Uint8Array(expectedLength);
   if (out.length !== expectedLength)
     throw new Error('invalid output length, expected ' + expectedLength + ', got: ' + out.length);
@@ -310,7 +324,7 @@ export function setBigUint64(
   view.setUint32(byteOffset + l, wl, isLE);
 }
 
-export function u64Lengths(ciphertext: Uint8Array, AAD?: Uint8Array) {
+export function u64Lengths(ciphertext: Uint8Array, AAD?: Uint8Array): Uint8Array {
   const num = new Uint8Array(16);
   const view = createView(num);
   setBigUint64(view, 0, BigInt(AAD ? AAD.length : 0), true);
@@ -319,16 +333,16 @@ export function u64Lengths(ciphertext: Uint8Array, AAD?: Uint8Array) {
 }
 
 // Is byte array aligned to 4 byte offset (u32)?
-export function isAligned32(bytes: Uint8Array) {
+export function isAligned32(bytes: Uint8Array): boolean {
   return bytes.byteOffset % 4 === 0;
 }
 
 // copy bytes to new u8a (aligned). Because Buffer.slice is broken.
-export function copyBytes(bytes: Uint8Array) {
+export function copyBytes(bytes: Uint8Array): Uint8Array {
   return Uint8Array.from(bytes);
 }
 
-export function clean(...arrays: TypedArray[]) {
+export function clean(...arrays: TypedArray[]): void {
   for (let i = 0; i < arrays.length; i++) {
     arrays[i].fill(0);
   }
