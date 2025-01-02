@@ -20,7 +20,7 @@
     "lint": "prettier --check 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
     "format": "prettier --write 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
     "test": "node test/index.js",
-    "coverage": "c8 node test/index.js"
+    "test:coverage": "c8 node test/index.js"
   },
   "author": "Paul Miller (https://paulmillr.com)",
   "homepage": "https://paulmillr.com/noble/",
