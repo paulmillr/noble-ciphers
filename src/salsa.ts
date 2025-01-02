@@ -178,7 +178,7 @@ export const xsalsa20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
 );
 
 /**
- * Alias to xsalsa20poly1305, for compatibility with libsodium / nacl
+ * Alias to `xsalsa20poly1305`, for compatibility with libsodium / nacl
  */
 export function secretbox(
   key: Uint8Array,

@@ -96,6 +96,7 @@ function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: number[]
 
 const EMPTY_BUF = new Uint8Array([]);
 
+/** FPE-FF1 format-preserving encryption */
 export function FF1(
   radix: number,
   key: Uint8Array,
@@ -153,6 +154,7 @@ const binLE = {
   },
 };
 
+/** Binary version of FPE-FF1 format-preserving encryption. */
 export function BinaryFF1(key: Uint8Array, tweak: Uint8Array = EMPTY_BUF): Cipher {
   const ff1 = FF1(2, key, tweak);
   return {

@@ -47,7 +47,13 @@ type CipherWithNonce = ((key: Uint8Array, nonce: Uint8Array, ...args: any[]) => 
   nonceLength: number;
 };
 
-// Uses CSPRG for nonce, nonce injected in ciphertext
+/**
+ * Uses CSPRG for nonce, nonce injected in ciphertext.
+ * @example
+ * const gcm = managedNonce(aes.gcm);
+ * const ciphr = gcm(key).encrypt(data);
+ * const plain = gcm(key).decrypt(ciph);
+ */
 export function managedNonce<T extends CipherWithNonce>(fn: T): RemoveNonce<T> {
   const { nonceLength } = fn;
   anumber(nonceLength);
@@ -138,10 +144,13 @@ function generate(algo: BlockMode) {
   };
 }
 
-export const cbc: (key: Uint8Array, nonce: Uint8Array) => AsyncCipher = /* @__PURE__ */ (() =>
+/** AES-CBC, native webcrypto version */
+export const cbc: (key: Uint8Array, iv: Uint8Array) => AsyncCipher = /* @__PURE__ */ (() =>
   generate(mode.CBC))();
+/** AES-CTR, native webcrypto version */
 export const ctr: (key: Uint8Array, nonce: Uint8Array) => AsyncCipher = /* @__PURE__ */ (() =>
   generate(mode.CTR))();
+/** AES-GCM, native webcrypto version */
 export const gcm: (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => AsyncCipher =
   /* @__PURE__ */ (() => generate(mode.GCM))();
 
