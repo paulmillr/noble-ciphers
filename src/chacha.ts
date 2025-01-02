@@ -12,9 +12,20 @@ import {
   wrapCipher,
 } from './utils.js';
 
-// ChaCha20 stream cipher was released in 2008. ChaCha aims to increase
-// the diffusion per round, but had slightly less cryptanalysis.
-// https://cr.yp.to/chacha.html, http://cr.yp.to/chacha/chacha-20080128.pdf
+/**
+ * [ChaCha20](https://cr.yp.to/chacha.html) stream cipher, released
+ * in 2008. Developed after Salsa20, ChaCha aims to increase diffusion per round.
+ * It was standardized in [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and
+ * is now used in TLS 1.3.
+ *
+ * [XChaCha20](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha)
+ * extended-nonce variant is also provided. Similar to XSalsa, it's safe to use with
+ * randomly-generated nonces.
+ *
+ * Check out [PDF](http://cr.yp.to/chacha/chacha-20080128.pdf) and
+ * [wiki](https://en.wikipedia.org/wiki/Salsa20).
+ * @module
+ */
 
 /**
  * ChaCha core function.

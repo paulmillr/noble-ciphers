@@ -19,19 +19,22 @@ import {
   overlapBytes,
 } from './utils.js';
 
-/*
-AES (Advanced Encryption Standard) aka Rijndael block cipher.
-
-Data is split into 128-bit blocks. Encrypted in 10/12/14 rounds (128/192/256 bits). In every round:
-1. **S-box**, table substitution
-2. **Shift rows**, cyclic shift left of all rows of data array
-3. **Mix columns**, multiplying every column by fixed polynomial
-4. **Add round key**, round_key xor i-th column of array
-
-Resources:
-- FIPS-197 https://csrc.nist.gov/files/pubs/fips/197/final/docs/fips-197.pdf
-- Original proposal: https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf
-*/
+/**
+ * [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard)
+ * a.k.a. Advanced Encryption Standard
+ * is a variant of Rijndael block cipher, standardized by NIST in 2001.
+ * We provide the fastest available pure JS implementation.
+ *
+ * Data is split into 128-bit blocks. Encrypted in 10/12/14 rounds (128/192/256 bits). In every round:
+ * 1. **S-box**, table substitution
+ * 2. **Shift rows**, cyclic shift left of all rows of data array
+ * 3. **Mix columns**, multiplying every column by fixed polynomial
+ * 4. **Add round key**, round_key xor i-th column of array
+ *
+ * Check out [FIPS-197](https://csrc.nist.gov/files/pubs/fips/197/final/docs/fips-197.pdf)
+ * and [original proposal](https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf)
+ * @module
+ */
 
 const BLOCK_SIZE = 16;
 const BLOCK_SIZE32 = 4;

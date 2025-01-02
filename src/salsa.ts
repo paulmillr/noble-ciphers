@@ -3,10 +3,21 @@ import { abytes } from './_assert.js';
 import { poly1305 } from './_poly1305.js';
 import { CipherWithOutput, clean, equalBytes, getOutput, wrapCipher } from './utils.js';
 
-// Salsa20 stream cipher was released in 2005.
-// Salsa's goal was to implement AES replacement that does not rely on S-Boxes,
-// which are hard to implement in a constant-time manner.
-// https://cr.yp.to/snuffle.html, https://cr.yp.to/snuffle/salsafamily-20071225.pdf
+/**
+ * [Salsa20](https://cr.yp.to/snuffle.html) stream cipher, released in 2005.
+ *
+ * Salsa's goal was to implement AES replacement that does not rely on S-Boxes,
+ * which are hard to implement in a constant-time manner.
+ * Salsa20 is usually faster than AES, a big deal on slow, budget mobile phones.
+ *
+ * [XSalsa20](https://cr.yp.to/snuffle/xsalsa-20110204.pdf), extended-nonce
+ * variant was released in 2008. It switched nonces from 96-bit to 192-bit,
+ * and became safe to be picked at random.
+ *
+ * Check out [PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf) and
+ * [wiki](https://en.wikipedia.org/wiki/Salsa20).
+ * @module
+ */
 
 /**
  * Salsa20 core function.

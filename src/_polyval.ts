@@ -1,13 +1,20 @@
 import { abytes, aexists, aoutput } from './_assert.js';
 import { clean, copyBytes, createView, Hash, Input, toBytes, u32 } from './utils.js';
 
-// GHash from AES-GCM and its little-endian "mirror image" Polyval from AES-SIV.
-// Implemented in terms of GHash with conversion function for keys
-// GCM GHASH from NIST SP800-38d, SIV from RFC 8452.
-// https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf
-
-// GHASH   modulo: x^128 + x^7   + x^2   + x     + 1
-// POLYVAL modulo: x^128 + x^127 + x^126 + x^121 + 1
+/**
+ * GHash from AES-GCM and its little-endian "mirror image" Polyval from AES-SIV.
+ *
+ * Implemented in terms of GHash with conversion function for keys
+ * GCM GHASH from
+ * [NIST SP800-38d](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf),
+ * SIV from
+ * [RFC 8452](https://datatracker.ietf.org/doc/html/rfc8452).
+ *
+ * GHASH   modulo: x^128 + x^7   + x^2   + x     + 1
+ * POLYVAL modulo: x^128 + x^127 + x^126 + x^121 + 1
+ *
+ * @module
+ */
 
 const BLOCK_SIZE = 16;
 // TODO: rewrite

@@ -247,7 +247,7 @@ import { ghash, polyval } from '@noble/ciphers/_polyval';
 
 ### Implemented primitives
 
-- [Salsa20](https://cr.yp.to/snuffle.html) stream cipher was released in 2005.
+- [Salsa20](https://cr.yp.to/snuffle.html) stream cipher, released in 2005.
 Salsa's goal was to implement AES replacement that does not rely on S-Boxes,
 which are hard to implement in a constant-time manner.
 Salsa20 is usually faster than AES, a big deal on slow, budget mobile phones.
@@ -259,10 +259,10 @@ authenticated encryption. Secretbox is just xsalsa20-poly1305. We provide the
 alias and corresponding seal / open methods. We don't provide "box" or "sealedbox".
     - Check out [PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf) and
 [wiki](https://en.wikipedia.org/wiki/Salsa20).
-- [ChaCha20](https://cr.yp.to/chacha.html) stream cipher was released
-  in 2008. ChaCha aims to increase the diffusion per round, but had slightly less
-  cryptanalysis. It was standardized in
-  [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3.
+- [ChaCha20](https://cr.yp.to/chacha.html) stream cipher, released
+  in 2008. Developed after Salsa20, ChaCha aims to increase diffusion per round.
+  It was standardized in [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439)
+  and is now used in TLS 1.3.
     - [XChaCha20](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha)
       extended-nonce variant is also provided. Similar to XSalsa, it's safe to use with
       randomly-generated nonces.
