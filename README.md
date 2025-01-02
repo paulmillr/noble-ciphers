@@ -34,9 +34,9 @@ Take a glance at [GitHub Discussions](https://github.com/paulmillr/noble-ciphers
 
 > npm install @noble/ciphers
 
+> deno add jsr:@noble/ciphers
+
 We support all major platforms and runtimes.
-For [Deno](https://deno.land), ensure to use
-[npm specifier](https://deno.land/manual@v1.28.0/node/npm_specifiers).
 For React Native, you may need a
 [polyfill for getRandomValues](https://github.com/LinusU/react-native-get-random-values).
 A standalone file
@@ -45,7 +45,6 @@ A standalone file
 ```js
 // import * from '@noble/ciphers'; // Error: use sub-imports, to ensure small app size
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
-// import { xchacha20poly1305 } from 'npm:@noble/ciphers@1.1.0/chacha'; // Deno
 ```
 
 - [Examples](#examples)
