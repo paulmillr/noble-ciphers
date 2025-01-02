@@ -1,7 +1,7 @@
 import { createCipher, rotl } from './_arx.js';
 import { abytes } from './_assert.js';
 import { poly1305 } from './_poly1305.js';
-import { Cipher, clean, equalBytes, getOutput, wrapCipher } from './utils.js';
+import { CipherWithOutput, clean, equalBytes, getOutput, wrapCipher } from './utils.js';
 
 // Salsa20 stream cipher was released in 2005.
 // Salsa's goal was to implement AES replacement that does not rely on S-Boxes,
@@ -120,7 +120,7 @@ export const xsalsa20 = /* @__PURE__ */ createCipher(salsaCore, {
  */
 export const xsalsa20poly1305 = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
-  (key: Uint8Array, nonce: Uint8Array): Cipher => {
+  (key: Uint8Array, nonce: Uint8Array): CipherWithOutput => {
     return {
       encrypt(plaintext: Uint8Array, output?: Uint8Array) {
         // xsalsa20poly1305 optimizes by calculating auth key during the same call as encryption.
