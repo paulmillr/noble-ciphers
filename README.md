@@ -36,6 +36,8 @@ Take a glance at [GitHub Discussions](https://github.com/paulmillr/noble-ciphers
 
 > deno add jsr:@noble/ciphers
 
+> deno doc jsr:@noble/ciphers  # command-line documentation
+
 We support all major platforms and runtimes.
 For React Native, you may need a
 [polyfill for getRandomValues](https://github.com/LinusU/react-native-get-random-values).
