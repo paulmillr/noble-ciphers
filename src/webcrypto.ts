@@ -1,15 +1,13 @@
 /**
  * WebCrypto-based AES gcm/ctr/cbc, `managedNonce` and `randomBytes`.
+ * We use WebCrypto aka globalThis.crypto, which exists in browsers and node.js 16+.
+ * node.js versions earlier than v19 don't declare it in global scope.
+ * For node.js, package.js on#exports field mapping rewrites import
+ * from `crypto` to `cryptoNode`, which imports native module.
+ * Makes the utils un-importable in browsers without a bundler.
+ * Once node.js 18 is deprecated, we can just drop the import.
  * @module
  */
-
-// We use WebCrypto aka globalThis.crypto, which exists in browsers and node.js 16+.
-// node.js versions earlier than v19 don't declare it in global scope.
-// For node.js, package.js on#exports field mapping rewrites import
-// from `crypto` to `cryptoNode`, which imports native module.
-// Makes the utils un-importable in browsers without a bundler.
-// Once node.js 18 is deprecated, we can just drop the import.
-//
 // Use full path so that Node.js can rewrite it to `cryptoNode.js`.
 import { crypto } from '@noble/ciphers/crypto';
 import { abytes, anumber } from './_assert.js';

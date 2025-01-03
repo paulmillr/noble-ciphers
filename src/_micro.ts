@@ -1,3 +1,9 @@
+/**
+ * noble-ciphers-micro: more auditable, but 4x slower version of salsa20, chacha & poly1305.
+ * Implements the same algorithms that are present in other files, but without
+ * unrolled loops (https://en.wikipedia.org/wiki/Loop_unrolling).
+ * @module
+ */
 /*! noble-ciphers - MIT License (c) 2023 Paul Miller (paulmillr.com) */
 // prettier-ignore
 import { createCipher, rotl } from './_arx.js';
@@ -14,13 +20,6 @@ import {
   setBigUint64,
   wrapCipher,
 } from './utils.js';
-
-/**
- * noble-ciphers-micro: more auditable, but 4x slower version of salsa20, chacha & poly1305.
- * Implements the same algorithms that are present in other files, but without
- * unrolled loops (https://en.wikipedia.org/wiki/Loop_unrolling).
- * @module
- */
 
 export type ARXCipherN = ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
   blockSize: number;

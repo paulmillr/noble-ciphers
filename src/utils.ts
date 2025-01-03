@@ -1,3 +1,7 @@
+/**
+ * Utilities for hex, bytes, CSPRNG.
+ * @module
+ */
 /*! noble-ciphers - MIT License (c) 2023 Paul Miller (paulmillr.com) */
 import { abytes, isBytes } from './_assert.js';
 // prettier-ignore

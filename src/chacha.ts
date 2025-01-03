@@ -1,18 +1,3 @@
-// prettier-ignore
-import { createCipher, rotl } from './_arx.js';
-import { poly1305 } from './_poly1305.js';
-import {
-  ARXCipher,
-  CipherWithOutput,
-  XorStream,
-  clean,
-  createView,
-  equalBytes,
-  getOutput,
-  setBigUint64,
-  wrapCipher,
-} from './utils.js';
-
 /**
  * [ChaCha20](https://cr.yp.to/chacha.html) stream cipher, released
  * in 2008. Developed after Salsa20, ChaCha aims to increase diffusion per round.
@@ -27,6 +12,19 @@ import {
  * [wiki](https://en.wikipedia.org/wiki/Salsa20).
  * @module
  */
+import { createCipher, rotl } from './_arx.js';
+import { poly1305 } from './_poly1305.js';
+import {
+  ARXCipher,
+  CipherWithOutput,
+  XorStream,
+  clean,
+  createView,
+  equalBytes,
+  getOutput,
+  setBigUint64,
+  wrapCipher,
+} from './utils.js';
 
 /**
  * ChaCha core function.

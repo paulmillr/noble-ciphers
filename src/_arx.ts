@@ -1,12 +1,6 @@
-import { abool, abytes, anumber } from './_assert.js';
-import { XorStream, checkOpts, clean, copyBytes, u32 } from './utils.js';
-
 /**
  * Basic utils for ARX (add-rotate-xor) salsa and chacha ciphers.
- * @module
- */
 
-/*
 RFC8439 requires multi-step cipher stream, where
 authKey starts with counter: 0, actual msg with counter: 1.
 
@@ -39,7 +33,11 @@ xchacha [^2] uses the subkey and remaining 8 byte nonce with ChaCha20 as normal
 
 [^1]: https://mailarchive.ietf.org/arch/msg/cfrg/gsOnTJzcbgG6OqD8Sc0GO5aR_tU/
 [^2]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha#appendix-A.2
-*/
+
+ * @module
+ */
+import { abool, abytes, anumber } from './_assert.js';
+import { XorStream, checkOpts, clean, copyBytes, u32 } from './utils.js';
 
 // We can't make top-level var depend on utils.utf8ToBytes
 // because it's not present in all envs. Creating a similar fn here

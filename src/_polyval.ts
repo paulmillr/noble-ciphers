@@ -1,6 +1,3 @@
-import { abytes, aexists, aoutput } from './_assert.js';
-import { clean, copyBytes, createView, Hash, Input, toBytes, u32 } from './utils.js';
-
 /**
  * GHash from AES-GCM and its little-endian "mirror image" Polyval from AES-SIV.
  *
@@ -15,6 +12,8 @@ import { clean, copyBytes, createView, Hash, Input, toBytes, u32 } from './utils
  *
  * @module
  */
+import { abytes, aexists, aoutput } from './_assert.js';
+import { clean, copyBytes, createView, Hash, Input, toBytes, u32 } from './utils.js';
 
 const BLOCK_SIZE = 16;
 // TODO: rewrite

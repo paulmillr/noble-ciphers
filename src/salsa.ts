@@ -1,16 +1,3 @@
-import { createCipher, rotl } from './_arx.js';
-import { abytes } from './_assert.js';
-import { poly1305 } from './_poly1305.js';
-import {
-  CipherWithOutput,
-  clean,
-  equalBytes,
-  getOutput,
-  wrapCipher,
-  XorStream,
-  ARXCipher,
-} from './utils.js';
-
 /**
  * [Salsa20](https://cr.yp.to/snuffle.html) stream cipher, released in 2005.
  *
@@ -26,6 +13,18 @@ import {
  * [wiki](https://en.wikipedia.org/wiki/Salsa20).
  * @module
  */
+import { createCipher, rotl } from './_arx.js';
+import { abytes } from './_assert.js';
+import { poly1305 } from './_poly1305.js';
+import {
+  CipherWithOutput,
+  clean,
+  equalBytes,
+  getOutput,
+  wrapCipher,
+  XorStream,
+  ARXCipher,
+} from './utils.js';
 
 /**
  * Salsa20 core function.
