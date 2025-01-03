@@ -1,1 +1,5 @@
-throw new Error('noble-ciphers have no entry-point: consult README for usage');
+/**
+ * Audited & minimal JS implementation of Salsa20, ChaCha and AES. Check out individual modules.
+ * @module
+ */
+throw new Error('root module cannot be imported: import submodules instead. Check out README');
