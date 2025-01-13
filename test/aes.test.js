@@ -4,8 +4,7 @@ import { should, describe } from 'micro-should';
 import { bytesToHex, concatBytes, hexToBytes } from '../esm/utils.js';
 import { ecb, cbc, ctr, siv, gcm, aeskw, aeskwp } from '../esm/aes.js';
 import { json } from './utils.js';
-
-// TODO: enable back name: 'GCM', groups: aes_gcm_test.testGroups
+import * as web from '../esm/webcrypto.js';
 
 // https://datatracker.ietf.org/doc/html/rfc8452#appendix-C
 const NIST_VECTORS = json('./vectors/nist_800_38a.json');
@@ -104,8 +103,8 @@ describe('AES', () => {
   describe('Wycheproof', () => {
     const cases = [
       { name: 'GCM-SIV', groups: aes_gcm_siv_test.testGroups, cipher: 'siv' },
-      // { name: 'GCM', groups: aes_gcm_test.testGroups, cipher: 'gcm', webcipher: web.gcm },
-      // { name: 'CBC', groups: aes_cbc_test.testGroups, cipher: 'cbc', webcipher: web.cbc }, // PCKS5 is enabled by default
+      { name: 'GCM', groups: aes_gcm_test.testGroups, cipher: 'gcm', webcipher: web.gcm },
+      { name: 'CBC', groups: aes_cbc_test.testGroups, cipher: 'cbc', webcipher: web.cbc }, // PCKS5 is enabled by default
     ];
     for (const c of cases) {
       for (const g of c.groups) {

@@ -1,16 +1,11 @@
 import { deepStrictEqual, throws } from 'node:assert';
 import { should, describe } from 'micro-should';
-// import { managedNonce } from '../esm/webcrypto.js';
+import { managedNonce, randomBytes } from '../esm/webcrypto.js';
 import { siv, gcm, ctr, ecb, cbc, cfb, aeskw, aeskwp } from '../esm/aes.js';
 import { xsalsa20poly1305 } from '../esm/salsa.js';
 import { chacha20poly1305, xchacha20poly1305 } from '../esm/chacha.js';
 import { unalign, TYPE_TEST } from './utils.js';
 import * as micro from '../esm/_micro.js';
-
-// TODO: enable back managedNonce and randomBytes
-function randomBytes(len) {
-  return new Uint8Array(len).fill(len % 251);
-}
 
 const CIPHERS = {
   xsalsa20poly1305: { fn: xsalsa20poly1305, keyLen: 32, withNonce: true },
@@ -39,14 +34,13 @@ for (const keyLen of [16, 24, 32]) {
 for (const k in CIPHERS) {
   const opts = CIPHERS[k];
   if (!opts.withNonce) continue;
-  // CIPHERS[`${k}_managedNonce`] = { ...opts, fn: managedNonce(opts.fn), withNonce: false };
+  CIPHERS[`${k}_managedNonce`] = { ...opts, fn: managedNonce(opts.fn), withNonce: false };
 }
-// TODO
-// CIPHERS.managedCbcNoPadding = {
-//   fn: managedNonce(cbc),
-//   args: [{ disablePadding: true }],
-//   blockSize: 16,
-// };
+CIPHERS.managedCbcNoPadding = {
+  fn: managedNonce(cbc),
+  args: [{ disablePadding: true }],
+  blockSize: 16,
+};
 
 const checkBlockSize = (opts, len) => {
   if (opts.minLength && len < opts.minLength) return false;
