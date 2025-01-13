@@ -1,10 +1,10 @@
-const { should } = require('micro-should');
-require('./basic.test.js');
-require('./arx.test.js');
-require('./polyval.test.js');
-require('./aes.test.js');
-require('./ff1.test.js');
-require('./utils.test.js');
-require('./crosstest.test.js');
+import { should } from 'micro-should';
+import './basic.test.js';
+import './arx.test.js';
+import './polyval.test.js';
+import './aes.test.js';
+import './ff1.test.js';
+import './utils.test.js';
+import './crosstest.test.js';
 
-if (require.main === module) should.run();
+should.runWhen(import.meta.url);

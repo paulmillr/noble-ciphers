@@ -1,9 +1,9 @@
-const { deepStrictEqual, throws } = require('assert');
-const fc = require('fast-check');
-const { describe, should } = require('micro-should');
-const { TYPE_TEST, unalign } = require('./utils.js');
-const assert = require('../_assert.js');
-const {
+import { deepStrictEqual, throws } from 'node:assert';
+import fc from 'fast-check';
+import { describe, should } from 'micro-should';
+import { TYPE_TEST, unalign } from './utils.js';
+import * as assert from '../esm/_assert.js';
+import {
   createView,
   bytesToHex,
   concatBytes,
@@ -14,7 +14,7 @@ const {
   getOutput,
   setBigUint64,
   u64Lengths,
-} = require('../utils.js');
+} from '../esm/utils.js';
 
 describe('utils', () => {
   const staticHexVectors = [
@@ -42,7 +42,8 @@ describe('utils', () => {
         if (hex.length % 2 !== 0) return;
         deepStrictEqual(hex, bytesToHex(hexToBytes(hex)));
         deepStrictEqual(hex, bytesToHex(hexToBytes(hex.toUpperCase())));
-        deepStrictEqual(hexToBytes(hex), Uint8Array.from(Buffer.from(hex, 'hex')));
+        if (typeof Buffer !== 'undefined')
+          deepStrictEqual(hexToBytes(hex), Uint8Array.from(Buffer.from(hex, 'hex')));
       })
     )
   );
@@ -64,7 +65,7 @@ describe('utils', () => {
   should('concatBytes random', () =>
     fc.assert(
       fc.property(fc.uint8Array(), fc.uint8Array(), fc.uint8Array(), (a, b, c) => {
-        const expected = Uint8Array.from(Buffer.concat([a, b, c]));
+        const expected = Uint8Array.from([...a, ...b, ...c]);
         deepStrictEqual(concatBytes(a.slice(), b.slice(), c.slice()), expected);
       })
     )
@@ -205,7 +206,7 @@ describe('assert', () => {
   });
   should('abytes', () => {
     deepStrictEqual(assert.abytes(new Uint8Array(0)), undefined);
-    deepStrictEqual(assert.abytes(Buffer.alloc(10)), undefined);
+    if (typeof Buffer !== 'undefined') deepStrictEqual(assert.abytes(Buffer.alloc(10)), undefined);
     deepStrictEqual(assert.abytes(new Uint8Array(10)), undefined);
     assert.abytes(new Uint8Array(11), 11, 12);
     assert.abytes(new Uint8Array(12), 12, 12);
@@ -247,4 +248,4 @@ describe('utils etc', () => {
   });
 });
 
-if (require.main === module) should.run();
+should.runWhen(import.meta.url);

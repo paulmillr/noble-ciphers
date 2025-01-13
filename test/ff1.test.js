@@ -1,18 +1,22 @@
-const { deepStrictEqual, throws } = require('assert');
-const { describe, should } = require('micro-should');
-const { FF1, BinaryFF1 } = require('../ff1.js');
-const v = require('./vectors/ff1.json');
+import { deepStrictEqual, throws } from 'node:assert';
+import { describe, should } from 'micro-should';
+import { FF1, BinaryFF1 } from '../esm/ff1.js';
+import { json, hexToBytes } from './utils.js';
+
+const v = json('./vectors/ff1.json');
 const BIN_VECTORS = v.v;
 // @ts-ignore
 
-const fromHex = (hex) =>
-  hex ? Uint8Array.from(Buffer.from(hex.replace(/ /g, ''), 'hex')) : new Uint8Array([]);
+const fromHex = (hex) => {
+  return hex ? hexToBytes(hex) : Uint8Array.from([]);
+};
 
 // NIST Vectors: https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Standards-and-Guidelines/documents/examples/FF1samples.pdf
 const VECTORS = [
   // AES-128
   {
-    key: fromHex('2B 7E 15 16 28 AE D2 A6 AB F7 15 88 09 CF 4F 3C'),
+    // key: fromHex('2B 7E 15 16 28 AE D2 A6 AB F7 15 88 09 CF 4F 3C'),
+    key: fromHex('2B7E151628AED2A6ABF7158809CF4F3C'),
     radix: 10,
     tweak: new Uint8Array([]),
     PT: '0123456789',
@@ -116,4 +120,4 @@ describe('FF1', () => {
   });
 });
 
-if (require.main === module) should.run();
+should.runWhen(import.meta.url);

@@ -1,6 +1,11 @@
-const fs = require('fs');
-const zlib = require('zlib');
-const { bytesToHex, concatBytes, hexToBytes } = require('../utils.js');
+import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
+import { dirname, join as joinPath } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { bytesToHex, concatBytes, hexToBytes } from '../esm/utils.js';
+
+export const _dirname = dirname(fileURLToPath(import.meta.url));
+
 const utf8ToBytes = (str) => new TextEncoder().encode(str);
 const truncate = (buf, length) => (length ? buf.slice(0, length) : buf);
 
@@ -105,7 +110,19 @@ function stats(list) {
 const times = (byte, n) => new Uint8Array(n).fill(byte);
 const pattern = (toByte, len) => Uint8Array.from({ length: len }, (i, j) => j % (toByte + 1));
 
-const jsonGZ = (path) => JSON.parse(zlib.gunzipSync(fs.readFileSync(`${__dirname}/${path}`)));
+export function json(path) {
+  try {
+    // Node.js
+    return JSON.parse(readFileSync(joinPath(_dirname, path), { encoding: 'utf-8' }));
+  } catch (error) {
+    // Bundler
+    console.error(error);
+    const file = path.replace(/^\.\//, '').replace(/\.json$/, '');
+    if (path !== './' + file + '.json') throw new Error('Can not load non-json file');
+    // return require('./' + file + '.json'); // in this form so that bundler can glob this
+  }
+}
+const jsonGZ = (path) => JSON.parse(gunzipSync(readFileSync(`${_dirname}/${path}`)));
 
 const unalign = (arr, len) => {
   const n = new Uint8Array(arr.length + len);
@@ -113,7 +130,16 @@ const unalign = (arr, len) => {
   return n.subarray(len);
 };
 
-module.exports = {
+const SPACE = {
+  str: ' ',
+  bytes: new Uint8Array([0x20]),
+};
+const EMPTY = {
+  str: '',
+  bytes: new Uint8Array([]),
+};
+
+export {
   utf8ToBytes,
   hexToBytes,
   bytesToHex,
@@ -121,14 +147,8 @@ module.exports = {
   repeat,
   concatBytes,
   TYPE_TEST,
-  SPACE: {
-    str: ' ',
-    bytes: new Uint8Array([0x20]),
-  },
-  EMPTY: {
-    str: '',
-    bytes: new Uint8Array([]),
-  },
+  SPACE,
+  EMPTY,
   stats,
   times,
   pattern,

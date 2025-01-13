@@ -1,10 +1,10 @@
-const { deepStrictEqual, throws } = require('assert');
-const { should, describe } = require('micro-should');
-const aes = require('../aes.js');
-const { xsalsa20poly1305 } = require('../salsa.js');
-const { chacha20poly1305, xchacha20poly1305, chacha20 } = require('../chacha.js');
-const crypto = require('crypto');
-const { concatBytes } = require('../utils.js');
+import { deepStrictEqual } from 'node:assert';
+import { getCiphers, createCipheriv, createDecipheriv } from 'node:crypto';
+import { should, describe } from 'micro-should';
+import * as aes from '../esm/aes.js';
+import { xsalsa20poly1305 } from '../esm/salsa.js';
+import { chacha20poly1305, xchacha20poly1305, chacha20 } from '../esm/chacha.js';
+import { concatBytes } from '../esm/utils.js';
 
 const KB = 1024;
 const MB = 1024 * KB;
@@ -26,13 +26,13 @@ function chunks(array, length) {
 
 const empty = new Uint8Array(0);
 
-const nodeCiphers = new Set(crypto.getCiphers());
+const nodeCiphers = new Set(getCiphers());
 
 const nodeTagCipher = (name) => {
   return {
     encrypt: (buf, opts) => {
       const res = [];
-      const c = crypto.createCipheriv(name, opts.key, opts.iv || empty);
+      const c = createCipheriv(name, opts.key, opts.iv || empty);
       if (opts.aad) c.setAAD(opts.aad);
       for (const b of chunks(buf, 1 * GB)) res.push(c.update(b));
       res.push(c.final());
@@ -42,7 +42,7 @@ const nodeTagCipher = (name) => {
     decrypt: (buf, opts) => {
       const ciphertext = buf.slice(0, -16);
       const authTag = buf.slice(-16);
-      const decipher = crypto.createDecipheriv(name, opts.key, opts.iv || empty);
+      const decipher = createDecipheriv(name, opts.key, opts.iv || empty);
       if (opts.aad) c.setAAD(opts.aad);
       decipher.setAuthTag(authTag);
       const res = [];
@@ -57,7 +57,7 @@ const nodeCipher = (name, pcks7 = true) => {
   return {
     encrypt: (buf, opts) => {
       const res = [];
-      const c = crypto.createCipheriv(name, opts.key, opts.iv || empty);
+      const c = createCipheriv(name, opts.key, opts.iv || empty);
       c.setAutoPadding(pcks7); // disable  pkcs7Padding
       for (const b of chunks(buf, 1 * GB)) res.push(c.update(b));
       res.push(c.final());
@@ -66,7 +66,7 @@ const nodeCipher = (name, pcks7 = true) => {
     decrypt: (buf, opts) => {
       const ciphertext = buf.slice();
       const res = [];
-      const c = crypto.createDecipheriv(name, opts.key, opts.iv || empty);
+      const c = createDecipheriv(name, opts.key, opts.iv || empty);
       c.setAutoPadding(pcks7); // disable  pkcs7Padding
       for (const b of chunks(ciphertext, 1 * GB)) res.push(c.update(b));
       res.push(c.final());
@@ -276,13 +276,13 @@ const CIPHERS = {
     // padded iv
     node: nodeCiphers.has('chacha20') && {
       encrypt: (buf, opts) => {
-        const c = crypto.createCipheriv('chacha20', opts.key, opts.iv16);
+        const c = createCipheriv('chacha20', opts.key, opts.iv16);
         const res = c.update(buf);
         c.final();
         return Uint8Array.from(res);
       },
       decrypt: (buf, opts) => {
-        const decipher = crypto.createDecipheriv('chacha20', opts.key, opts.iv16);
+        const decipher = createDecipheriv('chacha20', opts.key, opts.iv16);
         const res = decipher.update(buf);
         decipher.final();
         return Uint8Array.from(res);
@@ -330,7 +330,7 @@ describe('Cross-test (node)', () => {
             chacha20 - ~2gb node limit
             chacha20poly1305 - somehow works with 5gb? How?
             - counter is per block, block is 64 bytes
-            - we need bigger than 256gb array to overflow this counter 
+            - we need bigger than 256gb array to overflow this counter
             - seems unreasonable? and there is actual test for counter overflow!
             */
             // (4*GB).toString(2).length == 33 -> should crash
@@ -349,4 +349,4 @@ describe('Cross-test (node)', () => {
   }
 });
 
-if (require.main === module) should.run();
+should.runWhen(import.meta.url);

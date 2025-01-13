@@ -1,8 +1,8 @@
-const { deepStrictEqual, throws } = require('assert');
-const { should, describe } = require('micro-should');
-const { base64 } = require('@scure/base');
-const { salsa20, hsalsa, xsalsa20, xsalsa20poly1305, secretbox } = require('../salsa.js');
-const {
+import { deepStrictEqual, throws } from 'node:assert';
+import { should, describe } from 'micro-should';
+import { base64 } from '@scure/base';
+import { salsa20, hsalsa, xsalsa20, xsalsa20poly1305, secretbox } from '../esm/salsa.js';
+import {
   chacha20orig,
   hchacha,
   xchacha20,
@@ -10,22 +10,24 @@ const {
   xchacha20poly1305,
   chacha12,
   chacha20,
-} = require('../chacha.js');
-const { poly1305 } = require('../_poly1305.js');
-const slow = require('../_micro.js');
-const tweetnacl_secretbox = require('./vectors/tweetnacl_secretbox.json');
-// Stablelib tests
-const stable_salsa = require('./vectors/stablelib_salsa20.json');
-const stable_chacha = require('./vectors/stablelib_chacha20.json');
+} from '../esm/chacha.js';
+import { poly1305 } from '../esm/_poly1305.js';
+import * as slow from '../esm/_micro.js';
+import * as utils from '../esm/utils.js';
+import { json } from './utils.js';
 
-const stable_chacha_poly = require('./vectors/stablelib_chacha20poly1305.json');
-const stable_xchacha_poly = require('./vectors/stablelib_xchacha20poly1305.json');
-const stable_poly1305 = require('./vectors/stablelib_poly1305.json');
+const tweetnacl_secretbox = json('./vectors/tweetnacl_secretbox.json');
+// Stablelib tests
+const stable_salsa = json('./vectors/stablelib_salsa20.json');
+const stable_chacha = json('./vectors/stablelib_chacha20.json');
+
+const stable_chacha_poly = json('./vectors/stablelib_chacha20poly1305.json');
+const stable_xchacha_poly = json('./vectors/stablelib_xchacha20poly1305.json');
+const stable_poly1305 = json('./vectors/stablelib_poly1305.json');
 // Wycheproof
-const wycheproof_chacha20_poly1305 = require('./wycheproof/chacha20_poly1305_test.json');
-const wycheproof_xchacha20_poly1305 = require('./wycheproof/xchacha20_poly1305_test.json');
+const wycheproof_chacha20_poly1305 = json('./wycheproof/chacha20_poly1305_test.json');
+const wycheproof_xchacha20_poly1305 = json('./wycheproof/xchacha20_poly1305_test.json');
 // getKey for hsalsa/hchacha
-const utils = require('../utils.js');
 const sigma16 = utils.utf8ToBytes('expand 16-byte k');
 const sigma32 = utils.utf8ToBytes('expand 32-byte k');
 const sigma16_32 = utils.u32(sigma16);
@@ -337,4 +339,4 @@ describe('Wycheproof', () => {
   t('wycheproof_xchacha20_poly1305', wycheproof_xchacha20_poly1305, slow.xchacha20poly1305);
 });
 
-if (require.main === module) should.run();
+should.runWhen(import.meta.url);

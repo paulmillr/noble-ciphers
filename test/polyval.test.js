@@ -1,11 +1,13 @@
-const { deepStrictEqual } = require('assert');
-const { should, describe } = require('micro-should');
-const utils = require('../utils.js');
-const { ghash, polyval, _toGHASHKey } = require('../_polyval.js');
+import { deepStrictEqual } from 'node:assert';
+import { should, describe } from 'micro-should';
+import * as utils from '../esm/utils.js';
+import { ghash, polyval, _toGHASHKey } from '../esm/_polyval.js';
+import { json } from './utils.js';
+
 const hex = { decode: utils.hexToBytes, encode: utils.bytesToHex };
 
 // https://datatracker.ietf.org/doc/html/rfc8452#appendix-C
-const VECTORS = require('./vectors/siv.json');
+const VECTORS = json('./vectors/siv.json');
 
 // https://datatracker.ietf.org/doc/html/rfc8452#appendix-A
 const VECTORS_GHASH = [
@@ -66,4 +68,4 @@ describe('Polyval', () => {
   }
 });
 
-if (require.main === module) should.run();
+should.runWhen(import.meta.url);
