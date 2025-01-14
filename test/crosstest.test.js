@@ -12,6 +12,8 @@ const GB = 1024 * MB;
 const SLOW = process.argv.includes('slow'); // we can run manually by adding 'slow' into args
 const SMALL_KEYS = false; // quickly test 128bit only
 
+const isDeno = 'deno' in process.versions; // https://github.com/denoland/deno/issues/24864 etc
+
 // Node fails on >~2gb stuff
 function chunks(array, length) {
   const chunks = [];
@@ -300,7 +302,7 @@ const ALGO_4GB_LIMIT = ['aes128_wrap', 'aes192_wrap', 'aes256_wrap', 'chacha20']
 describe('Cross-test (node)', () => {
   for (const k in CIPHERS) {
     const v = CIPHERS[k];
-    if (!v) continue;
+    if (isDeno || !v) continue;
     describe(k, () => {
       should('basic round-trip', () => {
         const BUF = buf(32);
