@@ -298,6 +298,12 @@ const CIPHERS = {
 };
 
 const ALGO_4GB_LIMIT = ['aes128_wrap', 'aes192_wrap', 'aes256_wrap', 'chacha20'];
+let supports5GB = false;
+try {
+  let ZERO_5GB = new Uint8Array(5 * GB); // catches u32 overflow in ints
+  ZERO_5GB = null; // clean up ram immediately
+  supports5GB = true;
+} catch (error) {}
 
 describe('Cross-test (node)', () => {
   for (const k in CIPHERS) {
@@ -336,7 +342,7 @@ describe('Cross-test (node)', () => {
             - seems unreasonable? and there is actual test for counter overflow!
             */
             // (4*GB).toString(2).length == 33 -> should crash
-            if (!ALGO_4GB_LIMIT.includes(k)) {
+            if (supports5GB && !ALGO_4GB_LIMIT.includes(k)) {
               should('5 GB', () => {
                 const BUF = new Uint8Array(5 * GB);
                 const enc = v.node.encrypt(BUF, v.opts);
@@ -351,4 +357,5 @@ describe('Cross-test (node)', () => {
   }
 });
 
+if (SLOW) process.env.MSHOULD_FAST = '1'; // parallel
 should.runWhen(import.meta.url);
