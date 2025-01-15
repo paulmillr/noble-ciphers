@@ -16,11 +16,6 @@ import * as slow from '../esm/_micro.js';
 import * as utils from '../esm/utils.js';
 import { json } from './utils.js';
 
-const tweetnacl_secretbox = json('./vectors/tweetnacl_secretbox.json');
-// Stablelib tests
-const stable_salsa = json('./vectors/stablelib_salsa20.json');
-const stable_chacha = json('./vectors/stablelib_chacha20.json');
-
 const stable_chacha_poly = json('./vectors/stablelib_chacha20poly1305.json');
 const stable_xchacha_poly = json('./vectors/stablelib_xchacha20poly1305.json');
 const stable_poly1305 = json('./vectors/stablelib_poly1305.json');
@@ -45,6 +40,7 @@ const getKey = (key) => {
 
 describe('Salsa20', () => {
   should('basic', () => {
+    const stable_salsa = json('./vectors/stablelib_salsa20.json');
     for (const v of stable_salsa) {
       {
         const dst = salsa20(hex.decode(v.key), hex.decode(v.nonce), new Uint8Array(v.length));
@@ -94,6 +90,7 @@ describe('Salsa20', () => {
 
 describe('chacha', () => {
   should('basic', () => {
+    const stable_chacha = json('./vectors/stablelib_chacha20.json');
     for (const v of stable_chacha) {
       const res = chacha20orig(
         hex.decode(v.key),
@@ -254,11 +251,12 @@ describe('poly1305', () => {
   };
   t('Chacha20Poly1305', stable_chacha_poly, chacha20poly1305);
   t('Xchacha20Poly1305', stable_xchacha_poly, xchacha20poly1305);
-  t('Chacha20Poly1305', stable_chacha_poly, slow.chacha20poly1305);
-  t('Xchacha20Poly1305', stable_xchacha_poly, slow.xchacha20poly1305);
+  t('Chacha20Poly1305_micro', stable_chacha_poly, slow.chacha20poly1305);
+  t('Xchacha20Poly1305_micro', stable_xchacha_poly, slow.xchacha20poly1305);
 });
 
 should('tweetnacl secretbox compat', () => {
+  const tweetnacl_secretbox = json('./vectors/tweetnacl_secretbox.json');
   for (let i = 0; i < tweetnacl_secretbox.length; i++) {
     const v = tweetnacl_secretbox[i];
     const [key, nonce, msg, exp] = v.map(base64.decode);

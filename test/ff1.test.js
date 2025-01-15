@@ -3,10 +3,6 @@ import { describe, should } from 'micro-should';
 import { FF1, BinaryFF1 } from '../esm/ff1.js';
 import { json, hexToBytes } from './utils.js';
 
-const v = json('./vectors/ff1.json');
-const BIN_VECTORS = v.v;
-// @ts-ignore
-
 const fromHex = (hex) => {
   return hex ? hexToBytes(hex) : Uint8Array.from([]);
 };
@@ -95,6 +91,7 @@ describe('FF1', () => {
   }
 
   should(`Binary FF1 encrypt`, () => {
+    const BIN_VECTORS = json('./vectors/ff1.json').v;
     for (let i = 0; i < BIN_VECTORS.length; i++) {
       const v = BIN_VECTORS[i];
       const ff1 = BinaryFF1(fromHex(v.key));
@@ -103,9 +100,7 @@ describe('FF1', () => {
       const res = ff1.encrypt(fromHex(v.data));
       deepStrictEqual(res, fromHex(v.exp), i);
     }
-  });
 
-  should(`Binary FF1 decrypt`, () => {
     for (let i = 0; i < BIN_VECTORS.length; i++) {
       const v = BIN_VECTORS[i];
       const ff1 = BinaryFF1(fromHex(v.key));
@@ -115,6 +110,7 @@ describe('FF1', () => {
       deepStrictEqual(res, fromHex(v.data), i);
     }
   });
+
   should('throw on wrong radix', () => {
     throws(() => FF1(1, new Uint8Array(10)).encrypt([1]));
   });
