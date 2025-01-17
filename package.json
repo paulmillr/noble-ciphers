@@ -22,8 +22,7 @@
     "test": "node --import ./test/esm-register.js test/index.js",
     "test:bun": "bun test/index.js",
     "test:deno": "deno --allow-env --allow-read --import-map=./test/import_map.json test/index.js",
-    "test:big": "node --import ./test/esm-register.js test/crosstest.test.js slow",
-    "test:coverage": "npm install --no-save c8@10.1.2 && npx c8 npm test"
+    "test:big": "node --import ./test/esm-register.js test/crosstest.test.js slow"
   },
   "author": "Paul Miller (https://paulmillr.com)",
   "homepage": "https://paulmillr.com/noble/",

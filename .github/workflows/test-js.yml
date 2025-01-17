@@ -5,4 +5,4 @@ on:
 jobs:
   test-js:
     name: 'JS v0.2.2' # v0.2.2 == commit below
-    uses: paulmillr/jsbt/.github/workflows/test-js.yml@986dbfea9667eeb0e81bf606cbe9ed169fea89b2
+    uses: paulmillr/jsbt/.github/workflows/test-js.yml@4d4e3743023353f0bde7e6dc3b682cc9c1723232
