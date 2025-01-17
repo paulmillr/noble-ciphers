@@ -20,6 +20,8 @@
     "lint": "prettier --check 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
     "format": "prettier --write 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
     "test": "node --import ./test/esm-register.js test/index.js",
+    "test:bun": "bun test/index.js",
+    "test:deno": "deno --allow-env --allow-read --import-map=./test/import_map.json test/index.js",
     "test:big": "node --import ./test/esm-register.js test/crosstest.test.js slow",
     "test:coverage": "c8 npm test"
   },
