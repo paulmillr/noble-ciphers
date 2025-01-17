@@ -47,4 +47,4 @@ function abool(b: boolean): void {
   if (typeof b !== 'boolean') throw new Error(`boolean expected, not ${b}`);
 }
 
-export { anumber, abool, abytes, ahash, aexists, aoutput, isBytes };
+export { abool, abytes, aexists, ahash, anumber, aoutput, isBytes };

@@ -3,9 +3,9 @@
  * [NIST 800-38G](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf).
  * @module
  */
-import { anumber, abytes } from './_assert.js';
+import { abytes, anumber } from './_assert.js';
 import { unsafe } from './aes.js';
-import { Cipher, bytesToNumberBE, clean, numberToBytesBE } from './utils.js';
+import { type Cipher, bytesToNumberBE, clean, numberToBytesBE } from './utils.js';
 
 // NOTE: no point in inlining encrypt instead of encryptBlock, since BigInt stuff will be slow
 const { expandKeyLE, encryptBlock } = unsafe;

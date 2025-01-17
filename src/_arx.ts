@@ -37,7 +37,7 @@ xchacha [^2] uses the subkey and remaining 8 byte nonce with ChaCha20 as normal
  * @module
  */
 import { abool, abytes, anumber } from './_assert.js';
-import { XorStream, checkOpts, clean, copyBytes, u32 } from './utils.js';
+import { type XorStream, checkOpts, clean, copyBytes, u32 } from './utils.js';
 
 // We can't make top-level var depend on utils.utf8ToBytes
 // because it's not present in all envs. Creating a similar fn here

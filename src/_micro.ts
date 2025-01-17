@@ -9,8 +9,8 @@
 import { createCipher, rotl } from './_arx.js';
 import { abytes } from './_assert.js';
 import {
-  Cipher,
-  XorStream,
+  type Cipher,
+  type XorStream,
   bytesToHex,
   concatBytes,
   createView,

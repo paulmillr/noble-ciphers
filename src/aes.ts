@@ -17,21 +17,21 @@
 import { abytes } from './_assert.js';
 import { ghash, polyval } from './_polyval.js';
 import {
-  Cipher,
-  CipherWithOutput,
+  type Cipher,
+  type CipherWithOutput,
   clean,
+  complexOverlapBytes,
   concatBytes,
   copyBytes,
   createView,
   equalBytes,
   getOutput,
   isAligned32,
+  overlapBytes,
   setBigUint64,
   u32,
   u8,
   wrapCipher,
-  complexOverlapBytes,
-  overlapBytes,
 } from './utils.js';
 
 const BLOCK_SIZE = 16;

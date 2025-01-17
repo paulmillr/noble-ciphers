@@ -17,7 +17,7 @@
  * @module
  */
 import { abytes, aexists, aoutput } from './_assert.js';
-import { Hash, Input, clean, toBytes } from './utils.js';
+import { Hash, type Input, clean, toBytes } from './utils.js';
 
 // Based on Public Domain poly1305-donna https://github.com/floodyberry/poly1305-donna
 const u8to16 = (a: Uint8Array, i: number) => (a[i++] & 0xff) | ((a[i++] & 0xff) << 8);

@@ -15,9 +15,9 @@
 import { createCipher, rotl } from './_arx.js';
 import { poly1305 } from './_poly1305.js';
 import {
-  ARXCipher,
-  CipherWithOutput,
-  XorStream,
+  type ARXCipher,
+  type CipherWithOutput,
+  type XorStream,
   clean,
   createView,
   equalBytes,

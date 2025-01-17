@@ -17,13 +17,13 @@ import { createCipher, rotl } from './_arx.js';
 import { abytes } from './_assert.js';
 import { poly1305 } from './_poly1305.js';
 import {
-  CipherWithOutput,
+  type ARXCipher,
+  type CipherWithOutput,
   clean,
   equalBytes,
   getOutput,
   wrapCipher,
-  XorStream,
-  ARXCipher,
+  type XorStream,
 } from './utils.js';
 
 /**

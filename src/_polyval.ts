@@ -13,7 +13,7 @@
  * @module
  */
 import { abytes, aexists, aoutput } from './_assert.js';
-import { clean, copyBytes, createView, Hash, Input, toBytes, u32 } from './utils.js';
+import { clean, copyBytes, createView, Hash, type Input, toBytes, u32 } from './utils.js';
 
 const BLOCK_SIZE = 16;
 // TODO: rewrite
