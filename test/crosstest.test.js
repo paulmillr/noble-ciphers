@@ -1,9 +1,9 @@
+import { describe, should } from 'micro-should';
 import { deepStrictEqual } from 'node:assert';
-import { getCiphers, createCipheriv, createDecipheriv } from 'node:crypto';
-import { should, describe } from 'micro-should';
+import { createCipheriv, createDecipheriv, getCiphers } from 'node:crypto';
 import * as aes from '../esm/aes.js';
+import { chacha20, chacha20poly1305, xchacha20poly1305 } from '../esm/chacha.js';
 import { xsalsa20poly1305 } from '../esm/salsa.js';
-import { chacha20poly1305, xchacha20poly1305, chacha20 } from '../esm/chacha.js';
 import { concatBytes } from '../esm/utils.js';
 
 const KB = 1024;
@@ -357,5 +357,4 @@ describe('Cross-test (node)', () => {
   }
 });
 
-if (SLOW) process.env.MSHOULD_FAST = '1'; // parallel
 should.runWhen(import.meta.url);
