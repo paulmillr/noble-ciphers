@@ -12,7 +12,7 @@
   ],
   "scripts": {
     "bench": "node benchmark/noble.js",
-    "bench:compare": "node benchmark/{aead,ciphers,poly}.js",
+    "bench:compare": "node benchmark/compare.js",
     "bench:install": "cd benchmark; npm install; npm install .. --install-links",
     "build": "npm run build:clean; tsc && tsc -p tsconfig.cjs.json",
     "build:release": "npx jsbt esbuild test/build",
@@ -32,10 +32,10 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@paulmillr/jsbt": "0.3.0",
+    "@paulmillr/jsbt": "0.3.1",
     "@scure/base": "1.2.1",
     "fast-check": "3.0.0",
-    "micro-bmark": "0.3.1",
+    "micro-bmark": "0.4.0",
     "micro-should": "0.5.1",
     "prettier": "3.3.2",
     "typescript": "5.5.2"

@@ -1,11 +1,12 @@
-import { mark } from 'micro-bmark';
-import { buf } from './_utils.js';
-import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
-import { xchacha20poly1305, chacha20poly1305 } from '@noble/ciphers/chacha';
-import { salsa20, xsalsa20 } from '@noble/ciphers/salsa';
-import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha';
-import { ecb, ctr, cbc, gcm, siv } from '@noble/ciphers/aes';
+import { cbc, ctr, ecb, gcm, siv } from '@noble/ciphers/aes';
+// prettier-ignore
+import {
+  chacha12, chacha20, chacha20poly1305, chacha8, xchacha20, xchacha20poly1305,
+} from '@noble/ciphers/chacha';
+import { salsa20, xsalsa20, xsalsa20poly1305 } from '@noble/ciphers/salsa';
 import * as aesw from '@noble/ciphers/webcrypto';
+import mark from 'micro-bmark';
+import { buf } from './_utils.js';
 
 const buffers = [
   // { size: '16B', samples: 1_500_000, data: buf(16) }, // common block size
@@ -22,6 +23,7 @@ async function main() {
   const nonce8 = buf(8);
   const nonce16 = buf(16);
   const nonce24 = buf(24);
+  // Do we need this at all?
   for (let i = 0; i < 100_000; i++) xsalsa20poly1305(key, nonce24).encrypt(buf(64)); // warm-up
   for (const { size, samples: i, data: buf } of buffers) {
     console.log(size);
