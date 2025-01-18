@@ -1,6 +1,6 @@
 {
   "name": "@noble/ciphers",
-  "version": "1.2.0-pre",
+  "version": "1.2.1",
   "exports": {
     ".": "./src/index.ts",
     "./_arx": "./src/_arx.ts",
