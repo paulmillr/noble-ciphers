@@ -8,7 +8,7 @@ jobs:
     name: Test large inputs
     runs-on: ubuntu-latest
     env:
-      MSHOULD_FAST: ''
+      MSHOULD_FAST: 0
     steps:
       - uses: actions/checkout@1e31de5234b9f8995739874a8ce0492dc87873e2 # v4
       - name: Use Node.js ${{ matrix.node }}
