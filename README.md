@@ -36,7 +36,7 @@ Take a glance at [GitHub Discussions](https://github.com/paulmillr/noble-ciphers
 
 > `deno add jsr:@noble/ciphers`
 
-> `deno doc jsr:@noble/ciphers`  # command-line documentation
+> `deno doc jsr:@noble/ciphers` # command-line documentation
 
 We support all major platforms and runtimes.
 For React Native, you may need a
@@ -82,7 +82,7 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 import { utf8ToBytes } from '@noble/ciphers/utils';
 import { randomBytes } from '@noble/ciphers/webcrypto';
-const key = randomBytes(32);    // random key
+const key = randomBytes(32); // random key
 // const key = new Uint8Array([ // existing key
 //   169, 88, 160, 139, 168, 29, 147, 196, 14, 88, 237, 76, 243, 177, 109, 140,
 //   195, 140, 80, 10, 216, 134, 215, 71, 191, 48, 20, 104, 189, 37, 38, 55,
@@ -166,7 +166,7 @@ import { hexToBytes } from '@noble/ciphers/utils';
 
 const kek = hexToBytes('000102030405060708090A0B0C0D0E0F');
 const keyData = hexToBytes('00112233445566778899AABBCCDDEEFF');
-const ciphertext =  aeskw(kek).encrypt(keyData);
+const ciphertext = aeskw(kek).encrypt(keyData);
 ```
 
 #### Auto-handle nonces
@@ -249,54 +249,45 @@ import { ghash, polyval } from '@noble/ciphers/_polyval';
 ### Implemented primitives
 
 - [Salsa20](https://cr.yp.to/snuffle.html) stream cipher, released in 2005.
-Salsa's goal was to implement AES replacement that does not rely on S-Boxes,
-which are hard to implement in a constant-time manner.
-Salsa20 is usually faster than AES, a big deal on slow, budget mobile phones.
-    - [XSalsa20](https://cr.yp.to/snuffle/xsalsa-20110204.pdf), extended-nonce
-variant was released in 2008. It switched nonces from 96-bit to 192-bit,
-and became safe to be picked at random.
-    - Nacl / Libsodium popularized term "secretbox", a simple black-box
-authenticated encryption. Secretbox is just xsalsa20-poly1305. We provide the
-alias and corresponding seal / open methods. We don't provide "box" or "sealedbox".
-    - Check out [PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf) and
-[wiki](https://en.wikipedia.org/wiki/Salsa20).
+  Salsa's goal was to implement AES replacement that does not rely on S-Boxes,
+  which are hard to implement in a constant-time manner.
+  Salsa20 is usually faster than AES, a big deal on slow, budget mobile phones. - [XSalsa20](https://cr.yp.to/snuffle/xsalsa-20110204.pdf), extended-nonce
+  variant was released in 2008. It switched nonces from 96-bit to 192-bit,
+  and became safe to be picked at random. - Nacl / Libsodium popularized term "secretbox", a simple black-box
+  authenticated encryption. Secretbox is just xsalsa20-poly1305. We provide the
+  alias and corresponding seal / open methods. We don't provide "box" or "sealedbox". - Check out [PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf) and
+  [wiki](https://en.wikipedia.org/wiki/Salsa20).
 - [ChaCha20](https://cr.yp.to/chacha.html) stream cipher, released
   in 2008. Developed after Salsa20, ChaCha aims to increase diffusion per round.
   It was standardized in [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439)
   and is now used in TLS 1.3.
-    - [XChaCha20](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha)
-      extended-nonce variant is also provided. Similar to XSalsa, it's safe to use with
-      randomly-generated nonces.
-    - Check out [PDF](http://cr.yp.to/chacha/chacha-20080128.pdf) and [wiki](https://en.wikipedia.org/wiki/Salsa20).
+  - [XChaCha20](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha)
+    extended-nonce variant is also provided. Similar to XSalsa, it's safe to use with
+    randomly-generated nonces.
+  - Check out [PDF](http://cr.yp.to/chacha/chacha-20080128.pdf) and [wiki](https://en.wikipedia.org/wiki/Salsa20).
 - [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard)
-is a variant of Rijndael block cipher, standardized by NIST in 2001.
-We provide the fastest available pure JS implementation.
-    - We support AES-128, AES-192 and AES-256: the mode is selected dynamically,
-      based on key length (16, 24, 32).
-    - [AES-GCM-SIV](https://en.wikipedia.org/wiki/AES-GCM-SIV)
-    nonce-misuse-resistant mode is also provided. It's recommended to use it,
-    to prevent catastrophic consequences of nonce reuse. Our implementation of SIV
-    has the same speed as GCM: there is no performance hit.
-    - We also have AESKW and AESKWP from
-      [RFC 3394](https://datatracker.ietf.org/doc/html/rfc3394) / [RFC 5649](https://datatracker.ietf.org/doc/html/rfc5649)
-    - Check out [AES internals and block modes](#aes-internals-and-block-modes).
+  is a variant of Rijndael block cipher, standardized by NIST in 2001.
+  We provide the fastest available pure JS implementation. - We support AES-128, AES-192 and AES-256: the mode is selected dynamically,
+  based on key length (16, 24, 32). - [AES-GCM-SIV](https://en.wikipedia.org/wiki/AES-GCM-SIV)
+  nonce-misuse-resistant mode is also provided. It's recommended to use it,
+  to prevent catastrophic consequences of nonce reuse. Our implementation of SIV
+  has the same speed as GCM: there is no performance hit. - We also have AESKW and AESKWP from
+  [RFC 3394](https://datatracker.ietf.org/doc/html/rfc3394) / [RFC 5649](https://datatracker.ietf.org/doc/html/rfc5649) - Check out [AES internals and block modes](#aes-internals-and-block-modes).
 - We expose polynomial-evaluation MACs: [Poly1305](https://cr.yp.to/mac.html), AES-GCM's [GHash](https://en.wikipedia.org/wiki/Galois/Counter_Mode) and
-AES-SIV's [Polyval](https://en.wikipedia.org/wiki/AES-GCM-SIV).
-    - Poly1305 ([PDF](https://cr.yp.to/mac/poly1305-20050329.pdf),
-    [wiki](https://en.wikipedia.org/wiki/Poly1305))
-    is a fast and parallel secret-key message-authentication code suitable for
-    a wide variety of applications. It was standardized in
-    [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3.
-    - Polynomial MACs are not perfect for every situation:
-    they lack Random Key Robustness: the MAC can be forged, and can't
-    be used in PAKE schemes. See
-    [invisible salamanders attack](https://keymaterial.net/2020/09/07/invisible-salamanders-in-aes-gcm-siv/).
-    To combat invisible salamanders, `hash(key)` can be included in ciphertext,
-    however, this would violate ciphertext indistinguishability:
-    an attacker would know which key was used - so `HKDF(key, i)`
-    could be used instead.
+  AES-SIV's [Polyval](https://en.wikipedia.org/wiki/AES-GCM-SIV). - Poly1305 ([PDF](https://cr.yp.to/mac/poly1305-20050329.pdf),
+  [wiki](https://en.wikipedia.org/wiki/Poly1305))
+  is a fast and parallel secret-key message-authentication code suitable for
+  a wide variety of applications. It was standardized in
+  [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3. - Polynomial MACs are not perfect for every situation:
+  they lack Random Key Robustness: the MAC can be forged, and can't
+  be used in PAKE schemes. See
+  [invisible salamanders attack](https://keymaterial.net/2020/09/07/invisible-salamanders-in-aes-gcm-siv/).
+  To combat invisible salamanders, `hash(key)` can be included in ciphertext,
+  however, this would violate ciphertext indistinguishability:
+  an attacker would know which key was used - so `HKDF(key, i)`
+  could be used instead.
 - Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publication 800-38G.
-[See more info](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf).
+  [See more info](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf).
 
 ### Which cipher should I pick?
 
@@ -424,13 +415,13 @@ If you see anything unusual: investigate and report.
 
 ### Constant-timeness
 
-_JIT-compiler_ and _Garbage Collector_ make "constant time" extremely hard to
-achieve [timing attack](https://en.wikipedia.org/wiki/Timing_attack) resistance
+We're targetting algorithmic constant time. _JIT-compiler_ and _Garbage Collector_ make "constant time"
+extremely hard to achieve [timing attack](https://en.wikipedia.org/wiki/Timing_attack) resistance
 in a scripting language. Which means _any other JS library can't have
 constant-timeness_. Even statically typed Rust, a language without GC,
 [makes it harder to achieve constant-time](https://www.chosenplaintext.ca/open-source/rust-timing-shield/security)
 for some cases. If your goal is absolute security, don't use any JS lib — including bindings to native ones.
-Use low-level libraries & languages. Nonetheless we're targetting algorithmic constant time.
+Use low-level libraries & languages.
 
 The library uses T-tables for AES, which
 [leak access timings](https://cr.yp.to/antiforgery/cachetiming-20050414.pdf).
@@ -440,16 +431,18 @@ The analysis was mentioned in [hal-04652991](https://hal.science/hal-04652991/do
 
 ### Supply chain security
 
-- **Commits** are signed with PGP keys, to prevent forgery. Make sure to verify commit signatures.
+- **Commits** are signed with PGP keys, to prevent forgery. Make sure to verify commit signatures
 - **Releases** are transparent and built on GitHub CI. Make sure to verify [provenance](https://docs.npmjs.com/generating-provenance-statements) logs
 - **Rare releasing** is followed to ensure less re-audit need for end-users
-- **Dependencies** are minimized and locked-down:
-  - If your app has 500 dependencies, any dep could get hacked and you'll be downloading
-    malware with every install. We make sure to use as few dependencies as possible
-  - We prevent automatic dependency updates by locking-down version ranges. Every update is checked with `npm-diff`
-- **Dev Dependencies** are only used if you want to contribute to the repo. They are disabled for end-users:
-  - scure-base, micro-bmark and micro-should are developed by the same author and follow identical security practices
-  - prettier (linter), fast-check (property-based testing) and typescript are used for code quality, vector generation and ts compilation. The packages are big, which makes it hard to audit their source code thoroughly and fully
+- **Dependencies** are minimized and locked-down: any dependency could get hacked and users will be downloading malware with every install.
+  - We make sure to use as few dependencies as possible
+  - Automatic dep updates are prevented by locking-down version ranges; diffs are checked with `npm-diff`
+- **Dev Dependencies** are disabled for end-users; they are only used to develop / build the source code
+
+For this package, there are 0 dependencies; and a few dev dependencies:
+
+- micro-bmark, micro-should and jsbt are used for benchmarking / testing / build tooling and developed by the same author
+- prettier, fast-check and typescript are used for code quality / test generation / ts compilation. It's hard to audit their source code thoroughly and fully because of their size
 
 ### Randomness
 
@@ -545,10 +538,10 @@ gcm-256 (encrypt, 1MB)
 
 ## Contributing & testing
 
-* `npm install && npm run build && npm test` will build the code and run tests.
-* `npm run lint` / `npm run format` will run linter / fix linter issues.
-* `npm run bench` will run benchmarks, which may need their deps first (`npm run bench:install`)
-* `cd build && npm install && npm run build:release` will build single file
+- `npm install && npm run build && npm test` will build the code and run tests.
+- `npm run lint` / `npm run format` will run linter / fix linter issues.
+- `npm run bench` will run benchmarks, which may need their deps first (`npm run bench:install`)
+- `npm run build:release` will build single file
 
 Check out [github.com/paulmillr/guidelines](https://github.com/paulmillr/guidelines)
 for general coding practices and rules.
