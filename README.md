@@ -44,20 +44,29 @@ For React Native, you may need a
 A standalone file
 [noble-ciphers.js](https://github.com/paulmillr/noble-ciphers/releases) is also available.
 
-```js
+```ts
 // import * from '@noble/ciphers'; // Error: use sub-imports, to ensure small app size
-import { xchacha20poly1305 } from '@noble/ciphers/chacha';
+import { gcm, siv } from '@noble/ciphers/aes';
+import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
+import { xsalsa20poly1305, secretbox } from '@noble/ciphers/salsa';
+
+// Unauthenticated encryption: make sure to use HMAC or similar
+import { ctr, cfb, cbc, ecb } from '@noble/ciphers/aes';
+import { salsa20, xsalsa20 } from '@noble/ciphers/salsa';
+import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha';
+import { aeskw, aeskwp } from '@noble/ciphers/aes'; // KW
+import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils';
+import { managedNonce, randomBytes } from '@noble/ciphers/webcrypto';
 ```
 
 - [Examples](#examples)
-  - [Encrypt with XChaCha20-Poly1305](#encrypt-with-xchacha20-poly1305)
-  - [Encrypt with AES-256-GCM](#encrypt-with-aes-256-gcm)
+  - [XChaCha20-Poly1305 encryption](#xchacha20-poly1305-encryption)
+  - [AES-256-GCM encryption](#aes-256-gcm-encryption)
   - [AES: gcm, siv, ctr, cfb, cbc, ecb](#aes-gcm-siv-ctr-cfb-cbc-ecb)
   - [Friendly WebCrypto AES](#friendly-webcrypto-aes)
   - [AESKW and AESKWP](#aeskw-and-aeskwp)
   - [Auto-handle nonces](#auto-handle-nonces)
   - [Reuse array for input and output](#reuse-array-for-input-and-output)
-  - [All imports](#all-imports)
 - [Internals](#internals)
   - [Implemented primitives](#implemented-primitives)
   - [Which cipher should I pick?](#which-cipher-should-i-pick)
@@ -76,7 +85,7 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 > [!NOTE]
 > Use different nonce every time `encrypt()` is done.
 
-#### Encrypt with XChaCha20-Poly1305
+#### XChaCha20-Poly1305 encryption
 
 ```js
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
@@ -96,7 +105,7 @@ const ciphertext = chacha.encrypt(data);
 const data_ = chacha.decrypt(ciphertext); // utils.bytesToUtf8(data_) === data
 ```
 
-#### Encrypt with AES-256-GCM
+#### AES-256-GCM encryption
 
 ```js
 import { gcm } from '@noble/ciphers/aes';
@@ -220,29 +229,6 @@ chacha.decrypt(buf, start); // decrypt into `start`
 
 xsalsa20poly1305 also supports this, but requires 32 additional bytes for encryption / decryption,
 due to its inner workings.
-
-#### All imports
-
-```js
-import { gcm, siv } from '@noble/ciphers/aes';
-import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
-import { secretbox } from '@noble/ciphers/salsa'; // == xsalsa20poly1305
-import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
-
-// Unauthenticated encryption: make sure to use HMAC or similar
-import { ctr, cfb, cbc, ecb } from '@noble/ciphers/aes';
-import { salsa20, xsalsa20 } from '@noble/ciphers/salsa';
-import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha';
-
-// KW
-import { aeskw, aeskwp } from '@noble/ciphers/aes';
-
-// Utilities
-import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils';
-import { managedNonce, randomBytes } from '@noble/ciphers/webcrypto';
-import { poly1305 } from '@noble/ciphers/_poly1305';
-import { ghash, polyval } from '@noble/ciphers/_polyval';
-```
 
 ## Internals
 
@@ -409,7 +395,7 @@ The library has been independently audited:
   - The audit has been funded by [OpenSats](https://opensats.org)
 
 It is tested against property-based, cross-library and Wycheproof vectors,
-and has fuzzing by [Guido Vranken's cryptofuzz](https://github.com/guidovranken/cryptofuzz).
+and is being fuzzed in [the separate repo](https://github.com/paulmillr/fuzzing).
 
 If you see anything unusual: investigate and report.
 
