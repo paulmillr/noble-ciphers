@@ -692,7 +692,7 @@ const limit = (name: string, min: number, max: number) => (value: number) => {
  * plaintexts will produce identical ciphertexts.
  * RFC 8452, https://datatracker.ietf.org/doc/html/rfc8452
  */
-export const siv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
+export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
   blockSize: number;
   nonceLength: number;
   tagLength: number;
@@ -793,6 +793,13 @@ export const siv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cip
     };
   }
 );
+
+/**
+ * AES-GCM-SIV, not AES-SIV.
+ * This is legace name, use `gcmsiv` export instead.
+ * @deprecated
+ */
+export const siv: typeof gcmsiv = gcmsiv;
 
 function isBytes32(a: unknown): a is Uint32Array {
   return (
