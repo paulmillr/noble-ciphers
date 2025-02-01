@@ -23,15 +23,24 @@ export const createView = (arr: TypedArray): DataView =>
 export const isLE: boolean = new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44;
 if (!isLE) throw new Error('Non little-endian hardware is not supported');
 
+// Built-in hex conversion https://caniuse.com/mdn-javascript_builtins_uint8array_fromhex
+const hasHexBuiltin: boolean =
+  // @ts-ignore
+  typeof Uint8Array.from([]).toHex === 'function' && typeof Uint8Array.fromHex === 'function';
+
 // Array where index 0xf0 (240) is mapped to string 'f0'
 const hexes = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) =>
   i.toString(16).padStart(2, '0')
 );
+
 /**
+ * Convert byte array to hex string. Uses built-in function, when available.
  * @example bytesToHex(Uint8Array.from([0xca, 0xfe, 0x01, 0x23])) // 'cafe0123'
  */
 export function bytesToHex(bytes: Uint8Array): string {
   abytes(bytes);
+  // @ts-ignore
+  if (hasHexBuiltin) return bytes.toHex();
   // pre-caching improves the speed 6x
   let hex = '';
   for (let i = 0; i < bytes.length; i++) {
@@ -50,10 +59,13 @@ function asciiToBase16(ch: number): number | undefined {
 }
 
 /**
+ * Convert hex string to byte array. Uses built-in function, when available.
  * @example hexToBytes('cafe0123') // Uint8Array.from([0xca, 0xfe, 0x01, 0x23])
  */
 export function hexToBytes(hex: string): Uint8Array {
   if (typeof hex !== 'string') throw new Error('hex string expected, got ' + typeof hex);
+  // @ts-ignore
+  if (hasHexBuiltin) return Uint8Array.fromHex(hex);
   const hl = hex.length;
   const al = hl / 2;
   if (hl % 2) throw new Error('hex string expected, got unpadded hex of length ' + hl);
