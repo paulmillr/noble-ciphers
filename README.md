@@ -271,7 +271,8 @@ due to its inner workings.
     [wiki](https://en.wikipedia.org/wiki/Poly1305))
     is a fast and parallel secret-key message-authentication code suitable for
     a wide variety of applications. It was standardized in
-    [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3. - Polynomial MACs are not perfect for every situation:
+    [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3.
+  - Polynomial MACs are not perfect for every situation:
     they lack Random Key Robustness: the MAC can be forged, and can't
     be used in PAKE schemes. See
     [invisible salamanders attack](https://keymaterial.net/2020/09/07/invisible-salamanders-in-aes-gcm-siv/).
