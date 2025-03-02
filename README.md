@@ -237,12 +237,14 @@ due to its inner workings.
 - [Salsa20](https://cr.yp.to/snuffle.html) stream cipher, released in 2005.
   Salsa's goal was to implement AES replacement that does not rely on S-Boxes,
   which are hard to implement in a constant-time manner.
-  Salsa20 is usually faster than AES, a big deal on slow, budget mobile phones. - [XSalsa20](https://cr.yp.to/snuffle/xsalsa-20110204.pdf), extended-nonce
-  variant was released in 2008. It switched nonces from 96-bit to 192-bit,
-  and became safe to be picked at random. - Nacl / Libsodium popularized term "secretbox", a simple black-box
-  authenticated encryption. Secretbox is just xsalsa20-poly1305. We provide the
-  alias and corresponding seal / open methods. We don't provide "box" or "sealedbox". - Check out [PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf) and
-  [wiki](https://en.wikipedia.org/wiki/Salsa20).
+  Salsa20 is usually faster than AES, a big deal on slow, budget mobile phones.
+  - [XSalsa20](https://cr.yp.to/snuffle/xsalsa-20110204.pdf), extended-nonce
+    variant was released in 2008. It switched nonces from 96-bit to 192-bit,
+    and became safe to be picked at random. - Nacl / Libsodium popularized term "secretbox", a simple black-box
+    authenticated encryption. Secretbox is just xsalsa20-poly1305. We provide the
+    alias and corresponding seal / open methods. We don't provide "box" or "sealedbox".
+  - Check out [PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf) and
+    [wiki](https://en.wikipedia.org/wiki/Salsa20).
 - [ChaCha20](https://cr.yp.to/chacha.html) stream cipher, released
   in 2008. Developed after Salsa20, ChaCha aims to increase diffusion per round.
   It was standardized in [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439)
@@ -253,25 +255,30 @@ due to its inner workings.
   - Check out [PDF](http://cr.yp.to/chacha/chacha-20080128.pdf) and [wiki](https://en.wikipedia.org/wiki/Salsa20).
 - [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard)
   is a variant of Rijndael block cipher, standardized by NIST in 2001.
-  We provide the fastest available pure JS implementation. - We support AES-128, AES-192 and AES-256: the mode is selected dynamically,
-  based on key length (16, 24, 32). - [AES-GCM-SIV](https://en.wikipedia.org/wiki/AES-GCM-SIV)
-  nonce-misuse-resistant mode is also provided. It's recommended to use it,
-  to prevent catastrophic consequences of nonce reuse. Our implementation of SIV
-  has the same speed as GCM: there is no performance hit. - We also have AESKW and AESKWP from
-  [RFC 3394](https://datatracker.ietf.org/doc/html/rfc3394) / [RFC 5649](https://datatracker.ietf.org/doc/html/rfc5649) - Check out [AES internals and block modes](#aes-internals-and-block-modes).
+  We provide the fastest available pure JS implementation.
+  - We support AES-128, AES-192 and AES-256: the mode is selected dynamically,
+    based on key length (16, 24, 32).
+  - [AES-GCM-SIV](https://en.wikipedia.org/wiki/AES-GCM-SIV)
+    nonce-misuse-resistant mode is also provided. It's recommended to use it,
+    to prevent catastrophic consequences of nonce reuse. Our implementation of SIV
+    has the same speed as GCM: there is no performance hit.
+  - We also have AESKW and AESKWP from
+    [RFC 3394](https://datatracker.ietf.org/doc/html/rfc3394) / [RFC 5649](https://datatracker.ietf.org/doc/html/rfc5649)
+  - Check out [AES internals and block modes](#aes-internals-and-block-modes).
 - We expose polynomial-evaluation MACs: [Poly1305](https://cr.yp.to/mac.html), AES-GCM's [GHash](https://en.wikipedia.org/wiki/Galois/Counter_Mode) and
-  AES-SIV's [Polyval](https://en.wikipedia.org/wiki/AES-GCM-SIV). - Poly1305 ([PDF](https://cr.yp.to/mac/poly1305-20050329.pdf),
-  [wiki](https://en.wikipedia.org/wiki/Poly1305))
-  is a fast and parallel secret-key message-authentication code suitable for
-  a wide variety of applications. It was standardized in
-  [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3. - Polynomial MACs are not perfect for every situation:
-  they lack Random Key Robustness: the MAC can be forged, and can't
-  be used in PAKE schemes. See
-  [invisible salamanders attack](https://keymaterial.net/2020/09/07/invisible-salamanders-in-aes-gcm-siv/).
-  To combat invisible salamanders, `hash(key)` can be included in ciphertext,
-  however, this would violate ciphertext indistinguishability:
-  an attacker would know which key was used - so `HKDF(key, i)`
-  could be used instead.
+  AES-SIV's [Polyval](https://en.wikipedia.org/wiki/AES-GCM-SIV).
+  - Poly1305 ([PDF](https://cr.yp.to/mac/poly1305-20050329.pdf),
+    [wiki](https://en.wikipedia.org/wiki/Poly1305))
+    is a fast and parallel secret-key message-authentication code suitable for
+    a wide variety of applications. It was standardized in
+    [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3. - Polynomial MACs are not perfect for every situation:
+    they lack Random Key Robustness: the MAC can be forged, and can't
+    be used in PAKE schemes. See
+    [invisible salamanders attack](https://keymaterial.net/2020/09/07/invisible-salamanders-in-aes-gcm-siv/).
+    To combat invisible salamanders, `hash(key)` can be included in ciphertext,
+    however, this would violate ciphertext indistinguishability:
+    an attacker would know which key was used - so `HKDF(key, i)`
+    could be used instead.
 - Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publication 800-38G.
   [See more info](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf).
 
