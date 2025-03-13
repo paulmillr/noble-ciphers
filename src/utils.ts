@@ -3,7 +3,7 @@
  * @module
  */
 /*! noble-ciphers - MIT License (c) 2023 Paul Miller (paulmillr.com) */
-import { abytes, isBytes } from './_assert.js';
+import { abytes, isBytes } from './_assert.ts';
 // prettier-ignore
 export type TypedArray = Int8Array | Uint8ClampedArray | Uint8Array |
   Uint16Array | Int16Array | Uint32Array | Int32Array;

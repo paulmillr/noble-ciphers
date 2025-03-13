@@ -10,8 +10,8 @@
  */
 // Use full path so that Node.js can rewrite it to `cryptoNode.js`.
 import { crypto } from '@noble/ciphers/crypto';
-import { abytes, anumber } from './_assert.js';
-import { type AsyncCipher, type Cipher, concatBytes } from './utils.js';
+import { abytes, anumber } from './_assert.ts';
+import { type AsyncCipher, type Cipher, concatBytes } from './utils.ts';
 
 /**
  * Secure PRNG. Uses `crypto.getRandomValues`, which defers to OS.
@@ -153,9 +153,9 @@ export const gcm: (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Asyn
   /* @__PURE__ */ (() => generate(mode.GCM))();
 
 // // Type tests
-// import { siv, gcm, ctr, ecb, cbc } from '../aes.js';
-// import { xsalsa20poly1305 } from '../salsa.js';
-// import { chacha20poly1305, xchacha20poly1305 } from '../chacha.js';
+// import { siv, gcm, ctr, ecb, cbc } from '../aes.ts';
+// import { xsalsa20poly1305 } from '../salsa.ts';
+// import { chacha20poly1305, xchacha20poly1305 } from '../chacha.ts';
 
 // const wsiv = managedNonce(siv);
 // const wgcm = managedNonce(gcm);

@@ -12,8 +12,8 @@
  *
  * @module
  */
-import { abytes, aexists, aoutput } from './_assert.js';
-import { clean, copyBytes, createView, Hash, type Input, toBytes, u32 } from './utils.js';
+import { abytes, aexists, aoutput } from './_assert.ts';
+import { clean, copyBytes, createView, Hash, type Input, toBytes, u32 } from './utils.ts';
 
 const BLOCK_SIZE = 16;
 // TODO: rewrite

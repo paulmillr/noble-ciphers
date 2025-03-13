@@ -14,8 +14,8 @@
  * and [original proposal](https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf)
  * @module
  */
-import { abytes } from './_assert.js';
-import { ghash, polyval } from './_polyval.js';
+import { abytes } from './_assert.ts';
+import { ghash, polyval } from './_polyval.ts';
 import {
   type Cipher,
   type CipherWithOutput,
@@ -32,7 +32,7 @@ import {
   u32,
   u8,
   wrapCipher,
-} from './utils.js';
+} from './utils.ts';
 
 const BLOCK_SIZE = 16;
 const BLOCK_SIZE32 = 4;

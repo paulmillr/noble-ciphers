@@ -13,9 +13,9 @@
  * [wiki](https://en.wikipedia.org/wiki/Salsa20).
  * @module
  */
-import { createCipher, rotl } from './_arx.js';
-import { abytes } from './_assert.js';
-import { poly1305 } from './_poly1305.js';
+import { createCipher, rotl } from './_arx.ts';
+import { abytes } from './_assert.ts';
+import { poly1305 } from './_poly1305.ts';
 import {
   type ARXCipher,
   type CipherWithOutput,
@@ -24,7 +24,7 @@ import {
   getOutput,
   wrapCipher,
   type XorStream,
-} from './utils.js';
+} from './utils.ts';
 
 /**
  * Salsa20 core function.

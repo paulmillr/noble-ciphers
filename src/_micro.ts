@@ -6,8 +6,8 @@
  */
 /*! noble-ciphers - MIT License (c) 2023 Paul Miller (paulmillr.com) */
 // prettier-ignore
-import { createCipher, rotl } from './_arx.js';
-import { abytes } from './_assert.js';
+import { createCipher, rotl } from './_arx.ts';
+import { abytes } from './_assert.ts';
 import {
   type Cipher,
   type XorStream,
@@ -19,7 +19,7 @@ import {
   numberToBytesBE,
   setBigUint64,
   wrapCipher,
-} from './utils.js';
+} from './utils.ts';
 
 export type ARXCipherN = ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
   blockSize: number;
