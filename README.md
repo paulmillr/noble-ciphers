@@ -296,7 +296,7 @@ If you can't use it, prefer AES-GCM-SIV, or AES-GCM.
   - Re-using key is fine, but be aware of rules for cryptographic key wear-out and [encryption limits](#encryption-limits)
 - Use new nonce every time and [don't repeat it](#nonces)
   - chacha and salsa20 are fine for sequential counters that _never_ repeat: `01, 02...`
-  - xchacha and xsalsa20 should be used for random nonces instead
+  - xchacha and xsalsa20 should use random nonces instead
   - AES-GCM should use 12-byte nonces: smaller nonces are security risk
 - Prefer authenticated encryption (AEAD)
   - chacha20poly1305 / aes-gcm / ChaCha + HMAC / AES + HMAC is good
