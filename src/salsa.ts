@@ -26,9 +26,7 @@ import {
   type XorStream,
 } from './utils.ts';
 
-/**
- * Salsa20 core function.
- */
+/** Salsa20 core function. */
 // prettier-ignore
 function salsaCore(
   s: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32Array, cnt: number, rounds = 20

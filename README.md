@@ -458,78 +458,65 @@ You can gain additional speed-up and
 avoid memory allocations by passing `output`
 uint8array into encrypt / decrypt methods.
 
-Benchmark results on Apple M2 with node v22:
+Benchmark results on Apple M4:
 
 ```
 64B
-xsalsa20poly1305 x 501,756 ops/sec @ 1μs/op
-chacha20poly1305 x 428,082 ops/sec @ 2μs/op
-xchacha20poly1305 x 343,170 ops/sec @ 2μs/op
-aes-256-gcm x 147,492 ops/sec @ 6μs/op
-aes-256-gcm-siv x 122,085 ops/sec @ 8μs/op
+xsalsa20poly1305 x 675,675 ops/sec @ 1μs/op
+chacha20poly1305 x 568,181 ops/sec @ 1μs/op
+xchacha20poly1305 x 460,617 ops/sec @ 2μs/op
+aes-256-gcm x 201,126 ops/sec @ 4μs/op
+aes-256-gcm-siv x 162,284 ops/sec @ 6μs/op
 # Unauthenticated encryption
-salsa20 x 1,288,659 ops/sec @ 776ns/op
-xsalsa20 x 1,055,966 ops/sec @ 947ns/op
-chacha20 x 1,506,024 ops/sec @ 664ns/op
-xchacha20 x 1,064,962 ops/sec @ 939ns/op
-chacha8 x 1,683,501 ops/sec @ 594ns/op
-chacha12 x 1,628,664 ops/sec @ 614ns/op
-aes-ecb-256 x 775,193 ops/sec @ 1μs/op
-aes-cbc-256 x 738,552 ops/sec @ 1μs/op
-aes-ctr-256 x 737,463 ops/sec @ 1μs/op
+salsa20 x 1,655,629 ops/sec @ 604ns/op
+xsalsa20 x 1,400,560 ops/sec @ 714ns/op
+chacha20 x 1,996,007 ops/sec @ 501ns/op
+xchacha20 x 1,404,494 ops/sec @ 712ns/op
+chacha8 x 2,145,922 ops/sec @ 466ns/op
+chacha12 x 2,036,659 ops/sec @ 491ns/op
+aes-ecb-256 x 1,019,367 ops/sec @ 981ns/op
+aes-cbc-256 x 931,966 ops/sec @ 1μs/op
+aes-ctr-256 x 954,198 ops/sec @ 1μs/op
 
 1MB
-xsalsa20poly1305 x 205 ops/sec @ 4ms/op
-chacha20poly1305 x 213 ops/sec @ 4ms/op
-xchacha20poly1305 x 213 ops/sec @ 4ms/op
-aes-256-gcm x 77 ops/sec @ 12ms/op
-aes-256-gcm-siv x 81 ops/sec @ 12ms/op
+xsalsa20poly1305 x 322 ops/sec @ 3ms/op
+chacha20poly1305 x 327 ops/sec @ 3ms/op
+xchacha20poly1305 x 331 ops/sec @ 3ms/op
+aes-256-gcm x 94 ops/sec @ 10ms/op
+aes-256-gcm-siv x 90 ops/sec @ 11ms/op
 # Unauthenticated encryption
-salsa20 x 498 ops/sec @ 2ms/op
-xsalsa20 x 493 ops/sec @ 2ms/op
-chacha20 x 506 ops/sec @ 1ms/op
-xchacha20 x 506 ops/sec @ 1ms/op
-chacha8 x 956 ops/sec @ 1ms/op
-chacha12 x 735 ops/sec @ 1ms/op
+salsa20 x 791 ops/sec @ 1ms/op
+xsalsa20 x 801 ops/sec @ 1ms/op
+chacha20 x 787 ops/sec @ 1ms/op
+xchacha20 x 781 ops/sec @ 1ms/op
+chacha8 x 1,457 ops/sec @ 686μs/op
+chacha12 x 1,130 ops/sec @ 884μs/op
+aes-ecb-256 x 289 ops/sec @ 3ms/op
+aes-cbc-256 x 114 ops/sec @ 8ms/op
+aes-ctr-256 x 127 ops/sec @ 7ms/op
 # Wrapper over built-in webcrypto
-webcrypto ctr-256 x 5,068 ops/sec @ 197μs/op
-webcrypto cbc-256 x 1,116 ops/sec @ 895μs/op
-webcrypto gcm-256 x 4,374 ops/sec @ 228μs/op ± 1.69% [172μs..7ms]
+webcrypto ctr-256 x 6,508 ops/sec @ 153μs/op
+webcrypto cbc-256 x 1,820 ops/sec @ 549μs/op
+webcrypto gcm-256 x 5,106 ops/sec @ 195μs/op
 ```
 
 Compare to other implementations:
 
 ```
 xsalsa20poly1305 (encrypt, 1MB)
-├─tweetnacl x 108 ops/sec @ 9ms/op
-└─noble x 190 ops/sec @ 5ms/op
+├─tweetnacl x 196 ops/sec
+└─noble x 305 ops/sec
 
 chacha20poly1305 (encrypt, 1MB)
-├─node x 1,360 ops/sec @ 735μs/op
-├─stablelib x 117 ops/sec @ 8ms/op
-└─noble x 193 ops/sec @ 5ms/op
+├─node x 1,668 ops/sec
+├─stablelib x 202 ops/sec
+└─noble x 319 ops/sec
 
-chacha (encrypt, 1MB)
-├─node x 2,035 ops/sec @ 491μs/op
-├─stablelib x 206 ops/sec @ 4ms/op
-└─noble x 474 ops/sec @ 2ms/op
-
-ctr-256 (encrypt, 1MB)
-├─stablelib x 70 ops/sec @ 14ms/op
-├─aesjs x 31 ops/sec @ 32ms/op
-├─noble-webcrypto x 4,589 ops/sec @ 217μs/op
-└─noble x 107 ops/sec @ 9ms/op
-
-cbc-256 (encrypt, 1MB)
-├─stablelib x 63 ops/sec @ 15ms/op
-├─aesjs x 29 ops/sec @ 34ms/op
-├─noble-webcrypto x 1,087 ops/sec @ 919μs/op
-└─noble x 110 ops/sec @ 9ms/op
-
-gcm-256 (encrypt, 1MB)
-├─stablelib x 27 ops/sec @ 36ms/op
-├─noble-webcrypto x 4,059 ops/sec @ 246μs/op
-└─noble x 74 ops/sec @ 13ms/op
+aes-ctr-256 (encrypt, 1MB)
+├─stablelib x 123 ops/sec
+├─aesjs x 42 ops/sec
+├─noble-webcrypto x 5,965 ops/sec
+└─noble x 124 ops/sec
 ```
 
 ## Contributing & testing

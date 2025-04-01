@@ -14,12 +14,14 @@ export const u8 = (arr: TypedArray): Uint8Array =>
 export const u32 = (arr: TypedArray): Uint32Array =>
   new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
 
-// Cast array to view
+/** Cast array to view. */
 export const createView = (arr: TypedArray): DataView =>
   new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
 
-// big-endian hardware is rare. Just in case someone still decides to run ciphers:
-// early-throw an error because we don't support BE yet.
+/**
+ * big-endian hardware is rare. Just in case someone still decides to run ciphers:
+ * early-throw an error because we don't support BE yet.
+ */
 export const isLE: boolean = new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44;
 if (!isLE) throw new Error('Non little-endian hardware is not supported');
 
@@ -101,12 +103,12 @@ export function numberToBytesBE(n: number | bigint, len: number): Uint8Array {
 // next scheduler queue processing step and this is exactly what we need.
 export const nextTick = async (): Promise<void> => {};
 
-// Global symbols in both browsers and Node.js since v11
-// See https://github.com/microsoft/TypeScript/issues/31535
+// Global symbols, but ts doesn't see them: https://github.com/microsoft/TypeScript/issues/31535
 declare const TextEncoder: any;
 declare const TextDecoder: any;
 
 /**
+ * Converts string to bytes using UTF8 encoding.
  * @example utf8ToBytes('abc') // new Uint8Array([97, 98, 99])
  */
 export function utf8ToBytes(str: string): Uint8Array {
@@ -115,6 +117,7 @@ export function utf8ToBytes(str: string): Uint8Array {
 }
 
 /**
+ * Converts bytes to string using UTF8 encoding.
  * @example bytesToUtf8(new Uint8Array([97, 98, 99])) // 'abc'
  */
 export function bytesToUtf8(bytes: Uint8Array): string {
@@ -135,11 +138,12 @@ export function toBytes(data: Input): Uint8Array {
 }
 
 /**
- * Checks if two U8A use same underlying buffer and overlaps (will corrupt and break if input and output same)
+ * Checks if two U8A use same underlying buffer and overlaps.
+ * This is invalid and can corrupt data.
  */
 export function overlapBytes(a: Uint8Array, b: Uint8Array): boolean {
   return (
-    a.buffer === b.buffer && // probably will fail with some obscure proxies, but this is best we can do
+    a.buffer === b.buffer && // best we can do, may fail with an obscure Proxy
     a.byteOffset < b.byteOffset + b.byteLength && // a starts before b end
     b.byteOffset < a.byteOffset + a.byteLength // b starts before a end
   );
@@ -185,7 +189,7 @@ export function checkOpts<T1 extends EmptyObj, T2 extends EmptyObj>(
   return merged as T1 & T2;
 }
 
-// Compares 2 u8a-s in kinda constant time
+/** Compares 2 uint8array-s in kinda constant time. */
 export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
@@ -193,7 +197,7 @@ export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
   return diff === 0;
 }
 
-// For runtime check if class implements interface
+/** For runtime check if class implements interface. */
 export abstract class Hash<T extends Hash<T>> {
   abstract blockLen: number; // Bytes per block
   abstract outputLen: number; // Bytes in output
@@ -211,29 +215,36 @@ export abstract class Hash<T extends Hash<T>> {
 
 // This will allow to re-use with composable things like packed & base encoders
 // Also, we probably can make tags composable
+
+/** Sync cipher: takes byte array and returns byte array. */
 export type Cipher = {
   encrypt(plaintext: Uint8Array): Uint8Array;
   decrypt(ciphertext: Uint8Array): Uint8Array;
 };
 
+/** Async cipher e.g. from built-in WebCrypto. */
 export type AsyncCipher = {
   encrypt(plaintext: Uint8Array): Promise<Uint8Array>;
   decrypt(ciphertext: Uint8Array): Promise<Uint8Array>;
 };
 
+/** Cipher with `output` argument which can optimize by doing 1 less allocation. */
 export type CipherWithOutput = Cipher & {
   encrypt(plaintext: Uint8Array, output?: Uint8Array): Uint8Array;
   decrypt(ciphertext: Uint8Array, output?: Uint8Array): Uint8Array;
 };
 
-// Params is outside return type, so it is accessible before calling constructor
-// If function support multiple nonceLength's, we return best one
+/**
+ * Params are outside of return type, so it is accessible before calling constructor.
+ * If function support multiple nonceLength's, we return the best one.
+ */
 export type CipherParams = {
   blockSize: number;
   nonceLength?: number;
   tagLength?: number;
   varSizeNonce?: boolean;
 };
+/** ARX cipher, like salsa or chacha. */
 export type ARXCipher = ((
   key: Uint8Array,
   nonce: Uint8Array,
@@ -245,6 +256,7 @@ export type ARXCipher = ((
 };
 export type CipherCons<T extends any[]> = (key: Uint8Array, ...args: T) => Cipher;
 /**
+ * Wraps a cipher: validates args, ensures encrypt() can only be called once.
  * @__NO_SIDE_EFFECTS__
  */
 export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
@@ -302,6 +314,7 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
   return wrappedCipher as C & P;
 };
 
+/** Represents salsa / chacha stream. */
 export type XorStream = (
   key: Uint8Array,
   nonce: Uint8Array,
@@ -322,7 +335,7 @@ export function getOutput(
   return out;
 }
 
-// Polyfill for Safari 14
+/** Polyfill for Safari 14. */
 export function setBigUint64(
   view: DataView,
   byteOffset: number,

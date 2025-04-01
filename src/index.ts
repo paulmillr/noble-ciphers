@@ -1,7 +1,7 @@
 /**
  * Audited & minimal JS implementation of Salsa20, ChaCha and AES. Check out individual modules.
  * @example
-
+```js
 import { gcm, siv } from '@noble/ciphers/aes';
 import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
 import { secretbox } from '@noble/ciphers/salsa'; // == xsalsa20poly1305
@@ -20,7 +20,7 @@ import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes } from '@noble/ciphers
 import { managedNonce, randomBytes } from '@noble/ciphers/webcrypto';
 import { poly1305 } from '@noble/ciphers/_poly1305';
 import { ghash, polyval } from '@noble/ciphers/_polyval';
-
+```
  * @module
  */
 throw new Error('root module cannot be imported: import submodules instead. Check out README');
