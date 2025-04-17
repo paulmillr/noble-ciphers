@@ -39,9 +39,9 @@ function chachaCore(
     y12 = cnt, y13 = n[0], y14 = n[1], y15 = n[2];    // Counter  Counter	Nonce   Nonce
   // Save state to temporary variables
   let x00 = y00, x01 = y01, x02 = y02, x03 = y03,
-    x04 = y04, x05 = y05, x06 = y06, x07 = y07,
-    x08 = y08, x09 = y09, x10 = y10, x11 = y11,
-    x12 = y12, x13 = y13, x14 = y14, x15 = y15;
+      x04 = y04, x05 = y05, x06 = y06, x07 = y07,
+      x08 = y08, x09 = y09, x10 = y10, x11 = y11,
+      x12 = y12, x13 = y13, x14 = y14, x15 = y15;
   for (let r = 0; r < rounds; r += 2) {
     x00 = (x00 + x04) | 0; x12 = rotl(x12 ^ x00, 16);
     x08 = (x08 + x12) | 0; x04 = rotl(x04 ^ x08, 12);
@@ -105,9 +105,9 @@ export function hchacha(
   s: Uint32Array, k: Uint32Array, i: Uint32Array, o32: Uint32Array
 ): void {
   let x00 = s[0], x01 = s[1], x02 = s[2], x03 = s[3],
-    x04 = k[0], x05 = k[1], x06 = k[2], x07 = k[3],
-    x08 = k[4], x09 = k[5], x10 = k[6], x11 = k[7],
-    x12 = i[0], x13 = i[1], x14 = i[2], x15 = i[3];
+      x04 = k[0], x05 = k[1], x06 = k[2], x07 = k[3],
+      x08 = k[4], x09 = k[5], x10 = k[6], x11 = k[7],
+      x12 = i[0], x13 = i[1], x14 = i[2], x15 = i[3];
   for (let r = 0; r < 20; r += 2) {
     x00 = (x00 + x04) | 0; x12 = rotl(x12 ^ x00, 16);
     x08 = (x08 + x12) | 0; x04 = rotl(x04 ^ x08, 12);
