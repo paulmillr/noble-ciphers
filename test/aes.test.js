@@ -1,10 +1,10 @@
+import { describe, should } from 'micro-should';
 import { deepStrictEqual, throws } from 'node:assert';
 import { createCipheriv, createDecipheriv } from 'node:crypto';
-import { should, describe } from 'micro-should';
-import { bytesToHex, concatBytes, hexToBytes } from '../esm/utils.js';
-import { ecb, cbc, ctr, siv, gcm, aeskw, aeskwp } from '../esm/aes.js';
+import { aeskw, aeskwp, cbc, ctr, ecb, gcm, siv } from '../aes.js';
+import { bytesToHex, concatBytes, hexToBytes } from '../utils.js';
+import * as web from '../webcrypto.js';
 import { json } from './utils.js';
-import * as web from '../esm/webcrypto.js';
 
 // https://datatracker.ietf.org/doc/html/rfc8452#appendix-C
 const NIST_VECTORS = json('./vectors/nist_800_38a.json');

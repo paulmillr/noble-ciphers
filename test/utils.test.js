@@ -1,7 +1,7 @@
 import fc from 'fast-check';
 import { describe, should } from 'micro-should';
 import { deepStrictEqual, throws } from 'node:assert';
-import * as u from '../esm/utils.js';
+import * as u from '../utils.js';
 import {
   bytesToHex,
   bytesToUtf8,
@@ -12,7 +12,7 @@ import {
   overlapBytes,
   setBigUint64,
   u64Lengths,
-} from '../esm/utils.js';
+} from '../utils.js';
 import { TYPE_TEST, unalign } from './utils.js';
 
 describe('utils', () => {
