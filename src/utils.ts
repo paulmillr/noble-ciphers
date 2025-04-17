@@ -3,10 +3,54 @@
  * @module
  */
 /*! noble-ciphers - MIT License (c) 2023 Paul Miller (paulmillr.com) */
-import { abytes, isBytes } from './_assert.ts';
 // prettier-ignore
 export type TypedArray = Int8Array | Uint8ClampedArray | Uint8Array |
   Uint16Array | Int16Array | Uint32Array | Int32Array;
+
+function anumber(n: number): void {
+  if (!Number.isSafeInteger(n) || n < 0) throw new Error('positive integer expected, got ' + n);
+}
+
+function isBytes(a: unknown): a is Uint8Array {
+  return a instanceof Uint8Array || (ArrayBuffer.isView(a) && a.constructor.name === 'Uint8Array');
+}
+
+function abytes(b: Uint8Array | undefined, ...lengths: number[]): void {
+  if (!isBytes(b)) throw new Error('Uint8Array expected');
+  if (lengths.length > 0 && !lengths.includes(b.length))
+    throw new Error('Uint8Array expected of length ' + lengths + ', got length=' + b.length);
+}
+
+export type iHash = {
+  (data: Uint8Array): Uint8Array;
+  blockLen: number;
+  outputLen: number;
+  create: any;
+};
+function ahash(h: iHash): void {
+  if (typeof h !== 'function' || typeof h.create !== 'function')
+    throw new Error('Hash should be wrapped by utils.wrapConstructor');
+  anumber(h.outputLen);
+  anumber(h.blockLen);
+}
+
+function aexists(instance: any, checkFinished = true): void {
+  if (instance.destroyed) throw new Error('Hash instance has been destroyed');
+  if (checkFinished && instance.finished) throw new Error('Hash#digest() has already been called');
+}
+function aoutput(out: any, instance: any): void {
+  abytes(out);
+  const min = instance.outputLen;
+  if (out.length < min) {
+    throw new Error('digestInto() expects output buffer of length at least ' + min);
+  }
+}
+
+function abool(b: boolean): void {
+  if (typeof b !== 'boolean') throw new Error(`boolean expected, not ${b}`);
+}
+
+export { abool, abytes, aexists, ahash, anumber, aoutput, isBytes };
 
 // Cast array to different type
 export const u8 = (arr: TypedArray): Uint8Array =>
@@ -124,19 +168,6 @@ export function bytesToUtf8(bytes: Uint8Array): string {
   return new TextDecoder().decode(bytes);
 }
 
-export type Input = Uint8Array | string;
-/**
- * Normalizes (non-hex) string or Uint8Array to Uint8Array.
- * Warning: when Uint8Array is passed, it would NOT get copied.
- * Keep in mind for future mutable operations.
- */
-export function toBytes(data: Input): Uint8Array {
-  if (typeof data === 'string') data = utf8ToBytes(data);
-  else if (isBytes(data)) data = copyBytes(data);
-  else throw new Error('Uint8Array expected, got ' + typeof data);
-  return data;
-}
-
 /**
  * Checks if two U8A use same underlying buffer and overlaps.
  * This is invalid and can corrupt data.
@@ -201,7 +232,7 @@ export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
 export abstract class Hash<T extends Hash<T>> {
   abstract blockLen: number; // Bytes per block
   abstract outputLen: number; // Bytes in output
-  abstract update(buf: Input): this;
+  abstract update(buf: Uint8Array): this;
   // Writes digest into buf
   abstract digestInto(buf: Uint8Array): void;
   abstract digest(): Uint8Array;
