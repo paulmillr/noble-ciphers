@@ -12,8 +12,16 @@
  *
  * @module
  */
-import { abytes, aexists, aoutput } from './_assert.ts';
-import { clean, copyBytes, createView, Hash, type Input, toBytes, u32 } from './utils.ts';
+import {
+  abytes,
+  aexists,
+  aoutput,
+  clean,
+  copyBytes,
+  createView,
+  Hash,
+  u32
+} from './utils.ts';
 
 const BLOCK_SIZE = 16;
 // TODO: rewrite
@@ -80,8 +88,7 @@ class GHASH implements Hash<GHASH> {
   private W: number;
   private windowSize: number;
   // We select bits per window adaptively based on expectedLength
-  constructor(key: Input, expectedLength?: number) {
-    key = toBytes(key);
+  constructor(key: Uint8Array, expectedLength?: number) {
     abytes(key, 16);
     const kView = createView(key);
     let k0 = kView.getUint32(0, false);
@@ -142,9 +149,10 @@ class GHASH implements Hash<GHASH> {
     this.s2 = o2;
     this.s3 = o3;
   }
-  update(data: Input): this {
-    data = toBytes(data);
+  update(data: Uint8Array): this {
     aexists(this);
+    abytes(data);
+    data = copyBytes(data);
     const b32 = u32(data);
     const blocks = Math.floor(data.length / BLOCK_SIZE);
     const left = data.length % BLOCK_SIZE;
@@ -186,15 +194,16 @@ class GHASH implements Hash<GHASH> {
 }
 
 class Polyval extends GHASH {
-  constructor(key: Input, expectedLength?: number) {
-    key = toBytes(key);
+  constructor(key: Uint8Array, expectedLength?: number) {
+    abytes(key);
     const ghKey = _toGHASHKey(copyBytes(key));
     super(ghKey, expectedLength);
     clean(ghKey);
   }
-  update(data: Input): this {
-    data = toBytes(data);
+  update(data: Uint8Array): this {
     aexists(this);
+    abytes(data);
+    data = copyBytes(data);
     const b32 = u32(data);
     const left = data.length % BLOCK_SIZE;
     const blocks = Math.floor(data.length / BLOCK_SIZE);
@@ -235,19 +244,19 @@ class Polyval extends GHASH {
 
 export type CHashPV = ReturnType<typeof wrapConstructorWithKey>;
 function wrapConstructorWithKey<H extends Hash<H>>(
-  hashCons: (key: Input, expectedLength?: number) => Hash<H>
+  hashCons: (key: Uint8Array, expectedLength?: number) => Hash<H>
 ): {
-  (msg: Input, key: Input): Uint8Array;
+  (msg: Uint8Array, key: Uint8Array): Uint8Array;
   outputLen: number;
   blockLen: number;
-  create(key: Input, expectedLength?: number): Hash<H>;
+  create(key: Uint8Array, expectedLength?: number): Hash<H>;
 } {
-  const hashC = (msg: Input, key: Input): Uint8Array =>
-    hashCons(key, msg.length).update(toBytes(msg)).digest();
+  const hashC = (msg: Uint8Array, key: Uint8Array): Uint8Array =>
+    hashCons(key, msg.length).update(msg).digest();
   const tmp = hashCons(new Uint8Array(16), 0);
   hashC.outputLen = tmp.outputLen;
   hashC.blockLen = tmp.blockLen;
-  hashC.create = (key: Input, expectedLength?: number) => hashCons(key, expectedLength);
+  hashC.create = (key: Uint8Array, expectedLength?: number) => hashCons(key, expectedLength);
   return hashC;
 }
 

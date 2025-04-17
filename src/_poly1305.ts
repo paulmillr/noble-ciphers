@@ -16,8 +16,7 @@
  * Check out [original website](https://cr.yp.to/mac.html).
  * @module
  */
-import { abytes, aexists, aoutput } from './_assert.ts';
-import { Hash, type Input, clean, toBytes } from './utils.ts';
+import { Hash, abytes, aexists, aoutput, clean, copyBytes } from './utils.ts';
 
 // Based on Public Domain poly1305-donna https://github.com/floodyberry/poly1305-donna
 const u8to16 = (a: Uint8Array, i: number) => (a[i++] & 0xff) | ((a[i++] & 0xff) << 8);
@@ -31,8 +30,7 @@ class Poly1305 implements Hash<Poly1305> {
   private pos = 0;
   protected finished = false;
 
-  constructor(key: Input) {
-    key = toBytes(key);
+  constructor(key: Uint8Array) {
     abytes(key, 32);
     const t0 = u8to16(key, 0);
     const t1 = u8to16(key, 2);
@@ -230,10 +228,11 @@ class Poly1305 implements Hash<Poly1305> {
     }
     clean(g);
   }
-  update(data: Input): this {
+  update(data: Uint8Array): this {
     aexists(this);
+    abytes(data);
+    data = copyBytes(data);
     const { buffer, blockLen } = this;
-    data = toBytes(data);
     const len = data.length;
 
     for (let pos = 0; pos < len; ) {
@@ -286,18 +285,19 @@ class Poly1305 implements Hash<Poly1305> {
 
 export type CHash = ReturnType<typeof wrapConstructorWithKey>;
 export function wrapConstructorWithKey<H extends Hash<H>>(
-  hashCons: (key: Input) => Hash<H>
+  hashCons: (key: Uint8Array) => Hash<H>
 ): {
-  (msg: Input, key: Input): Uint8Array;
+  (msg: Uint8Array, key: Uint8Array): Uint8Array;
   outputLen: number;
   blockLen: number;
-  create(key: Input): Hash<H>;
+  create(key: Uint8Array): Hash<H>;
 } {
-  const hashC = (msg: Input, key: Input): Uint8Array => hashCons(key).update(toBytes(msg)).digest();
+  const hashC = (msg: Uint8Array, key: Uint8Array): Uint8Array =>
+    hashCons(key).update(msg).digest();
   const tmp = hashCons(new Uint8Array(32));
   hashC.outputLen = tmp.outputLen;
   hashC.blockLen = tmp.blockLen;
-  hashC.create = (key: Input) => hashCons(key);
+  hashC.create = (key: Uint8Array) => hashCons(key);
   return hashC;
 }
 
