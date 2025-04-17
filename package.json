@@ -19,10 +19,10 @@
     "build:clean": "rm *.{js,d.ts,js.map,d.ts.map} esm/*.{js,d.ts,js.map,d.ts.map} 2> /dev/null",
     "lint": "prettier --check 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
     "format": "prettier --write 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
-    "test": "node --import ./test/esm-register.js test/index.js",
+    "test": "node test/index.js",
     "test:bun": "bun test/index.js",
     "test:deno": "deno --allow-env --allow-read test/index.js",
-    "test:big": "node --import ./test/esm-register.js test/crosstest.test.js slow"
+    "test:big": "node test/crosstest.test.js slow"
   },
   "author": "Paul Miller (https://paulmillr.com)",
   "homepage": "https://paulmillr.com/noble/",
@@ -33,7 +33,7 @@
   "license": "MIT",
   "devDependencies": {
     "@paulmillr/jsbt": "0.3.3",
-    "@scure/base": "1.2.1",
+    "@scure/base": "1.2.4",
     "fast-check": "3.0.0",
     "micro-bmark": "0.4.0",
     "micro-should": "0.5.1",
@@ -41,7 +41,7 @@
     "typescript": "5.8.2"
   },
   "engines": {
-    "node": "^14.21.3 || >=16"
+    "node": ">=20"
   },
   "main": "index.js",
   "exports": {
