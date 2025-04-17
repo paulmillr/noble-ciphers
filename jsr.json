@@ -4,7 +4,6 @@
   "exports": {
     ".": "./src/index.ts",
     "./_arx": "./src/_arx.ts",
-    "./_assert": "./src/_assert.ts",
     "./_micro": "./src/_micro.ts",
     "./_poly1305": "./src/_poly1305.ts",
     "./_polyval": "./src/_polyval.ts",
