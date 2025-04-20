@@ -1,6 +1,6 @@
 {
   "name": "@noble/ciphers",
-  "version": "1.2.1",
+  "version": "2.0.0-alpha",
   "description": "Audited & minimal JS implementation of Salsa20, ChaCha and AES",
   "files": [
     "esm",
@@ -13,16 +13,16 @@
   "scripts": {
     "bench": "node benchmark/noble.js",
     "bench:compare": "node benchmark/compare.js",
-    "bench:install": "cd benchmark; npm install; npm install .. --install-links",
+    "bench:install": "cd benchmark; npm install",
     "build": "npm run build:clean; tsc && tsc -p tsconfig.cjs.json",
     "build:release": "npx jsbt esbuild test/build",
-    "build:clean": "rm *.{js,d.ts,js.map,d.ts.map} esm/*.{js,d.ts,js.map,d.ts.map} 2> /dev/null",
+    "build:clean": "rm *.{js,d.ts,js.map,d.ts.map} esm/*.{js,d.ts,js.map,d.ts.map} cjs/*.{js,d.ts,js.map,d.ts.map} 2> /dev/null",
     "lint": "prettier --check 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
     "format": "prettier --write 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
-    "test": "node --import ./test/esm-register.js test/index.js",
+    "test": "node test/index.js",
     "test:bun": "bun test/index.js",
-    "test:deno": "deno --allow-env --allow-read --import-map=./test/import_map.json test/index.js",
-    "test:big": "node --import ./test/esm-register.js test/crosstest.test.js slow"
+    "test:deno": "deno --allow-env --allow-read test/index.js",
+    "test:big": "node test/crosstest.test.js slow"
   },
   "author": "Paul Miller (https://paulmillr.com)",
   "homepage": "https://paulmillr.com/noble/",
@@ -33,7 +33,7 @@
   "license": "MIT",
   "devDependencies": {
     "@paulmillr/jsbt": "0.3.3",
-    "@scure/base": "1.2.1",
+    "@scure/base": "1.2.4",
     "fast-check": "3.0.0",
     "micro-bmark": "0.4.0",
     "micro-should": "0.5.1",
@@ -41,62 +41,64 @@
     "typescript": "5.8.2"
   },
   "engines": {
-    "node": "^14.21.3 || >=16"
+    "node": ">= 20"
   },
+  "type": "module",
   "main": "index.js",
+  "module": "index.js",
   "exports": {
     ".": {
-      "import": "./esm/index.js",
-      "require": "./index.js"
+      "import": "./index.js",
+      "require": "./cjs/index.js"
     },
-    "./_micro": {
-      "import": "./esm/_micro.js",
-      "require": "./_micro.js"
+    "./_micro.js": {
+      "import": "./_micro.js",
+      "require": "./cjs/_micro.js"
     },
-    "./_poly1305": {
-      "import": "./esm/_poly1305.js",
-      "require": "./_poly1305.js"
+    "./_poly1305.js": {
+      "import": "./_poly1305.js",
+      "require": "./cjs/_poly1305.js"
     },
-    "./_polyval": {
-      "import": "./esm/_polyval.js",
-      "require": "./_polyval.js"
+    "./_polyval.js": {
+      "import": "./_polyval.js",
+      "require": "./cjs/_polyval.js"
     },
-    "./aes": {
-      "import": "./esm/aes.js",
-      "require": "./aes.js"
+    "./aes.js": {
+      "import": "./aes.js",
+      "require": "./cjs/aes.js"
     },
-    "./chacha": {
-      "import": "./esm/chacha.js",
-      "require": "./chacha.js"
+    "./chacha.js": {
+      "import": "./chacha.js",
+      "require": "./cjs/chacha.js"
     },
-    "./crypto": {
+    "./crypto.js": {
       "types": "./crypto.d.ts",
       "node": {
-        "import": "./esm/cryptoNode.js",
+        "import": "./cryptoNode.js",
         "default": "./cryptoNode.js"
       },
-      "import": "./esm/crypto.js",
+      "import": "./crypto.js",
       "default": "./crypto.js"
     },
-    "./ff1": {
-      "import": "./esm/ff1.js",
-      "require": "./ff1.js"
+    "./ff1.js": {
+      "import": "./ff1.js",
+      "require": "./cjs/ff1.js"
     },
-    "./index": {
-      "import": "./esm/index.js",
-      "require": "./index.js"
+    "./index.js": {
+      "import": "./index.js",
+      "require": "./cjs/index.js"
     },
-    "./salsa": {
-      "import": "./esm/salsa.js",
-      "require": "./salsa.js"
+    "./salsa.js": {
+      "import": "./salsa.js",
+      "require": "./cjs/salsa.js"
     },
-    "./utils": {
-      "import": "./esm/utils.js",
-      "require": "./utils.js"
+    "./utils.js": {
+      "import": "./utils.js",
+      "require": "./cjs/utils.js"
     },
-    "./webcrypto": {
-      "import": "./esm/webcrypto.js",
-      "require": "./webcrypto.js"
+    "./webcrypto.js": {
+      "import": "./webcrypto.js",
+      "require": "./cjs/webcrypto.js"
     }
   },
   "sideEffects": false,

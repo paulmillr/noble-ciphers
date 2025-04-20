@@ -14,9 +14,9 @@
  * @module
  */
 import { createCipher, rotl } from './_arx.ts';
-import { abytes } from './_assert.ts';
 import { poly1305 } from './_poly1305.ts';
 import {
+  abytes,
   type ARXCipher,
   type CipherWithOutput,
   clean,

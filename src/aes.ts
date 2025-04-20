@@ -14,9 +14,9 @@
  * and [original proposal](https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf)
  * @module
  */
-import { abytes } from './_assert.ts';
 import { ghash, polyval } from './_polyval.ts';
 import {
+  abytes,
   type Cipher,
   type CipherWithOutput,
   clean,

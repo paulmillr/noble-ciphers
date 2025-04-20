@@ -1,19 +1,19 @@
-import { deepStrictEqual, throws } from 'node:assert';
-import { should, describe } from 'micro-should';
 import { base64 } from '@scure/base';
-import { salsa20, hsalsa, xsalsa20, xsalsa20poly1305, secretbox } from '../esm/salsa.js';
+import { describe, should } from 'micro-should';
+import { deepStrictEqual, throws } from 'node:assert';
+import * as slow from '../_micro.js';
+import { poly1305 } from '../_poly1305.js';
 import {
-  chacha20orig,
-  hchacha,
-  xchacha20,
-  chacha20poly1305,
-  xchacha20poly1305,
   chacha12,
   chacha20,
-} from '../esm/chacha.js';
-import { poly1305 } from '../esm/_poly1305.js';
-import * as slow from '../esm/_micro.js';
-import * as utils from '../esm/utils.js';
+  chacha20orig,
+  chacha20poly1305,
+  hchacha,
+  xchacha20,
+  xchacha20poly1305,
+} from '../chacha.js';
+import { hsalsa, salsa20, secretbox, xsalsa20, xsalsa20poly1305 } from '../salsa.js';
+import * as utils from '../utils.js';
 import { json } from './utils.js';
 
 const stable_chacha_poly = json('./vectors/stablelib_chacha20poly1305.json');

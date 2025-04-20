@@ -1,11 +1,11 @@
+import { describe, should } from 'micro-should';
 import { deepStrictEqual, throws } from 'node:assert';
-import { should, describe } from 'micro-should';
-import { managedNonce, randomBytes } from '../esm/webcrypto.js';
-import { siv, gcm, ctr, ecb, cbc, cfb, aeskw, aeskwp } from '../esm/aes.js';
-import { xsalsa20poly1305 } from '../esm/salsa.js';
-import { chacha20poly1305, xchacha20poly1305 } from '../esm/chacha.js';
-import { unalign, TYPE_TEST } from './utils.js';
-import * as micro from '../esm/_micro.js';
+import * as micro from '../_micro.js';
+import { aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, siv } from '../aes.js';
+import { chacha20poly1305, xchacha20poly1305 } from '../chacha.js';
+import { xsalsa20poly1305 } from '../salsa.js';
+import { managedNonce, randomBytes } from '../webcrypto.js';
+import { TYPE_TEST, unalign } from './utils.js';
 
 const CIPHERS = {
   xsalsa20poly1305: { fn: xsalsa20poly1305, keyLen: 32, withNonce: true },

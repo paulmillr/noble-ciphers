@@ -1,7 +1,7 @@
-import { deepStrictEqual, throws } from 'node:assert';
 import { describe, should } from 'micro-should';
-import { FF1, BinaryFF1 } from '../esm/ff1.js';
-import { json, hexToBytes } from './utils.js';
+import { deepStrictEqual, throws } from 'node:assert';
+import { BinaryFF1, FF1 } from '../ff1.js';
+import { hexToBytes, json } from './utils.js';
 
 const fromHex = (hex) => {
   return hex ? hexToBytes(hex) : Uint8Array.from([]);

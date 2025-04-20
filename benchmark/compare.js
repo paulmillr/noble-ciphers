@@ -2,12 +2,6 @@ import {
   ChaCha20Poly1305 as ChsfChachaPoly,
   newInstance as chainsafe_init_wasm,
 } from '@chainsafe/as-chacha20poly1305';
-import * as micro from '@noble/ciphers/_micro';
-import * as aes from '@noble/ciphers/aes';
-import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
-import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
-import { concatBytes } from '@noble/ciphers/utils';
-import * as webcrypto from '@noble/ciphers/webcrypto';
 import { AES as STABLE_AES } from '@stablelib/aes';
 import { ChaCha20Poly1305 as StableChachaPoly } from '@stablelib/chacha20poly1305';
 import { CTR as STABLE_CTR } from '@stablelib/ctr';
@@ -17,14 +11,20 @@ import { default as aesjs } from 'aes-js';
 import compareMatrix from 'micro-bmark/compare.js';
 import { createCipheriv, createDecipheriv } from 'node:crypto';
 import { default as tweetnacl } from 'tweetnacl'; // secretbox = xsalsa20-poly1305.
+import * as micro from '../_micro.js';
+import * as aes from '../aes.js';
+import { chacha20poly1305, xchacha20poly1305 } from '../chacha.js';
+import { xsalsa20poly1305 } from '../salsa.js';
+import { concatBytes } from '../utils.js';
+import * as webcrypto from '../webcrypto.js';
 import { buf, crossValidate } from './_utils.js';
 // ciphers.js
-import { chacha20, xchacha20 } from '@noble/ciphers/chacha';
-import { salsa20, xsalsa20 } from '@noble/ciphers/salsa';
 import { streamXOR as stableChacha } from '@stablelib/chacha';
 import { streamXOR as stableSalsa } from '@stablelib/salsa20';
 import { streamXOR as stableXchacha } from '@stablelib/xchacha20';
 import { streamXOR as stableXSalsa } from '@stablelib/xsalsa20';
+import { chacha20, xchacha20 } from '../chacha.js';
+import { salsa20, xsalsa20 } from '../salsa.js';
 
 const cipherSame = (fn) => ({ encrypt: fn, decrypt: fn });
 

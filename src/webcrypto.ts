@@ -2,33 +2,29 @@
  * WebCrypto-based AES gcm/ctr/cbc, `managedNonce` and `randomBytes`.
  * We use WebCrypto aka globalThis.crypto, which exists in browsers and node.js 16+.
  * node.js versions earlier than v19 don't declare it in global scope.
- * For node.js, package.js on#exports field mapping rewrites import
- * from `crypto` to `cryptoNode`, which imports native module.
- * Makes the utils un-importable in browsers without a bundler.
- * Once node.js 18 is deprecated, we can just drop the import.
  * @module
  */
-// Use full path so that Node.js can rewrite it to `cryptoNode.js`.
-import { crypto } from '@noble/ciphers/crypto';
-import { abytes, anumber } from './_assert.ts';
-import { type AsyncCipher, type Cipher, concatBytes } from './utils.ts';
+import { abytes, anumber, type AsyncCipher, type Cipher, concatBytes } from './utils.ts';
+
+declare const globalThis: Record<string, any> | undefined;
+
+function getCrypto(): any {
+  return typeof globalThis === 'object' && 'crypto' in globalThis ? globalThis.crypto : undefined;
+}
 
 /**
  * Secure PRNG. Uses `crypto.getRandomValues`, which defers to OS.
  */
 export function randomBytes(bytesLength = 32): Uint8Array {
-  if (crypto && typeof crypto.getRandomValues === 'function') {
-    return crypto.getRandomValues(new Uint8Array(bytesLength));
-  }
-  // Legacy Node.js compatibility
-  if (crypto && typeof crypto.randomBytes === 'function') {
-    return Uint8Array.from(crypto.randomBytes(bytesLength));
-  }
+  const cr = getCrypto();
+  if (cr && typeof cr.getRandomValues === 'function')
+    return cr.getRandomValues(new Uint8Array(bytesLength));
   throw new Error('crypto.getRandomValues must be defined');
 }
 
 export function getWebcryptoSubtle(): any {
-  if (crypto && typeof crypto.subtle === 'object' && crypto.subtle != null) return crypto.subtle;
+  const cr = getCrypto();
+  if (cr && typeof cr.subtle === 'object' && cr.subtle != null) return cr.subtle;
   throw new Error('crypto.subtle must be defined');
 }
 

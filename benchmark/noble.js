@@ -1,11 +1,11 @@
-import { cbc, ctr, ecb, gcm, siv } from '@noble/ciphers/aes';
+import { cbc, ctr, ecb, gcm, siv } from '../aes.js';
 // prettier-ignore
+import mark from 'micro-bmark';
 import {
   chacha12, chacha20, chacha20poly1305, chacha8, xchacha20, xchacha20poly1305,
-} from '@noble/ciphers/chacha';
-import { salsa20, xsalsa20, xsalsa20poly1305 } from '@noble/ciphers/salsa';
-import * as aesw from '@noble/ciphers/webcrypto';
-import mark from 'micro-bmark';
+} from '../chacha.js';
+import { salsa20, xsalsa20, xsalsa20poly1305 } from '../salsa.js';
+import * as aesw from '../webcrypto.js';
 import { buf } from './_utils.js';
 
 const buffers = [
