@@ -36,8 +36,10 @@ xchacha [^2] uses the subkey and remaining 8 byte nonce with ChaCha20 as normal
 
  * @module
  */
-import { abool, abytes, anumber } from './_assert.ts';
-import { type XorStream, checkOpts, clean, copyBytes, u32 } from './utils.ts';
+// prettier-ignore
+import {
+  type XorStream, abool, abytes, anumber, checkOpts, clean, copyBytes, u32
+} from './utils.ts';
 
 // We can't make top-level var depend on utils.utf8ToBytes
 // because it's not present in all envs. Creating a similar fn here

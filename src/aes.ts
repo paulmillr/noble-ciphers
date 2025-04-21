@@ -14,25 +14,13 @@
  * and [original proposal](https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf)
  * @module
  */
-import { abytes } from './_assert.ts';
 import { ghash, polyval } from './_polyval.ts';
+// prettier-ignore
 import {
-  type Cipher,
-  type CipherWithOutput,
-  clean,
-  complexOverlapBytes,
-  concatBytes,
-  copyBytes,
-  createView,
-  equalBytes,
-  getOutput,
-  isAligned32,
-  overlapBytes,
-  setBigUint64,
-  u32,
-  u64Lengths,
-  u8,
-  wrapCipher,
+  abytes, clean, complexOverlapBytes, concatBytes,
+  copyBytes, createView, equalBytes, getOutput, isAligned32, overlapBytes,
+  setBigUint64, u32, u64Lengths, u8, wrapCipher,
+  type Cipher, type CipherWithOutput,
 } from './utils.ts';
 
 const BLOCK_SIZE = 16;

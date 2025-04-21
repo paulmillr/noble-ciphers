@@ -7,10 +7,10 @@
 /*! noble-ciphers - MIT License (c) 2023 Paul Miller (paulmillr.com) */
 // prettier-ignore
 import { createCipher, rotl } from './_arx.ts';
-import { abytes } from './_assert.ts';
 import {
   type Cipher,
   type XorStream,
+  abytes,
   bytesToHex,
   concatBytes,
   equalBytes,

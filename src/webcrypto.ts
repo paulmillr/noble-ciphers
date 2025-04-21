@@ -10,8 +10,7 @@
  */
 // Use full path so that Node.js can rewrite it to `cryptoNode.js`.
 import { crypto } from '@noble/ciphers/crypto';
-import { abytes, anumber } from './_assert.ts';
-import { type AsyncCipher, type Cipher, concatBytes } from './utils.ts';
+import { abytes, anumber, type AsyncCipher, type Cipher, concatBytes } from './utils.ts';
 
 /**
  * Secure PRNG. Uses `crypto.getRandomValues`, which defers to OS.

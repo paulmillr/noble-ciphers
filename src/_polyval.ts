@@ -12,8 +12,11 @@
  *
  * @module
  */
-import { abytes, aexists, aoutput } from './_assert.ts';
-import { clean, copyBytes, createView, Hash, type Input, toBytes, u32 } from './utils.ts';
+// prettier-ignore
+import {
+  abytes, aexists, aoutput,
+  clean, copyBytes, createView, Hash, type Input, toBytes, u32,
+} from './utils.ts';
 
 const BLOCK_SIZE = 16;
 // TODO: rewrite

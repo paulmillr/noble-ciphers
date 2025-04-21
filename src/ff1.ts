@@ -3,9 +3,8 @@
  * [NIST 800-38G](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf).
  * @module
  */
-import { abytes, anumber } from './_assert.ts';
 import { unsafe } from './aes.ts';
-import { type Cipher, bytesToNumberBE, clean, numberToBytesBE } from './utils.ts';
+import { type Cipher, abytes, anumber, bytesToNumberBE, clean, numberToBytesBE } from './utils.ts';
 
 // NOTE: no point in inlining encrypt instead of encryptBlock, since BigInt stuff will be slow
 const { expandKeyLE, encryptBlock } = unsafe;
