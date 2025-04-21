@@ -1,20 +1,20 @@
-import { deepStrictEqual, throws } from 'node:assert';
 import fc from 'fast-check';
 import { describe, should } from 'micro-should';
-import { TYPE_TEST, unalign } from './utils.js';
+import { deepStrictEqual, throws } from 'node:assert';
 import * as assert from '../esm/_assert.js';
 import {
-  createView,
   bytesToHex,
+  bytesToUtf8,
   concatBytes,
+  createView,
+  getOutput,
   hexToBytes,
   overlapBytes,
-  toBytes,
-  bytesToUtf8,
-  getOutput,
   setBigUint64,
+  toBytes,
   u64Lengths,
 } from '../esm/utils.js';
+import { TYPE_TEST, unalign } from './utils.js';
 
 describe('utils', () => {
   const staticHexVectors = [
@@ -188,9 +188,12 @@ describe('utils', () => {
     }
   });
   should('u64Lengths', () => {
-    deepStrictEqual(bytesToHex(u64Lengths(new Uint8Array(10))), '00000000000000000a00000000000000');
     deepStrictEqual(
-      bytesToHex(u64Lengths(new Uint8Array(10), new Uint8Array(7))),
+      bytesToHex(u64Lengths(new Uint8Array(10).length, 0, true)),
+      '00000000000000000a00000000000000'
+    );
+    deepStrictEqual(
+      bytesToHex(u64Lengths(new Uint8Array(10).length, new Uint8Array(7).length, true)),
       '07000000000000000a00000000000000'
     );
   });

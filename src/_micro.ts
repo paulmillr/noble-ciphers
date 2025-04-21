@@ -13,11 +13,10 @@ import {
   type XorStream,
   bytesToHex,
   concatBytes,
-  createView,
   equalBytes,
   hexToNumber,
   numberToBytesBE,
-  setBigUint64,
+  u64Lengths,
   wrapCipher,
 } from './utils.ts';
 
@@ -235,12 +234,7 @@ function computeTag(
   res.push(ciphertext);
   const leftover = ciphertext.length % 16;
   if (leftover > 0) res.push(new Uint8Array(16 - leftover));
-  // Lengths
-  const num = new Uint8Array(16);
-  const view = createView(num);
-  setBigUint64(view, 0, BigInt(AAD ? AAD.length : 0), true);
-  setBigUint64(view, 8, BigInt(ciphertext.length), true);
-  res.push(num);
+  res.push(u64Lengths(ciphertext.length, AAD ? AAD.length : 0, true));
   const authKey = fn(key, nonce, new Uint8Array(32));
   return poly1305(concatBytes(...res), authKey);
 }

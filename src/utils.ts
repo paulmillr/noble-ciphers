@@ -433,12 +433,12 @@ export function setBigUint64(
   view.setUint32(byteOffset + l, wl, isLE);
 }
 
-// TODO: unused anywhere
-export function u64Lengths(ciphertext: Uint8Array, AAD?: Uint8Array): Uint8Array {
+export function u64Lengths(dataLength: number, aadLength: number, isLE: boolean): Uint8Array {
+  abool(isLE);
   const num = new Uint8Array(16);
   const view = createView(num);
-  setBigUint64(view, 0, BigInt(AAD ? AAD.length : 0), true);
-  setBigUint64(view, 8, BigInt(ciphertext.length), true);
+  setBigUint64(view, 0, BigInt(aadLength), isLE);
+  setBigUint64(view, 8, BigInt(dataLength), isLE);
   return num;
 }
 

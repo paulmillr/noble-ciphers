@@ -30,6 +30,7 @@ import {
   overlapBytes,
   setBigUint64,
   u32,
+  u64Lengths,
   u8,
   wrapCipher,
 } from './utils.ts';
@@ -590,14 +591,11 @@ function computeTag(
   data: Uint8Array,
   AAD?: Uint8Array
 ) {
-  const aadLength = AAD == null ? 0 : AAD.length;
+  const aadLength = AAD ? AAD.length : 0;
   const h = fn.create(key, data.length + aadLength);
   if (AAD) h.update(AAD);
+  const num = u64Lengths(8 * data.length, 8 * aadLength, isLE);
   h.update(data);
-  const num = new Uint8Array(16);
-  const view = createView(num);
-  if (AAD) setBigUint64(view, 0, BigInt(aadLength * 8), isLE);
-  setBigUint64(view, 8, BigInt(data.length * 8), isLE);
   h.update(num);
   const res = h.digest();
   clean(num);

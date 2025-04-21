@@ -45,7 +45,7 @@ function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: number[]
   const d = 4 * Math.ceil(b / 4) + 4;
   const padding = mod(-tweak.length - b - 1, 16);
   // P = [1]1 || [2]1 || [1]1 || [radix]3 || [10]1 || [u mod 256]1 || [n]4 || [t]4.
-  const P = new Uint8Array([1, 2, 1, 0, 0, 0, 10, u, 0, 0, 0, 0, 0, 0, 0, 0]);
+  const P = Uint8Array.from([1, 2, 1, 0, 0, 0, 10, u, 0, 0, 0, 0, 0, 0, 0, 0]);
   const view = new DataView(P.buffer);
   view.setUint16(4, radix, false);
   view.setUint32(8, x.length, false);
@@ -93,7 +93,7 @@ function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: number[]
   return { u, round, destroy };
 }
 
-const EMPTY_BUF = new Uint8Array([]);
+const EMPTY_BUF = /* @__PURE__ */ Uint8Array.of();
 
 /** FPE-FF1 format-preserving encryption */
 export function FF1(

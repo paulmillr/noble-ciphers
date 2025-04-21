@@ -19,10 +19,9 @@ import {
   type CipherWithOutput,
   type XorStream,
   clean,
-  createView,
   equalBytes,
   getOutput,
-  setBigUint64,
+  u64Lengths,
   wrapCipher,
 } from './utils.ts';
 
@@ -223,10 +222,7 @@ function computeTag(
   const h = poly1305.create(authKey);
   if (AAD) updatePadded(h, AAD);
   updatePadded(h, data);
-  const num = new Uint8Array(16);
-  const view = createView(num);
-  setBigUint64(view, 0, BigInt(AAD ? AAD.length : 0), true);
-  setBigUint64(view, 8, BigInt(data.length), true);
+  const num = u64Lengths(data.length, AAD ? AAD.length : 0, true);
   h.update(num);
   const res = h.digest();
   clean(authKey, num);

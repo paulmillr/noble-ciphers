@@ -189,6 +189,7 @@ class GHASH implements Hash<GHASH> {
 class Polyval extends GHASH {
   constructor(key: Input, expectedLength?: number) {
     key = toBytes(key);
+    abytes(key);
     const ghKey = _toGHASHKey(copyBytes(key));
     super(ghKey, expectedLength);
     clean(ghKey);
