@@ -232,8 +232,9 @@ class Poly1305 implements Hash<Poly1305> {
   }
   update(data: Input): this {
     aexists(this);
-    const { buffer, blockLen } = this;
     data = toBytes(data);
+    abytes(data);
+    const { buffer, blockLen } = this;
     const len = data.length;
 
     for (let pos = 0; pos < len; ) {

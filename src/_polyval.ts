@@ -143,8 +143,9 @@ class GHASH implements Hash<GHASH> {
     this.s3 = o3;
   }
   update(data: Input): this {
-    data = toBytes(data);
     aexists(this);
+    data = toBytes(data);
+    abytes(data);
     const b32 = u32(data);
     const blocks = Math.floor(data.length / BLOCK_SIZE);
     const left = data.length % BLOCK_SIZE;
