@@ -62,10 +62,10 @@ import { managedNonce, randomBytes } from '@noble/ciphers/webcrypto';
 - [Examples](#examples)
   - [XChaCha20-Poly1305 encryption](#xchacha20-poly1305-encryption)
   - [AES-256-GCM encryption](#aes-256-gcm-encryption)
+  - [managedNonce: automatic nonce handling](#managednonce-automatic-nonce-handling)
   - [AES: gcm, siv, ctr, cfb, cbc, ecb](#aes-gcm-siv-ctr-cfb-cbc-ecb)
-  - [Friendly WebCrypto AES](#friendly-webcrypto-aes)
-  - [AESKW and AESKWP](#aeskw-and-aeskwp)
-  - [Auto-handle nonces](#auto-handle-nonces)
+  - [AES: friendly WebCrypto wrapper](#aes-friendly-webcrypto-wrapper)
+  - [AES: AESKW and AESKWP](#aeskw-and-aeskwp)
   - [Reuse array for input and output](#reuse-array-for-input-and-output)
 - [Internals](#internals)
   - [Implemented primitives](#implemented-primitives)
@@ -119,6 +119,29 @@ const ciphertext = aes.encrypt(data);
 const data_ = aes.decrypt(ciphertext); // utils.bytesToUtf8(data_) === data
 ```
 
+#### managedNonce: automatic nonce handling
+
+We provide API that manages nonce internally instead of exposing them to library's user.
+
+For `encrypt`, a `nonceBytes`-length buffer is fetched from CSPRNG and prenended to encrypted ciphertext.
+
+For `decrypt`, first `nonceBytes` of ciphertext are treated as nonce.
+
+> [!WARN]
+> AES-GCM & ChaCha (NOT xchacha) have 12-byte nonces, which limit amount of messages
+> encryptable under the same key. Check out [limits section](#encryption-limits).
+
+```js
+import { xchacha20poly1305 } from '@noble/ciphers/chacha';
+import { managedNonce } from '@noble/ciphers/webcrypto';
+import { hexToBytes, utf8ToBytes } from '@noble/ciphers/utils';
+const key = hexToBytes('fa686bfdffd3758f6377abbc23bf3d9bdc1a0dda4a6e7f8dbdd579fa1ff6d7e1');
+const chacha = managedNonce(xchacha20poly1305)(key); // manages nonces for you
+const data = utf8ToBytes('hello, noble');
+const ciphertext = chacha.encrypt(data);
+const data_ = chacha.decrypt(ciphertext);
+```
+
 #### AES: gcm, siv, ctr, cfb, cbc, ecb
 
 ```js
@@ -144,7 +167,7 @@ for (const cipher of [ecb]) {
 }
 ```
 
-#### Friendly WebCrypto AES
+#### AES: friendly WebCrypto wrapper
 
 Noble implements AES. Sometimes people want to use built-in `crypto.subtle` instead. However, it has terrible API. We simplify access to built-ins.
 
@@ -167,7 +190,7 @@ for (const cipher of [ctr, cbc]) {
 }
 ```
 
-#### AESKW and AESKWP
+#### AES: AESKW and AESKWP
 
 ```ts
 import { aeskw, aeskwp } from '@noble/ciphers/aes';
@@ -176,29 +199,6 @@ import { hexToBytes } from '@noble/ciphers/utils';
 const kek = hexToBytes('000102030405060708090A0B0C0D0E0F');
 const keyData = hexToBytes('00112233445566778899AABBCCDDEEFF');
 const ciphertext = aeskw(kek).encrypt(keyData);
-```
-
-#### Auto-handle nonces
-
-We provide API that manages nonce internally instead of exposing them to library's user.
-
-For `encrypt`, a `nonceBytes`-length buffer is fetched from CSPRNG and prenended to encrypted ciphertext.
-
-For `decrypt`, first `nonceBytes` of ciphertext are treated as nonce.
-
-> [!WARN]
-> AES-GCM & ChaCha (NOT xchacha) have 12-byte nonces, which limit amount of messages
-> encryptable under the same key. Check out [limits section](#encryption-limits).
-
-```js
-import { xchacha20poly1305 } from '@noble/ciphers/chacha';
-import { managedNonce } from '@noble/ciphers/webcrypto';
-import { hexToBytes, utf8ToBytes } from '@noble/ciphers/utils';
-const key = hexToBytes('fa686bfdffd3758f6377abbc23bf3d9bdc1a0dda4a6e7f8dbdd579fa1ff6d7e1');
-const chacha = managedNonce(xchacha20poly1305)(key); // manages nonces for you
-const data = utf8ToBytes('hello, noble');
-const ciphertext = chacha.encrypt(data);
-const data_ = chacha.decrypt(ciphertext);
 ```
 
 #### Reuse array for input and output
