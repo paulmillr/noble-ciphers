@@ -46,6 +46,12 @@ type CipherWithNonce = ((key: Uint8Array, nonce: Uint8Array, ...args: any[]) => 
 
 /**
  * Uses CSPRG for nonce, nonce injected in ciphertext.
+ * For `encrypt`, a `nonceBytes`-length buffer is fetched from CSPRNG and
+ * prepended to encrypted ciphertext. For `decrypt`, first `nonceBytes` of ciphertext
+ * are treated as nonce.
+ *
+ * NOTE: Under the same key, using random nonces (e.g. `managedNonce`) with AES-GCM and ChaCha
+ * should be limited to `2**23` (8M) messages to get a collision chance of `2**-50`. Stretching to  * `2**32` (4B) messages, chance would become `2**-33` - still negligible, but creeping up.
  * @example
  * const gcm = managedNonce(aes.gcm);
  * const ciphr = gcm(key).encrypt(data);
