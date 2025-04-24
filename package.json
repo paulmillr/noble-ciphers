@@ -33,12 +33,12 @@
   "license": "MIT",
   "devDependencies": {
     "@paulmillr/jsbt": "0.3.3",
-    "@scure/base": "1.2.1",
+    "@scure/base": "1.2.5",
     "fast-check": "3.0.0",
-    "micro-bmark": "0.4.0",
-    "micro-should": "0.5.1",
-    "prettier": "3.5.2",
-    "typescript": "5.8.2"
+    "micro-bmark": "0.4.1",
+    "micro-should": "0.5.2",
+    "prettier": "3.5.3",
+    "typescript": "5.8.3"
   },
   "engines": {
     "node": "^14.21.3 || >=16"
@@ -95,6 +95,55 @@
       "require": "./utils.js"
     },
     "./webcrypto": {
+      "import": "./esm/webcrypto.js",
+      "require": "./webcrypto.js"
+    },
+    "./_micro.js": {
+      "import": "./esm/_micro.js",
+      "require": "./_micro.js"
+    },
+    "./_poly1305.js": {
+      "import": "./esm/_poly1305.js",
+      "require": "./_poly1305.js"
+    },
+    "./_polyval.js": {
+      "import": "./esm/_polyval.js",
+      "require": "./_polyval.js"
+    },
+    "./aes.js": {
+      "import": "./esm/aes.js",
+      "require": "./aes.js"
+    },
+    "./chacha.js": {
+      "import": "./esm/chacha.js",
+      "require": "./chacha.js"
+    },
+    "./crypto.js": {
+      "types": "./crypto.d.ts",
+      "node": {
+        "import": "./esm/cryptoNode.js",
+        "default": "./cryptoNode.js"
+      },
+      "import": "./esm/crypto.js",
+      "default": "./crypto.js"
+    },
+    "./ff1.js": {
+      "import": "./esm/ff1.js",
+      "require": "./ff1.js"
+    },
+    "./index.js": {
+      "import": "./esm/index.js",
+      "require": "./index.js"
+    },
+    "./salsa.js": {
+      "import": "./esm/salsa.js",
+      "require": "./salsa.js"
+    },
+    "./utils.js": {
+      "import": "./esm/utils.js",
+      "require": "./utils.js"
+    },
+    "./webcrypto.js": {
       "import": "./esm/webcrypto.js",
       "require": "./webcrypto.js"
     }
