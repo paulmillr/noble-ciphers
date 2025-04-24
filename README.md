@@ -142,7 +142,7 @@ const ciphertext = chacha.encrypt(data);
 const data_ = chacha.decrypt(ciphertext);
 ```
 
-#### AES: gcm, siv, ctr, cfb, cbc, ecb
+#### AES: gcm, siv, ctr, cfb, cbc, ecb, aeskw
 
 ```js
 import { gcm, siv, ctr, cfb, cbc, ecb } from '@noble/ciphers/aes';
@@ -165,6 +165,14 @@ for (const cipher of [ecb]) {
   const ciphertext_ = cipher(key).encrypt(plaintext);
   const plaintext_ = cipher(key).decrypt(ciphertext_);
 }
+
+// AESKW, AESKWP
+import { aeskw, aeskwp } from '@noble/ciphers/aes';
+import { hexToBytes } from '@noble/ciphers/utils';
+
+const kek = hexToBytes('000102030405060708090A0B0C0D0E0F');
+const keyData = hexToBytes('00112233445566778899AABBCCDDEEFF');
+const ciphertext = aeskw(kek).encrypt(keyData);
 ```
 
 #### AES: friendly WebCrypto wrapper
@@ -188,17 +196,6 @@ for (const cipher of [ctr, cbc]) {
   const ciphertext_ = await cipher(key, nonce).encrypt(plaintext);
   const plaintext_ = await cipher(key, nonce).decrypt(ciphertext_);
 }
-```
-
-#### AES: AESKW and AESKWP
-
-```ts
-import { aeskw, aeskwp } from '@noble/ciphers/aes';
-import { hexToBytes } from '@noble/ciphers/utils';
-
-const kek = hexToBytes('000102030405060708090A0B0C0D0E0F');
-const keyData = hexToBytes('00112233445566778899AABBCCDDEEFF');
-const ciphertext = aeskw(kek).encrypt(keyData);
 ```
 
 #### Reuse array for input and output
