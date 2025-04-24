@@ -127,7 +127,7 @@ For `encrypt`, a `nonceBytes`-length buffer is fetched from CSPRNG and prenended
 
 For `decrypt`, first `nonceBytes` of ciphertext are treated as nonce.
 
-> [!WARNING]
+> [!NOTE]
 > AES-GCM & ChaCha (NOT XChaCha) [limit amount of messages](#encryption-limits)
 > encryptable under the same key.
 
