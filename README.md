@@ -186,6 +186,10 @@ For `encrypt`, a `nonceBytes`-length buffer is fetched from CSPRNG and prenended
 
 For `decrypt`, first `nonceBytes` of ciphertext are treated as nonce.
 
+> [!WARN]
+> AES-GCM & ChaCha (NOT xchacha) have 12-byte nonces, which limit amount of messages
+> encryptable under the same key. Check out [limits section](#encryption-limits).
+
 ```js
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 import { managedNonce } from '@noble/ciphers/webcrypto';
@@ -361,6 +365,9 @@ of a random function. See [draft-irtf-cfrg-aead-limits](https://datatracker.ietf
   - AES-GCM: `2**69/B` where B is max blocks encrypted by a key. Meaning
     `2**59` for 1KB, `2**49` for 1MB, `2**39` for 1GB
   - Salsa, ChaCha, XSalsa, XChaCha: `2**100`
+
+Under the same key, using random nonces (e.g. `managedNonce`) with AES-GCM and ChaCha
+should be limited to `2**23` (8M) messages to get a collision chance of `2**-50`. Stretching to `2**32` (4B) messages, chance would become `2**-33` - still negligible, but creeping up.
 
 ##### AES internals and block modes
 
