@@ -174,7 +174,7 @@ export const chacha20: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   counterLength: 4,
 });
 
-/** xchacha20 eXtended-nonce. https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha */
+/** xchacha20 eXtended-nonce. See [IRTF draft](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha) */
 export const xchacha20: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 8,

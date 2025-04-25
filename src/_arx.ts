@@ -49,6 +49,7 @@ const sigma32 = _utf8ToBytes('expand 32-byte k');
 const sigma16_32 = u32(sigma16);
 const sigma32_32 = u32(sigma32);
 
+/** Rotate left. */
 export function rotl(a: number, b: number): number {
   return (a << b) | (a >>> (32 - b));
 }

@@ -175,7 +175,7 @@ export const chacha20: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
 /**
  * XChaCha eXtended-nonce ChaCha. 24-byte nonce.
  * With 24-byte nonce, it's safe to use fill it with random (CSPRNG).
- * https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha
+ * See [IRTF draft](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha).
  */
 export const xchacha20: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
@@ -232,9 +232,7 @@ function computeTag(
 /**
  * AEAD algorithm from RFC 8439.
  * Salsa20 and chacha (RFC 8439) use poly1305 differently.
- * We could have composed them similar to:
- * https://github.com/paulmillr/scure-base/blob/b266c73dde977b1dd7ef40ef7a23cc15aab526b3/index.ts#L250
- * But it's hard because of authKey:
+ * We could have composed them, but it's hard because of authKey:
  * In salsa20, authKey changes position in salsa stream.
  * In chacha, authKey can't be computed inside computeTag, it modifies the counter.
  */

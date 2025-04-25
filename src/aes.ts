@@ -676,7 +676,7 @@ const limit = (name: string, min: number, max: number) => (value: number) => {
  * AES-GCM-SIV: classic AES-GCM with nonce-misuse resistance.
  * Guarantees that, when a nonce is repeated, the only security loss is that identical
  * plaintexts will produce identical ciphertexts.
- * RFC 8452, https://datatracker.ietf.org/doc/html/rfc8452
+ * See [RFC 8452](https://datatracker.ietf.org/doc/html/rfc8452).
  */
 export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
   blockSize: number;
