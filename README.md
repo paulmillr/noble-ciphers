@@ -247,7 +247,7 @@ due to its inner workings.
     [wiki](https://en.wikipedia.org/wiki/Salsa20).
 - [ChaCha20](https://cr.yp.to/chacha.html) stream cipher, released
   in 2008. Developed after Salsa20, ChaCha aims to increase diffusion per round.
-  It was standardized in [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439)
+  It was standardized in [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439)
   and is now used in TLS 1.3.
   - [XChaCha20](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha)
     extended-nonce variant is also provided. Similar to XSalsa, it's safe to use with
@@ -263,7 +263,7 @@ due to its inner workings.
     to prevent catastrophic consequences of nonce reuse. Our implementation of SIV
     has the same speed as GCM: there is no performance hit.
   - We also have AESKW and AESKWP from
-    [RFC 3394](https://datatracker.ietf.org/doc/html/rfc3394) / [RFC 5649](https://datatracker.ietf.org/doc/html/rfc5649)
+    [RFC 3394](https://www.rfc-editor.org/rfc/rfc3394) / [RFC 5649](https://www.rfc-editor.org/rfc/rfc5649)
   - Check out [AES internals and block modes](#aes-internals-and-block-modes).
 - We expose polynomial-evaluation MACs: [Poly1305](https://cr.yp.to/mac.html), AES-GCM's [GHash](https://en.wikipedia.org/wiki/Galois/Counter_Mode) and
   AES-SIV's [Polyval](https://en.wikipedia.org/wiki/AES-GCM-SIV).
@@ -271,7 +271,7 @@ due to its inner workings.
     [wiki](https://en.wikipedia.org/wiki/Poly1305))
     is a fast and parallel secret-key message-authentication code suitable for
     a wide variety of applications. It was standardized in
-    [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3.
+    [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439) and is now used in TLS 1.3.
   - Polynomial MACs are not perfect for every situation:
     they lack Random Key Robustness: the MAC can be forged, and can't
     be used in PAKE schemes. See
