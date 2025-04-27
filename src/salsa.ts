@@ -26,7 +26,72 @@ import {
   type XorStream,
 } from './utils.ts';
 
-/** Salsa20 core function. */
+/**
+ * Salsa20 core function. It is implemented twice:
+ * 1. Simple loop (salsaCore_small, hsalsa_small)
+ * 2. Unrolled loop (salsaCore, hsalsa)
+ * The functions are identical: can be verified by replacing createCipher() calls.
+ * Unrolled is 4x faster, but takes more code and is harder to read.
+ */
+
+/** quarter-round */
+function salsaQR(x: Uint32Array, a: number, b: number, c: number, d: number) {
+  x[b] ^= rotl((x[a] + x[d]) | 0, 7);
+  x[c] ^= rotl((x[b] + x[a]) | 0, 9);
+  x[d] ^= rotl((x[c] + x[b]) | 0, 13);
+  x[a] ^= rotl((x[d] + x[c]) | 0, 18);
+}
+
+function salsaRound(x: Uint32Array, rounds = 20) {
+  for (let r = 0; r < rounds; r += 2) {
+    salsaQR(x, 0, 4, 8, 12);
+    salsaQR(x, 5, 9, 13, 1);
+    salsaQR(x, 10, 14, 2, 6);
+    salsaQR(x, 15, 3, 7, 11);
+    salsaQR(x, 0, 1, 2, 3);
+    salsaQR(x, 5, 6, 7, 4);
+    salsaQR(x, 10, 11, 8, 9);
+    salsaQR(x, 15, 12, 13, 14);
+  }
+}
+
+/** Small, internal version of `salsaCore` without loop unrolling. Provided for auditability. */
+// @ts-expect-error
+// prettier-ignore
+function salsaCore_small(
+  s: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32Array,
+  cnt: number, rounds = 20
+): void {
+  const y = new Uint32Array([
+    s[0], k[0], k[1], k[2], // "expa" Key     Key     Key
+    k[3], s[1], n[0], n[1], // Key    "nd 3"  Nonce   Nonce
+    cnt, 0, s[2], k[4],     // Pos.   Pos.    "2-by"  Key
+    k[5], k[6], k[7], s[3], // Key    Key     Key     "te k"
+  ]);
+  const x = y.slice();
+  salsaRound(x, rounds);
+  for (let i = 0; i < 16; i++) out[i] = (y[i] + x[i]) | 0;
+}
+
+/** Small, internal version of `hsalsa` without loop unrolling. Provided for auditability. */
+// @ts-expect-error
+// prettier-ignore
+function hsalsa_small(s: Uint32Array, k: Uint32Array, i: Uint32Array, o32: Uint32Array): void {
+  const x = new Uint32Array([
+    s[0], k[0], k[1], k[2],
+    k[3], s[1], i[0], i[1],
+    i[2], i[3], s[2], k[4],
+    k[5], k[6], k[7], s[3]
+  ]);
+  salsaRound(x, 20);
+  let oi = 0;
+  o32[oi++] = x[0]; o32[oi++] = x[5];
+  o32[oi++] = x[10]; o32[oi++] = x[15];
+  o32[oi++] = x[6]; o32[oi++] = x[7];
+  o32[oi++] = x[8]; o32[oi++] = x[9];
+}
+
+// Same as `_small_salsaCore`
 // prettier-ignore
 function salsaCore(
   s: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32Array, cnt: number, rounds = 20
@@ -72,8 +137,7 @@ function salsaCore(
 }
 
 /**
- * hsalsa hashing function, used primarily in xsalsa, to hash
- * key and nonce into key' and nonce'.
+ * hsalsa hashing function, hashes key and nonce into key' and nonce'.
  * Same as salsaCore, but there doesn't seem to be a way to move the block
  * out without 25% performance hit.
  */
@@ -111,7 +175,7 @@ export function hsalsa(
 }
 
 /**
- * Salsa20 from original paper.
+ * Salsa20 from original paper. 12-byte nonce.
  * Unsafe to use random nonces under the same key, due to collision chance.
  * Prefer XSalsa instead.
  */
@@ -130,8 +194,8 @@ export const xsalsa20: XorStream = /* @__PURE__ */ createCipher(salsaCore, {
 });
 
 /**
- * xsalsa20-poly1305 eXtended-nonce salsa.
- * Can be safely used with random 24-byte nonces (CSPRNG).
+ * xsalsa20-poly1305 eXtended-nonce (24 bytes) salsa.
+ * Can be safely used with random nonces (CSPRNG).
  * Also known as secretbox from libsodium / nacl.
  */
 export const xsalsa20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(

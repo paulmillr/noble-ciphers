@@ -3,7 +3,7 @@
  * [wiki](https://en.wikipedia.org/wiki/Poly1305))
  * is a fast and parallel secret-key message-authentication code suitable for
  * a wide variety of applications. It was standardized in
- * [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and is now used in TLS 1.3.
+ * [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439) and is now used in TLS 1.3.
  *
  * Polynomial MACs are not perfect for every situation:
  * they lack Random Key Robustness: the MAC can be forged, and can't be used in PAKE schemes.
@@ -14,22 +14,78 @@
  * could be used instead.
  *
  * Check out [original website](https://cr.yp.to/mac.html).
+ * Based on Public Domain [poly1305-donna](https://github.com/floodyberry/poly1305-donna).
  * @module
  */
-import { Hash, type Input, abytes, aexists, aoutput, clean, toBytes } from './utils.ts';
+// prettier-ignore
+import {
+  Hash, type Input, abytes, aexists, aoutput, bytesToHex,
+  clean, concatBytes, hexToNumber, numberToBytesBE, toBytes
+} from './utils.ts';
 
-// Based on Public Domain poly1305-donna https://github.com/floodyberry/poly1305-donna
-const u8to16 = (a: Uint8Array, i: number) => (a[i++] & 0xff) | ((a[i++] & 0xff) << 8);
-class Poly1305 implements Hash<Poly1305> {
+function u8to16(a: Uint8Array, i: number) {
+  return (a[i++] & 0xff) | ((a[i++] & 0xff) << 8);
+}
+
+function bytesToNumberLE(bytes: Uint8Array): bigint {
+  return hexToNumber(bytesToHex(Uint8Array.from(bytes).reverse()));
+}
+
+/**
+ * "Small", internal version of poly1305 without loop unrolling.
+ * Identical to `poly1305`. Provided for auditability.
+ */
+function poly1305_small(msg: Uint8Array, key: Uint8Array): Uint8Array {
+  abytes(msg);
+  abytes(key, 32);
+  const POW_2_130_5 = BigInt(2) ** BigInt(130) - BigInt(5); // 2^130-5
+  const POW_2_128_1 = BigInt(2) ** BigInt(128) - BigInt(1); // 2^128-1
+  const CLAMP_R = BigInt('0x0ffffffc0ffffffc0ffffffc0fffffff');
+  const r = bytesToNumberLE(key.subarray(0, 16)) & CLAMP_R;
+  const s = bytesToNumberLE(key.subarray(16));
+  // Process by 16 byte chunks
+  let acc = BigInt(0);
+  for (let i = 0; i < msg.length; i += 16) {
+    const m = msg.subarray(i, i + 16);
+    const n = bytesToNumberLE(m) | (BigInt(1) << BigInt(8 * m.length));
+    acc = ((acc + n) * r) % POW_2_130_5;
+  }
+  const res = (acc + s) & POW_2_128_1;
+  return numberToBytesBE(res, 16).reverse(); // LE
+}
+
+// Can be used to replace computeTag in chacha.ts. Unused, provided for auditability.
+// @ts-expect-error
+function poly1305_computeTag_small(
+  authKey: Uint8Array,
+  lengths: Uint8Array,
+  ciphertext: Uint8Array,
+  AAD?: Uint8Array
+): Uint8Array {
+  const res = [];
+  const updatePadded2 = (msg: Uint8Array) => {
+    res.push(msg);
+    const leftover = msg.length % 16;
+    if (leftover) res.push(new Uint8Array(16).slice(leftover));
+  };
+  if (AAD) updatePadded2(AAD);
+  updatePadded2(ciphertext);
+  res.push(lengths);
+  return poly1305_small(concatBytes(...res), authKey);
+}
+
+/** Poly1305 class. Prefer poly1305() function instead. */
+export class Poly1305 implements Hash<Poly1305> {
   readonly blockLen = 16;
   readonly outputLen = 16;
   private buffer = new Uint8Array(16);
-  private r = new Uint16Array(10);
+  private r = new Uint16Array(10); // Allocating 1 array with .subarray() here is slower than 3
   private h = new Uint16Array(10);
   private pad = new Uint16Array(8);
   private pos = 0;
   protected finished = false;
 
+  // Can be speed-up using BigUint64Array, at the cost of complexity
   constructor(key: Input) {
     key = toBytes(key);
     abytes(key, 32);
@@ -253,10 +309,10 @@ class Poly1305 implements Hash<Poly1305> {
     }
     return this;
   }
-  destroy() {
+  destroy(): void {
     clean(this.h, this.r, this.buffer, this.pad);
   }
-  digestInto(out: Uint8Array) {
+  digestInto(out: Uint8Array): Uint8Array {
     aexists(this);
     aoutput(out, this);
     this.finished = true;
@@ -294,7 +350,7 @@ export function wrapConstructorWithKey<H extends Hash<H>>(
   create(key: Input): Hash<H>;
 } {
   const hashC = (msg: Input, key: Input): Uint8Array => hashCons(key).update(toBytes(msg)).digest();
-  const tmp = hashCons(new Uint8Array(32));
+  const tmp = hashCons(new Uint8Array(32)); // tmp array, used just once below
   hashC.outputLen = tmp.outputLen;
   hashC.blockLen = tmp.blockLen;
   hashC.create = (key: Input) => hashCons(key);
@@ -302,4 +358,5 @@ export function wrapConstructorWithKey<H extends Hash<H>>(
 }
 
 /** Poly1305 MAC from RFC 8439. */
-export const poly1305: CHash = wrapConstructorWithKey((key) => new Poly1305(key));
+export const poly1305: CHash = /** @__PURE__ */ (() =>
+  wrapConstructorWithKey((key) => new Poly1305(key)))();

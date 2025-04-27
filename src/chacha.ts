@@ -1,7 +1,7 @@
 /**
  * [ChaCha20](https://cr.yp.to/chacha.html) stream cipher, released
  * in 2008. Developed after Salsa20, ChaCha aims to increase diffusion per round.
- * It was standardized in [RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439) and
+ * It was standardized in [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439) and
  * is now used in TLS 1.3.
  *
  * [XChaCha20](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha)
@@ -26,16 +26,83 @@ import {
 } from './utils.ts';
 
 /**
- * ChaCha core function.
+ * ChaCha core function. It is implemented twice:
+ * 1. Simple loop (chachaCore_small, xchacha_small)
+ * 2. Unrolled loop (chachaCore, xchacha)
+ * The functions are identical: can be verified by replacing createCipher() calls.
+ * Unrolled is 4x faster, but takes more code and is harder to read.
  */
+
+/** quarter-round */
+// prettier-ignore
+function chachaQR(x: Uint32Array, a: number, b: number, c: number, d: number) {
+  x[a] = (x[a] + x[b]) | 0; x[d] = rotl(x[d] ^ x[a], 16);
+  x[c] = (x[c] + x[d]) | 0; x[b] = rotl(x[b] ^ x[c], 12);
+  x[a] = (x[a] + x[b]) | 0; x[d] = rotl(x[d] ^ x[a], 8);
+  x[c] = (x[c] + x[d]) | 0; x[b] = rotl(x[b] ^ x[c], 7);
+}
+
+/** single round */
+function chachaRound(x: Uint32Array, rounds = 20) {
+  for (let r = 0; r < rounds; r += 2) {
+    chachaQR(x, 0, 4, 8, 12);
+    chachaQR(x, 1, 5, 9, 13);
+    chachaQR(x, 2, 6, 10, 14);
+    chachaQR(x, 3, 7, 11, 15);
+    chachaQR(x, 0, 5, 10, 15);
+    chachaQR(x, 1, 6, 11, 12);
+    chachaQR(x, 2, 7, 8, 13);
+    chachaQR(x, 3, 4, 9, 14);
+  }
+}
+
+/** Small, internal version of `chachaCore` without loop unrolling. Provided for auditability. */
+// @ts-expect-error
+// prettier-ignore
+function chachaCore_small(
+  s: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32Array,
+  cnt: number, rounds = 20
+): void {
+  const y = new Uint32Array([
+    s[0], s[1], s[2], s[3], // "expa"   "nd 3"  "2-by"  "te k"
+    k[0], k[1], k[2], k[3], // Key      Key     Key     Key
+    k[4], k[5], k[6], k[7], // Key      Key     Key     Key
+    cnt, n[0], n[1], n[2],  // Counter  Counter Nonce   Nonce
+  ]);
+  const x = y.slice();
+  chachaRound(x, rounds);
+  for (let i = 0; i < 16; i++) out[i] = (y[i] + x[i]) | 0;
+}
+
+/** Small, internal version of `hchacha` without loop unrolling. Provided for auditability. */
+// @ts-expect-error
+// prettier-ignore
+function hchacha_small(
+  s: Uint32Array, k: Uint32Array, i: Uint32Array, o32: Uint32Array
+): void {
+  const x = new Uint32Array([
+    s[0], s[1], s[2], s[3],
+    k[0], k[1], k[2], k[3],
+    k[4], k[5], k[6], k[7],
+    i[0], i[1], i[2], i[3],
+  ]);
+  chachaRound(x, 20);
+  let oi = 0;
+  o32[oi++] = x[0]; o32[oi++] = x[1];
+  o32[oi++] = x[2]; o32[oi++] = x[3];
+  o32[oi++] = x[12]; o32[oi++] = x[13];
+  o32[oi++] = x[14]; o32[oi++] = x[15];
+}
+
+// Same as `chachaCore_small`
 // prettier-ignore
 function chachaCore(
   s: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32Array, cnt: number, rounds = 20
 ): void {
   let y00 = s[0], y01 = s[1], y02 = s[2], y03 = s[3], // "expa"   "nd 3"  "2-by"  "te k"
-    y04 = k[0], y05 = k[1], y06 = k[2], y07 = k[3],   // Key      Key     Key     Key
-    y08 = k[4], y09 = k[5], y10 = k[6], y11 = k[7],   // Key      Key     Key     Key
-    y12 = cnt, y13 = n[0], y14 = n[1], y15 = n[2];    // Counter  Counter	Nonce   Nonce
+      y04 = k[0], y05 = k[1], y06 = k[2], y07 = k[3], // Key      Key     Key     Key
+      y08 = k[4], y09 = k[5], y10 = k[6], y11 = k[7], // Key      Key     Key     Key
+      y12 = cnt, y13 = n[0], y14 = n[1], y15 = n[2];  // Counter  Counter	Nonce   Nonce
   // Save state to temporary variables
   let x00 = y00, x01 = y01, x02 = y02, x03 = y03,
       x04 = y04, x05 = y05, x06 = y06, x07 = y07,
@@ -94,10 +161,9 @@ function chachaCore(
   out[oi++] = (y14 + x14) | 0; out[oi++] = (y15 + x15) | 0;
 }
 /**
- * hchacha helper method, used primarily in xchacha, to hash
- * key and nonce into key' and nonce'.
+ * hchacha hashing function, hashes key and nonce into key' and nonce'.
  * Same as chachaCore, but there doesn't seem to be a way to move the block
- * out without 25% performance hit.
+ * out without 25% performance hit. Used primarily in xchacha.
  */
 // prettier-ignore
 export function hchacha(
@@ -154,6 +220,7 @@ export function hchacha(
   o32[oi++] = x12; o32[oi++] = x13;
   o32[oi++] = x14; o32[oi++] = x15;
 }
+
 /**
  * Original, non-RFC chacha20 from DJB. 8-byte nonce, 8-byte counter.
  */
@@ -206,8 +273,8 @@ const ZEROS16 = /* @__PURE__ */ new Uint8Array(16);
 // Pad to digest size with zeros
 const updatePadded = (h: ReturnType<typeof poly1305.create>, msg: Uint8Array) => {
   h.update(msg);
-  const left = msg.length % 16;
-  if (left) h.update(ZEROS16.subarray(left));
+  const leftover = msg.length % 16;
+  if (leftover) h.update(ZEROS16.subarray(leftover));
 };
 
 const ZEROS32 = /* @__PURE__ */ new Uint8Array(32);
@@ -215,17 +282,20 @@ function computeTag(
   fn: XorStream,
   key: Uint8Array,
   nonce: Uint8Array,
-  data: Uint8Array,
+  ciphertext: Uint8Array,
   AAD?: Uint8Array
 ): Uint8Array {
   const authKey = fn(key, nonce, ZEROS32);
+  const lengths = u64Lengths(ciphertext.length, AAD ? AAD.length : 0, true);
+
+  // Methods below can be replaced with
+  // return poly1305_computeTag_small(authKey, lengths, ciphertext, AAD)
   const h = poly1305.create(authKey);
   if (AAD) updatePadded(h, AAD);
-  updatePadded(h, data);
-  const num = u64Lengths(data.length, AAD ? AAD.length : 0, true);
-  h.update(num);
+  updatePadded(h, ciphertext);
+  h.update(lengths);
   const res = h.digest();
-  clean(authKey, num);
+  clean(authKey, lengths);
   return res;
 }
 
@@ -246,6 +316,7 @@ export const _poly1305_aead =
         output = getOutput(plength + tagLength, output, false);
         output.set(plaintext);
         const oPlain = output.subarray(0, -tagLength);
+        // Actual encryption
         xorStream(key, nonce, oPlain, oPlain, 1);
         const tag = computeTag(xorStream, key, nonce, oPlain, AAD);
         output.set(tag, plength); // append tag
@@ -259,6 +330,7 @@ export const _poly1305_aead =
         const tag = computeTag(xorStream, key, nonce, data, AAD);
         if (!equalBytes(passedTag, tag)) throw new Error('invalid tag');
         output.set(ciphertext.subarray(0, -tagLength));
+        // Actual decryption
         xorStream(key, nonce, output, output, 1); // start stream with i=1
         clean(tag);
         return output;
