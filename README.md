@@ -66,6 +66,7 @@ import { managedNonce, randomBytes } from '@noble/ciphers/webcrypto';
   - [AES: gcm, siv, ctr, cfb, cbc, ecb, aeskw](#aes-gcm-siv-ctr-cfb-cbc-ecb-aeskw)
   - [AES: friendly WebCrypto wrapper](#aes-friendly-webcrypto-wrapper)
   - [Reuse array for input and output](#reuse-array-for-input-and-output)
+  - [Use password for encryption](#use-password-for-encryption)
 - [Internals](#internals)
   - [Implemented primitives](#implemented-primitives)
   - [Which cipher should I pick?](#which-cipher-should-i-pick)
@@ -122,9 +123,9 @@ const data_ = aes.decrypt(ciphertext); // utils.bytesToUtf8(data_) === data
 
 We provide API that manages nonce internally instead of exposing them to library's user.
 
-For `encrypt`, a `nonceBytes`-length buffer is fetched from CSPRNG and prenended to encrypted ciphertext.
+For `encrypt`: a `nonceBytes`-length buffer is fetched from CSPRNG and prenended to encrypted ciphertext.
 
-For `decrypt`, first `nonceBytes` of ciphertext are treated as nonce.
+For `decrypt`: first `nonceBytes` of ciphertext are treated as nonce.
 
 > [!NOTE]
 > AES-GCM & ChaCha (NOT XChaCha) [limit amount of messages](#encryption-limits)
@@ -229,6 +230,32 @@ chacha.decrypt(buf, start); // decrypt into `start`
 
 xsalsa20poly1305 also supports this, but requires 32 additional bytes for encryption / decryption,
 due to its inner workings.
+
+#### Use password for encryption
+
+It is not safe to convert password into Uint8Array.
+Instead, KDF strething function like PBKDF2 / Scrypt / Argon2id
+should be used to convert password to AES key.
+Make sure to use salt (app-specific secret) in addition to password.
+
+```js
+import { xchacha20poly1305 } from '@noble/ciphers/chacha';
+import { managedNonce } from '@noble/ciphers/webcrypto';
+import { scrypt } from '@noble/hashes/scrypt.js';
+
+// Convert password into 32-byte key using scrypt
+const PASSWORD = 'hello-world';
+const APP_SPECIFIC_SECRET = 'salt-1234-5678-secret';
+const SECURITY_LEVEL = 2 ** 19; // requires 512MB of RAM to calculate
+const key = scrypt(PASSWORD, APP_SPECIFIC_SECRET, { N: SECURITY_LEVEL, r: 8, p: 1, dkLen: 32 });
+
+// Use random, managed nonce
+const chacha = managedNonce(xchacha20poly1305)(key);
+
+const data = utf8ToBytes('hello, noble');
+const ciphertext = chacha.encrypt(data);
+const data_ = chacha.decrypt(ciphertext);
+```
 
 ## Internals
 
@@ -348,7 +375,7 @@ algorithms, key rotation is advised. hkdf would work great for this case.
 
 A "protected message" would mean a probability of `2**-50` that a passive attacker
 successfully distinguishes the ciphertext outputs of the AEAD scheme from the outputs
-of a random function. See [draft-irtf-cfrg-aead-limits](https://datatracker.ietf.org/doc/draft-irtf-cfrg-aead-limits/) for details.
+of a random function.
 
 - Max message size:
   - AES-GCM: ~68GB, `2**36-256`
@@ -361,9 +388,12 @@ of a random function. See [draft-irtf-cfrg-aead-limits](https://datatracker.ietf
   - AES-GCM: `2**69/B` where B is max blocks encrypted by a key. Meaning
     `2**59` for 1KB, `2**49` for 1MB, `2**39` for 1GB
   - Salsa, ChaCha, XSalsa, XChaCha: `2**100`
+- Max amount of protected messages, under same key, using **random nonce**:
+  - Relevant for `managedNonce`
+  - AES-GCM, ChaCha: `2**23` (8M) messages for `2**-50` chance, `2**32.5` (4B) for `2**-32.5` chance
+  - When non-random sequential nonce is used, limit is higher
 
-Under the same key, using random nonces (e.g. `managedNonce`) with AES-GCM and ChaCha
-should be limited to `2**23` (8M) messages to get a collision chance of `2**-50`. Stretching to `2**32` (4B) messages, chance would become `2**-33` - still negligible, but creeping up.
+Check out [draft-irtf-cfrg-aead-limits](https://datatracker.ietf.org/doc/draft-irtf-cfrg-aead-limits/) for details.
 
 ##### AES internals and block modes
 
