@@ -6,10 +6,10 @@ Audited & minimal JS implementation of Salsa20, ChaCha and AES.
 - 🔻 Tree-shakeable: unused code is excluded from your builds
 - 🏎 Fast: hand-optimized for caveats of JS engines
 - 🔍 Reliable: property-based / cross-library / wycheproof tests ensure correctness
-- 💼 AES: ECB, CBC, CTR, CFB, GCM, SIV (nonce misuse-resistant), AESKW, AESKWP
+- 💼 AES: ECB, CBC, CTR, CFB, GCM, GCM-SIV (nonce misuse-resistant), AESKW, AESKWP
 - 💃 Salsa20, ChaCha, XSalsa20, XChaCha, ChaCha8, ChaCha12, Poly1305
 - 🥈 Two AES implementations: pure JS or friendly wrapper around webcrypto
-- 🪶 29KB (11KB gzipped) for everything, 7KB (3KB gzipped) for ChaCha build
+- 🪶 11KB gzipped for everything, 3KB for ChaCha-only build
 
 Take a glance at [GitHub Discussions](https://github.com/paulmillr/noble-ciphers/discussions) for questions and support.
 
@@ -46,7 +46,7 @@ A standalone file
 
 ```ts
 // import * from '@noble/ciphers'; // Error: use sub-imports, to ensure small app size
-import { gcm, siv } from '@noble/ciphers/aes';
+import { gcm, gcmsiv } from '@noble/ciphers/aes';
 import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
 import { xsalsa20poly1305, secretbox } from '@noble/ciphers/salsa';
 
@@ -145,10 +145,10 @@ const data_ = chacha.decrypt(ciphertext);
 #### AES: gcm, siv, ctr, cfb, cbc, ecb, aeskw
 
 ```js
-import { gcm, siv, ctr, cfb, cbc, ecb } from '@noble/ciphers/aes';
+import { gcm, gcmsiv, ctr, cfb, cbc, ecb } from '@noble/ciphers/aes';
 import { randomBytes } from '@noble/ciphers/webcrypto';
 const plaintext = new Uint8Array(32).fill(16);
-for (let cipher of [gcm, siv]) {
+for (let cipher of [gcm, gcmsiv]) {
   const key = randomBytes(32); // 24 for AES-192, 16 for AES-128
   const nonce = randomBytes(12);
   const ciphertext_ = cipher(key, nonce).encrypt(plaintext);
@@ -262,7 +262,7 @@ const data_ = chacha.decrypt(ciphertext);
 
 ### Implemented primitives
 
-- [Salsa20](https://cr.yp.to/snuffle.html) stream cipher, released in 2005.
+- Salsa20 stream cipher, released in 2005.
   Salsa's goal was to implement AES replacement that does not rely on S-Boxes,
   which are hard to implement in a constant-time manner.
   Salsa20 is usually faster than AES, a big deal on slow, budget mobile phones.
@@ -272,35 +272,41 @@ const data_ = chacha.decrypt(ciphertext);
   - Nacl / Libsodium popularized term "secretbox", - which is just xsalsa20poly1305.
     We provide the alias and corresponding seal / open methods.
     "crypto_box" and "sealedbox" are available in package [noble-sodium](https://github.com/serenity-kit/noble-sodium).
-  - Check out [PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf) and
-    [wiki](https://en.wikipedia.org/wiki/Salsa20).
-- [ChaCha20](https://cr.yp.to/chacha.html) stream cipher, released
-  in 2008. Developed after Salsa20, ChaCha aims to increase diffusion per round.
-  It was standardized in [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439)
-  and is now used in TLS 1.3.
+  - Check out [PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf)
+    and [website](https://cr.yp.to/snuffle.html).
+- ChaCha20 stream cipher, released in 2008. Developed after Salsa20,
+  ChaCha aims to increase diffusion per round.
   - [XChaCha20](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha)
     extended-nonce variant is also provided. Similar to XSalsa, it's safe to use with
     randomly-generated nonces.
-  - Check out [PDF](http://cr.yp.to/chacha/chacha-20080128.pdf) and [wiki](https://en.wikipedia.org/wiki/Salsa20).
-- [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard)
-  is a variant of Rijndael block cipher, standardized by NIST in 2001.
+  - Check out
+    [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439),
+    [PDF](http://cr.yp.to/chacha/chacha-20080128.pdf) and
+    [website](https://cr.yp.to/chacha.html).
+- AES is a variant of Rijndael block cipher, standardized by NIST in 2001.
   We provide the fastest available pure JS implementation.
   - We support AES-128, AES-192 and AES-256: the mode is selected dynamically,
     based on key length (16, 24, 32).
-  - [AES-GCM-SIV](https://en.wikipedia.org/wiki/AES-GCM-SIV)
+  - AES-GCM-SIV
     nonce-misuse-resistant mode is also provided. It's recommended to use it,
     to prevent catastrophic consequences of nonce reuse. Our implementation of SIV
-    has the same speed as GCM: there is no performance hit.
+    has the same speed as GCM: there is no performance hit
+    The mode is described in [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452).
   - We also have AESKW and AESKWP from
     [RFC 3394](https://www.rfc-editor.org/rfc/rfc3394) / [RFC 5649](https://www.rfc-editor.org/rfc/rfc5649)
-  - Check out [AES internals and block modes](#aes-internals-and-block-modes).
-- We expose polynomial-evaluation MACs: [Poly1305](https://cr.yp.to/mac.html), AES-GCM's [GHash](https://en.wikipedia.org/wiki/Galois/Counter_Mode) and
-  AES-SIV's [Polyval](https://en.wikipedia.org/wiki/AES-GCM-SIV).
+  - Format-preserving encryption algorithm (FPE-FF1) specified in
+    [NIST SP 800-38G](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf).
+  - Check out [AES internals and block modes](#aes-internals-and-block-modes),
+    [FIPS 197](https://csrc.nist.gov/files/pubs/fips/197/final/docs/fips-197.pdf) and
+    [original proposal](https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf).
+- We provide polynomial-evaluation MACs: Poly1305, AES-GCM's GHash and AES-SIV's Polyval.
   - Poly1305 ([PDF](https://cr.yp.to/mac/poly1305-20050329.pdf),
-    [wiki](https://en.wikipedia.org/wiki/Poly1305))
+    [website](https://cr.yp.to/mac.html))
     is a fast and parallel secret-key message-authentication code suitable for
     a wide variety of applications. It was standardized in
     [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439) and is now used in TLS 1.3.
+  - Ghash is used in AES-GCM: see NIST SP 800-38G
+  - Polyval is used in AES-GCM-SIV: see [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452)
   - Polynomial MACs are not perfect for every situation:
     they lack Random Key Robustness: the MAC can be forged, and can't
     be used in PAKE schemes. See
@@ -309,13 +315,12 @@ const data_ = chacha.decrypt(ciphertext);
     however, this would violate ciphertext indistinguishability:
     an attacker would know which key was used - so `HKDF(key, i)`
     could be used instead.
-- Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publication 800-38G.
-  [See more info](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf).
 
 ### Which cipher should I pick?
 
-We suggest to use XChaCha20-Poly1305.
-If you can't use it, prefer AES-GCM-SIV, or AES-GCM.
+We suggest to use XChaCha20-Poly1305 because it's very fast and allows random keys.
+AES-GCM-SIV is also a good idea, because it provides resistance against nonce reuse.
+AES-GCM is a good option when those two are not available.
 
 ### How to encrypt properly
 
