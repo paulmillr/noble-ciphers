@@ -239,7 +239,9 @@ export const xsalsa20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
 );
 
 /**
- * Alias to `xsalsa20poly1305`, for compatibility with libsodium / nacl
+ * Alias to `xsalsa20poly1305`, for compatibility with libsodium / nacl.
+ * Check out [noble-sodium](https://github.com/serenity-kit/noble-sodium)
+ * for `crypto_box`.
  */
 export function secretbox(
   key: Uint8Array,

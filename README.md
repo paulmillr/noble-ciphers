@@ -267,9 +267,10 @@ const data_ = chacha.decrypt(ciphertext);
   Salsa20 is usually faster than AES, a big deal on slow, budget mobile phones.
   - [XSalsa20](https://cr.yp.to/snuffle/xsalsa-20110204.pdf), extended-nonce
     variant was released in 2008. It switched nonces from 96-bit to 192-bit,
-    and became safe to be picked at random. - Nacl / Libsodium popularized term "secretbox", a simple black-box
-    authenticated encryption. Secretbox is just xsalsa20-poly1305. We provide the
-    alias and corresponding seal / open methods. We don't provide "box" or "sealedbox".
+    and became safe to be picked at random.
+  - Nacl / Libsodium popularized term "secretbox", - which is just xsalsa20poly1305.
+    We provide the alias and corresponding seal / open methods.
+    "crypto_box" and "sealedbox" are available in package [noble-sodium](https://github.com/serenity-kit/noble-sodium).
   - Check out [PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf) and
     [wiki](https://en.wikipedia.org/wiki/Salsa20).
 - [ChaCha20](https://cr.yp.to/chacha.html) stream cipher, released
