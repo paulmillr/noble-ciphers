@@ -244,9 +244,9 @@ import { managedNonce } from '@noble/ciphers/webcrypto';
 import { scrypt } from '@noble/hashes/scrypt.js';
 
 // Convert password into 32-byte key using scrypt
-const PASSWORD = 'hello-world';
-const APP_SPECIFIC_SECRET = 'salt-1234-5678-secret';
-const SECURITY_LEVEL = 2 ** 19; // requires 512MB of RAM to calculate
+const PASSWORD = 'correct-horse-battery-staple';
+const APP_SPECIFIC_SECRET = 'salt-12345678-secret';
+const SECURITY_LEVEL = 2 ** 20; // requires 1GB of RAM to calculate
 const key = scrypt(PASSWORD, APP_SPECIFIC_SECRET, { N: SECURITY_LEVEL, r: 8, p: 1, dkLen: 32 });
 
 // Use random, managed nonce
