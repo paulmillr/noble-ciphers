@@ -22,9 +22,9 @@ This is complicated:
 - Idea B: separate nonce / counter and provide separate API for counter re-use
 - Caveat: there are different counter sizes depending on an algorithm.
 - salsa & chacha also differ in structures of key & sigma:
-  salsa20:      s[0] | k(4) | s[1] | nonce(2) | ctr(2) | s[2] | k(4) | s[3]
-  chacha:       s(4) | k(8) | ctr(1) | nonce(3)
-  chacha20orig: s(4) | k(8) | ctr(2) | nonce(2)
+  salsa20:      s[0] | k(4) | s[1] | nonce(2) | cnt(2) | s[2] | k(4) | s[3]
+  chacha:       s(4) | k(8) | cnt(1) | nonce(3)
+  chacha20orig: s(4) | k(8) | cnt(2) | nonce(2)
 - Idea C: helper method such as `setSalsaState(key, nonce, sigma, data)`
 - Caveat: we can't re-use counter array
 
@@ -41,14 +41,14 @@ import {
   type XorStream, abool, abytes, anumber, checkOpts, clean, copyBytes, u32
 } from './utils.ts';
 
-// We can't make top-level var depend on utils.utf8ToBytes
-// because it's not present in all envs. Creating a similar fn here
+// Can't use similar utils.utf8ToBytes, because it uses `TextEncoder` - not available in all envs
 const _utf8ToBytes = (str: string) => Uint8Array.from(str.split('').map((c) => c.charCodeAt(0)));
 const sigma16 = _utf8ToBytes('expand 16-byte k');
 const sigma32 = _utf8ToBytes('expand 32-byte k');
 const sigma16_32 = u32(sigma16);
 const sigma32_32 = u32(sigma32);
 
+/** Rotate left. */
 export function rotl(a: number, b: number): number {
   return (a << b) | (a >>> (32 - b));
 }

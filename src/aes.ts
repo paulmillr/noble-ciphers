@@ -10,7 +10,8 @@
  * 3. **Mix columns**, multiplying every column by fixed polynomial
  * 4. **Add round key**, round_key xor i-th column of array
  *
- * Check out [FIPS-197](https://csrc.nist.gov/files/pubs/fips/197/final/docs/fips-197.pdf)
+ * Check out [FIPS-197](https://csrc.nist.gov/files/pubs/fips/197/final/docs/fips-197.pdf),
+ * [NIST 800-38G](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf)
  * and [original proposal](https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf)
  * @module
  */
@@ -676,7 +677,7 @@ const limit = (name: string, min: number, max: number) => (value: number) => {
  * AES-GCM-SIV: classic AES-GCM with nonce-misuse resistance.
  * Guarantees that, when a nonce is repeated, the only security loss is that identical
  * plaintexts will produce identical ciphertexts.
- * RFC 8452, https://datatracker.ietf.org/doc/html/rfc8452
+ * See [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452).
  */
 export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
   blockSize: number;
@@ -814,8 +815,8 @@ function decryptBlock(xk: Uint32Array, block: Uint8Array): Uint8Array {
 /**
  * AES-W (base for AESKW/AESKWP).
  * Specs: [SP800-38F](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38F.pdf),
- * [RFC 3394](https://datatracker.ietf.org/doc/rfc3394/),
- * [RFC 5649](https://datatracker.ietf.org/doc/rfc5649/).
+ * [RFC 3394](https://www.rfc-editor.org/rfc/rfc3394),
+ * [RFC 5649](https://www.rfc-editor.org/rfc/rfc5649).
  */
 const AESW = {
   /*
@@ -883,7 +884,7 @@ const AESKW_IV = /* @__PURE__ */ new Uint8Array(8).fill(0xa6); // A6A6A6A6A6A6A6
  * AES-KW (key-wrap). Injects static IV into plaintext, adds counter, encrypts 6 times.
  * Reduces block size from 16 to 8 bytes.
  * For padded version, use aeskwp.
- * [RFC 3394](https://datatracker.ietf.org/doc/rfc3394/),
+ * [RFC 3394](https://www.rfc-editor.org/rfc/rfc3394/),
  * [NIST.SP.800-38F](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38F.pdf).
  */
 export const aeskw: ((kek: Uint8Array) => Cipher) & {

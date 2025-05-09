@@ -5,7 +5,7 @@
  * GCM GHASH from
  * [NIST SP800-38d](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf),
  * SIV from
- * [RFC 8452](https://datatracker.ietf.org/doc/html/rfc8452).
+ * [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452).
  *
  * GHASH   modulo: x^128 + x^7   + x^2   + x     + 1
  * POLYVAL modulo: x^128 + x^127 + x^126 + x^121 + 1
@@ -71,9 +71,9 @@ const estimateWindow = (bytes: number) => {
   return 2;
 };
 
-class GHASH implements Hash<GHASH> {
-  readonly blockLen = BLOCK_SIZE;
-  readonly outputLen = BLOCK_SIZE;
+export class GHASH implements Hash<GHASH> {
+  readonly blockLen: number = BLOCK_SIZE;
+  readonly outputLen: number = BLOCK_SIZE;
   protected s0 = 0;
   protected s1 = 0;
   protected s2 = 0;
@@ -122,7 +122,7 @@ class GHASH implements Hash<GHASH> {
     }
     this.t = items;
   }
-  protected _updateBlock(s0: number, s1: number, s2: number, s3: number) {
+  protected _updateBlock(s0: number, s1: number, s2: number, s3: number): void {
     (s0 ^= this.s0), (s1 ^= this.s1), (s2 ^= this.s2), (s3 ^= this.s3);
     const { W, t, windowSize } = this;
     // prettier-ignore
@@ -162,14 +162,14 @@ class GHASH implements Hash<GHASH> {
     }
     return this;
   }
-  destroy() {
+  destroy(): void {
     const { t } = this;
     // clean precompute table
     for (const elm of t) {
       (elm.s0 = 0), (elm.s1 = 0), (elm.s2 = 0), (elm.s3 = 0);
     }
   }
-  digestInto(out: Uint8Array) {
+  digestInto(out: Uint8Array): Uint8Array {
     aexists(this);
     aoutput(out, this);
     this.finished = true;
