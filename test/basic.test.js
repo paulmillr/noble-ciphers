@@ -1,24 +1,19 @@
+import { describe, should } from 'micro-should';
 import { deepStrictEqual, throws } from 'node:assert';
-import { should, describe } from 'micro-should';
-import { managedNonce, randomBytes } from '../esm/webcrypto.js';
-import { siv, gcm, ctr, ecb, cbc, cfb, aeskw, aeskwp } from '../esm/aes.js';
-import { xsalsa20poly1305 } from '../esm/salsa.js';
+import { aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv } from '../esm/aes.js';
 import { chacha20poly1305, xchacha20poly1305 } from '../esm/chacha.js';
-import { unalign, TYPE_TEST } from './utils.js';
-import * as micro from '../esm/_micro.js';
+import { xsalsa20poly1305 } from '../esm/salsa.js';
+import { managedNonce, randomBytes } from '../esm/webcrypto.js';
+import { TYPE_TEST, unalign } from './utils.js';
 
 const CIPHERS = {
   xsalsa20poly1305: { fn: xsalsa20poly1305, keyLen: 32, withNonce: true },
   chacha20poly1305: { fn: chacha20poly1305, keyLen: 32, withNonce: true, withDST: true },
   xchacha20poly1305: { fn: xchacha20poly1305, keyLen: 32, withNonce: true, withDST: true },
-
-  micro_xsalsa20poly1305: { fn: micro.xsalsa20poly1305, keyLen: 32, withNonce: true },
-  micro_chacha20poly1305: { fn: micro.chacha20poly1305, keyLen: 32, withNonce: true },
-  micro_xchacha20poly1305: { fn: micro.xchacha20poly1305, keyLen: 32, withNonce: true },
 };
 
 for (const keyLen of [16, 24, 32]) {
-  for (const [name, fn] of Object.entries({ cbc, ctr, gcm, siv, cfb }))
+  for (const [name, fn] of Object.entries({ cbc, ctr, gcm, gcmsiv, cfb }))
     CIPHERS[`${name}_${keyLen * 8}`] = { fn, keyLen, withNonce: true };
   CIPHERS[`ecb_${keyLen * 8}`] = { fn: ecb, keyLen, withNonce: false };
   CIPHERS[`aeskw_${keyLen * 8}`] = {
@@ -180,7 +175,7 @@ describe('Basic', () => {
 
       let cipher = fn(key, nonce, AAD);
       // Throws if output provided to function without output support
-      if (['micro', 'gcm', 'siv', 'aeskw'].map((i) => k.includes(i)).includes(true)) {
+      if (['micro', 'gcm', 'gcmsiv', 'aeskw'].map((i) => k.includes(i)).includes(true)) {
         const msg = randomBytes(2 * opts.fn.blockSize);
         throws(() => cipher.encrypt(msg, new Uint8Array(msg.length)));
         cipher = fn(key, nonce, AAD);
