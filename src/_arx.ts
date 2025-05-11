@@ -97,7 +97,7 @@ const BLOCK_LEN32 = 16;
 // new Uint32Array([2**32-1]) // => Uint32Array(1) [ 4294967295 ]
 const MAX_COUNTER = 2 ** 32 - 1;
 
-const U32_EMPTY = new Uint32Array();
+const U32_EMPTY = Uint32Array.of();
 function runCipher(
   core: CipherCoreFn,
   sigma: Uint32Array,
