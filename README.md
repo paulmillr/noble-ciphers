@@ -68,11 +68,11 @@ import { managedNonce, randomBytes } from '@noble/ciphers/webcrypto';
   - [Reuse array for input and output](#reuse-array-for-input-and-output)
   - [Use password for encryption](#use-password-for-encryption)
 - [Internals](#internals)
-  - [Which cipher should I pick?](#which-cipher-should-i-pick)
+  - [Picking a cipher](#picking-a-cipher)
   - [How to encrypt properly](#how-to-encrypt-properly)
   - [Nonces](#nonces)
   - [Encryption limits](#encryption-limits)
-  - [AES internals and block modes](#aes-internals-and-block-modes)
+  - [AES block modes](#aes-block-modes)
   - [Implemented primitives](#implemented-primitives)
 - [Security](#security)
 - [Speed](#speed)
@@ -260,7 +260,7 @@ const data_ = chacha.decrypt(ciphertext);
 
 ## Internals
 
-### Which cipher should I pick?
+### Picking a cipher
 
 We suggest to use **XChaCha20-Poly1305** because it's very fast and allows random keys.
 **AES-GCM-SIV** is also a good idea, because it provides resistance against nonce reuse.
@@ -280,6 +280,14 @@ We suggest to use **XChaCha20-Poly1305** because it's very fast and allows rando
   - chacha20poly1305 / aes-gcm / ChaCha + HMAC / AES + HMAC is good
   - chacha20 / aes-ctr / aes-cbc without poly1305 or hmac is bad
   - Flipping bits or ciphertext substitution won't be detected in unauthenticated ciphers
+  - Polynomial MACs are not perfect for every situation:
+    they lack Random Key Robustness: the MAC can be forged, and can't
+    be used in PAKE schemes. See
+    [invisible salamanders attack](https://keymaterial.net/2020/09/07/invisible-salamanders-in-aes-gcm-siv/).
+    To combat salamanders, `hash(key)` can be included in ciphertext,
+    however, this would violate ciphertext indistinguishability:
+    an attacker would know which key was used - so `HKDF(key, i)`
+    could be used instead.
 - Don't re-use keys between different protocols
   - For example, using ECDH key in AES can be bad
   - Use hkdf or, at least, a hash function to create sub-key instead
@@ -333,9 +341,8 @@ of a random function.
     `2**59` for 1KB, `2**49` for 1MB, `2**39` for 1GB
   - Salsa, ChaCha, XSalsa, XChaCha: `2**100`
 - Max amount of protected messages, under same key, using **random nonce**:
-  - Relevant for `managedNonce`
-  - AES-GCM, ChaCha: `2**23` (8M) messages for `2**-50` chance, `2**32.5` (4B) for `2**-32.5` chance
-  - When non-random sequential nonce is used, limit is higher
+  - Relevant for 12-byte nonces with `managedNonce`: AES-GCM, ChaCha
+  - `2**23` (8M) messages for `2**-50` chance, `2**32.5` (4B) for `2**-32.5` chance
 
 Check out [draft-irtf-cfrg-aead-limits](https://datatracker.ietf.org/doc/draft-irtf-cfrg-aead-limits/) for details.
 
@@ -366,16 +373,14 @@ Check out [draft-irtf-cfrg-aead-limits](https://datatracker.ietf.org/doc/draft-i
   We provide the fastest available pure JS implementation.
   - We support AES-128, AES-192 and AES-256: the mode is selected dynamically,
     based on key length (16, 24, 32).
-  - AES-GCM-SIV
-    nonce-misuse-resistant mode is also provided. It's recommended to use it,
-    to prevent catastrophic consequences of nonce reuse. Our implementation of SIV
-    has the same speed as GCM: there is no performance hit
+  - AES-GCM-SIV nonce-misuse-resistant mode is also provided. Our implementation of SIV
+    has the same speed as GCM: there is no performance hit.
     The mode is described in [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452).
   - We also have AESKW and AESKWP from
     [RFC 3394](https://www.rfc-editor.org/rfc/rfc3394) & [RFC 5649](https://www.rfc-editor.org/rfc/rfc5649)
   - Format-preserving encryption algorithm (FPE-FF1) specified in
     [NIST SP 800-38G](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf).
-  - Check out [AES internals and block modes](#aes-internals-and-block-modes),
+  - Check out [AES block modes](#aes-block-modes),
     [FIPS 197](https://csrc.nist.gov/files/pubs/fips/197/final/docs/fips-197.pdf) and
     [original proposal](https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf).
 - Polynomial-evaluation MACs are available: Poly1305, AES-GCM's GHash and AES-SIV's Polyval.
@@ -386,37 +391,24 @@ Check out [draft-irtf-cfrg-aead-limits](https://datatracker.ietf.org/doc/draft-i
     [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439) and is now used in TLS 1.3.
   - Ghash is used in AES-GCM: see NIST SP 800-38G
   - Polyval is used in AES-GCM-SIV: see [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452)
-  - Polynomial MACs are not perfect for every situation:
-    they lack Random Key Robustness: the MAC can be forged, and can't
-    be used in PAKE schemes. See
-    [invisible salamanders attack](https://keymaterial.net/2020/09/07/invisible-salamanders-in-aes-gcm-siv/).
-    To combat invisible salamanders, `hash(key)` can be included in ciphertext,
-    however, this would violate ciphertext indistinguishability:
-    an attacker would know which key was used - so `HKDF(key, i)`
-    could be used instead.
 
-##### AES internals and block modes
-
-`cipher = encrypt(block, key)`. Data is split into 128-bit blocks. Encrypted in 10/12/14 rounds (128/192/256bit). Every round does:
-
-1. **S-box**, table substitution
-2. **Shift rows**, cyclic shift left of all rows of data array
-3. **Mix columns**, multiplying every column by fixed polynomial
-4. **Add round key**, round_key xor i-th column of array
+##### AES block modes
 
 For non-deterministic (not ECB) schemes, initialization vector (IV) is mixed to block/key;
 and each new round either depends on previous block's key, or on some counter.
 
-- **ECB** (Electronic Codebook): Deterministic encryption; identical plaintext blocks yield identical ciphertexts. Insecure due to pattern leakage.
+- **ECB** (Electronic Codebook): Deterministic encryption; identical plaintext blocks yield identical ciphertexts. Not secure due to pattern leakage. due to pattern leakage.
   See [AES Penguin](https://words.filippo.io/the-ecb-penguin/)
-- **CBC** (Cipher Block Chaining): Each plaintext block is XORed with the previous ciphertext block before encryption.
-  Hard to use: requires proper padding and an IV. Needs a separate MAC.
+- **CBC** (Cipher Block Chaining): Each plaintext block is XORed with the previous block of ciphertext
+  before encryption. Hard to use: requires proper padding and an IV. Unauthenticated: needs MAC.
 - **CTR** (Counter Mode): Turns a block cipher into a stream cipher using a counter and IV (nonce).
-  Efficient and parallelizable. Requires a unique nonce per encryption. Better, but still needs a separate MAC.
-- **GCM** (Galois/Counter Mode): Combines CTR mode with polynomial MAC. Efficient and widely used.
-  Not perfect: a) conservative key wear-out is `2**32` (4B) msgs. b) MAC can be forged: see Poly1305 section above
-- **SIV** (Synthetic IV): Nonce-misuse-resistant mode; repeating nonces reveal only if plaintexts are identical.
-  Maintains security even if nonces are reused. But suffers from GCM issues mentioned above.
+  Efficient and parallelizable. Requires a unique nonce per encryption. Unauthenticated: needs MAC.
+- **GCM** (Galois/Counter Mode): Combines CTR mode with polynomial MAC. Efficient and widely used. Not perfect:
+  a) conservative key wear-out is `2**32` (4B) msgs.
+  b) key wear-out under random nonces is even smaller: `2**23` (8M) messages for `2**-50` chance.
+  c) MAC can be forged: see Poly1305 documentation.
+- **SIV** (Synthetic IV): GCM with nonce-misuse resistance; repeating nonces reveal only the fact plaintexts
+  are identical. Also suffers from GCM issues: key wear-out limits & MAC forging.
 - **XTS**: Designed for disk encryption.
   Similar to ECB (deterministic), but has `[i][j]` tweak arguments corresponding to
   sector i and 16-byte block (part of sector) j. Lacks MAC.

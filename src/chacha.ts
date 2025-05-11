@@ -1,5 +1,5 @@
 /**
- * [ChaCha20](https://cr.yp.to/chacha.html) stream cipher, released
+ * ChaCha stream cipher, released
  * in 2008. Developed after Salsa20, ChaCha aims to increase diffusion per round.
  * It was standardized in [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439) and
  * is now used in TLS 1.3.
@@ -9,7 +9,9 @@
  * randomly-generated nonces.
  *
  * Check out [PDF](http://cr.yp.to/chacha/chacha-20080128.pdf) and
- * [wiki](https://en.wikipedia.org/wiki/Salsa20).
+ * [wiki](https://en.wikipedia.org/wiki/Salsa20) and
+ * [website](https://cr.yp.to/chacha.html).
+ *
  * @module
  */
 import { createCipher, rotl } from './_arx.ts';

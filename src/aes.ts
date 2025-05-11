@@ -4,6 +4,8 @@
  * is a variant of Rijndael block cipher, standardized by NIST in 2001.
  * We provide the fastest available pure JS implementation.
  *
+ * `cipher = encrypt(block, key)`
+ *
  * Data is split into 128-bit blocks. Encrypted in 10/12/14 rounds (128/192/256 bits). In every round:
  * 1. **S-box**, table substitution
  * 2. **Shift rows**, cyclic shift left of all rows of data array
@@ -327,8 +329,8 @@ function ctr32(
 }
 
 /**
- * CTR: counter mode. Creates stream cipher.
- * Requires good IV. Parallelizable. OK, but no MAC.
+ * **CTR** (Counter Mode): Turns a block cipher into a stream cipher using a counter and IV (nonce).
+ * Efficient and parallelizable. Requires a unique nonce per encryption. Unauthenticated: needs MAC.
  */
 export const ctr: ((key: Uint8Array, nonce: Uint8Array) => CipherWithOutput) & {
   blockSize: number;
@@ -410,8 +412,9 @@ function padPCKS(left: Uint8Array) {
 export type BlockOpts = { disablePadding?: boolean };
 
 /**
- * ECB: Electronic CodeBook. Simple deterministic replacement.
- * Dangerous: always map x to y. See [AES Penguin](https://words.filippo.io/the-ecb-penguin/).
+ * **ECB** (Electronic Codebook): Deterministic encryption; identical plaintext blocks yield
+ * identical ciphertexts. Not secure due to pattern leakage.
+ * See [AES Penguin](https://words.filippo.io/the-ecb-penguin/).
  */
 export const ecb: ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
   blockSize: number;
@@ -457,8 +460,9 @@ export const ecb: ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
 );
 
 /**
- * CBC: Cipher-Block-Chaining. Key is previous round’s block.
- * Fragile: needs proper padding. Unauthenticated: needs MAC.
+ * **CBC** (Cipher Block Chaining): Each plaintext block is XORed with the
+ * previous block of ciphertext before encryption.
+ * Hard to use: requires proper padding and an IV. Unauthenticated: needs MAC.
  */
 export const cbc: ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
   blockSize: number;
@@ -592,11 +596,11 @@ function computeTag(
 }
 
 /**
- * GCM: Galois/Counter Mode.
- * Modern, parallel version of CTR, with MAC.
- * Be careful: MACs can be forged.
- * Unsafe to use random nonces under the same key, due to collision chance.
- * As for nonce size, prefer 12-byte, instead of 8-byte.
+ * **GCM** (Galois/Counter Mode): Combines CTR mode with polynomial MAC. Efficient and widely used.
+ * Not perfect:
+ * a) conservative key wear-out is `2**32` (4B) msgs.
+ * b) key wear-out under random nonces is even smaller: `2**23` (8M) messages for `2**-50` chance.
+ * c) MAC can be forged: see Poly1305 documentation.
  */
 export const gcm: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
   blockSize: number;
@@ -674,9 +678,9 @@ const limit = (name: string, min: number, max: number) => (value: number) => {
 };
 
 /**
- * AES-GCM-SIV: classic AES-GCM with nonce-misuse resistance.
- * Guarantees that, when a nonce is repeated, the only security loss is that identical
- * plaintexts will produce identical ciphertexts.
+ * **SIV** (Synthetic IV): GCM with nonce-misuse resistance.
+ * Repeating nonces reveal only the fact plaintexts are identical.
+ * Also suffers from GCM issues: key wear-out limits & MAC forging.
  * See [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452).
  */
 export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {

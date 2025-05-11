@@ -1,16 +1,17 @@
 /**
- * [Salsa20](https://cr.yp.to/snuffle.html) stream cipher, released in 2005.
- *
+ * Salsa20 stream cipher, released in 2005.
  * Salsa's goal was to implement AES replacement that does not rely on S-Boxes,
  * which are hard to implement in a constant-time manner.
  * Salsa20 is usually faster than AES, a big deal on slow, budget mobile phones.
  *
- * [XSalsa20](https://cr.yp.to/snuffle/xsalsa-20110204.pdf), extended-nonce
- * variant was released in 2008. It switched nonces from 96-bit to 192-bit,
- * and became safe to be picked at random.
- *
- * Check out [PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf) and
- * [wiki](https://en.wikipedia.org/wiki/Salsa20).
+ * - [XSalsa20](https://cr.yp.to/snuffle/xsalsa-20110204.pdf), extended-nonce
+ *   variant was released in 2008. It switched nonces from 96-bit to 192-bit,
+ *   and became safe to be picked at random.
+ * - Nacl / Libsodium popularized term "secretbox", - which is just xsalsa20poly1305.
+ *   We provide the alias and corresponding seal / open methods.
+ *   "crypto_box" and "sealedbox" are available in package [noble-sodium](https://github.com/serenity-kit/noble-sodium).
+ * - Check out [PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf)
+ *   and [website](https://cr.yp.to/snuffle.html).
  * @module
  */
 import { createCipher, rotl } from './_arx.ts';
