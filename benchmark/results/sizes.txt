@@ -1,0 +1,17 @@
+## normal
+
+1906 lines noble-ciphers.js
+29.08 kb noble-ciphers.min.js
+11.08 kb noble-ciphers.min.js.gz
+
+## small-big-poly1305
+
+1796 lines noble-ciphers.js
+27.06 kb noble-ciphers.min.js
+10.27 kb noble-ciphers.min.js.gz
+
+## small
+
+1572 lines noble-ciphers.js
+23.80 kb noble-ciphers.min.js
+8.94 kb noble-ciphers.min.js.gz

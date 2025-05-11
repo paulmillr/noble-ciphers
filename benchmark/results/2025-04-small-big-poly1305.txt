@@ -1,0 +1,79 @@
+> node benchmark/noble.js
+
+64B
+xsalsa20poly1305 x 387,747 ops/sec @ 2μs/op
+chacha20poly1305 x 356,252 ops/sec @ 2μs/op
+xchacha20poly1305 x 239,980 ops/sec @ 4μs/op
+aes-256-gcm x 193,423 ops/sec @ 5μs/op
+aes-256-gcm-siv x 156,764 ops/sec @ 6μs/op
+# Unauthenticated encryption
+salsa20 x 1,033,057 ops/sec @ 968ns/op
+xsalsa20 x 711,743 ops/sec @ 1μs/op ± 1.24% (1μs..3ms)
+chacha20 x 990,099 ops/sec @ 1μs/op
+xchacha20 x 592,768 ops/sec @ 1μs/op
+chacha8 x 1,344,086 ops/sec @ 744ns/op
+chacha12 x 1,189,060 ops/sec @ 841ns/op ± 1.76% (583ns..3ms)
+aes-ecb-256 x 963,391 ops/sec @ 1μs/op ± 1.10% (750ns..1ms)
+aes-cbc-256 x 923,361 ops/sec @ 1μs/op ± 1.05% (791ns..1ms)
+aes-ctr-256 x 904,977 ops/sec @ 1μs/op ± 1.38% (792ns..2ms)
+
+1MB
+xsalsa20poly1305 x 112 ops/sec @ 8ms/op ± 1.04% (8ms..13ms)
+chacha20poly1305 x 93 ops/sec @ 10ms/op
+xchacha20poly1305 x 93 ops/sec @ 10ms/op
+aes-256-gcm x 90 ops/sec @ 11ms/op
+aes-256-gcm-siv x 87 ops/sec @ 11ms/op
+# Unauthenticated encryption
+salsa20 x 145 ops/sec @ 6ms/op
+xsalsa20 x 144 ops/sec @ 6ms/op
+chacha20 x 113 ops/sec @ 8ms/op
+xchacha20 x 112 ops/sec @ 8ms/op
+chacha8 x 212 ops/sec @ 4ms/op
+chacha12 x 164 ops/sec @ 6ms/op
+aes-ecb-256 x 299 ops/sec @ 3ms/op
+aes-cbc-256 x 111 ops/sec @ 8ms/op
+aes-ctr-256 x 122 ops/sec @ 8ms/op
+# Wrapper over built-in webcrypto
+webcrypto ctr-256 x 6,201 ops/sec @ 161μs/op ± 1.20% (104μs..2ms)
+webcrypto cbc-256 x 1,802 ops/sec @ 554μs/op
+webcrypto gcm-256 x 4,892 ops/sec @ 204μs/op
+
+> bun benchmark/noble.js
+
+64B
+xsalsa20poly1305 x 478,697 ops/sec @ 2μs/op ± 2.13% (1μs..2ms)
+chacha20poly1305 x 403,063 ops/sec @ 2μs/op ± 2.62% (1μs..3ms)
+xchacha20poly1305 x 303,122 ops/sec @ 3μs/op ± 2.13% (2μs..2ms)
+aes-256-gcm x 166,361 ops/sec @ 6μs/op ± 1.11% (4μs..2ms)
+aes-256-gcm-siv x 144,592 ops/sec @ 6μs/op
+# Unauthenticated encryption
+salsa20 x 1,122,334 ops/sec @ 891ns/op ± 5.34% (500ns..3ms)
+xsalsa20 x 835,421 ops/sec @ 1μs/op ± 4.40% (750ns..3ms)
+chacha20 x 1,209,189 ops/sec @ 827ns/op ± 8.25% (458ns..6ms)
+xchacha20 x 820,344 ops/sec @ 1μs/op ± 4.25% (750ns..3ms)
+chacha8 x 1,426,533 ops/sec @ 701ns/op ± 6.87% (375ns..3ms)
+chacha12 x 1,385,041 ops/sec @ 722ns/op ± 8.93% (416ns..7ms)
+aes-ecb-256 x 990,099 ops/sec @ 1μs/op ± 3.37% (625ns..2ms)
+aes-cbc-256 x 865,051 ops/sec @ 1μs/op ± 4.03% (708ns..3ms)
+aes-ctr-256 x 933,706 ops/sec @ 1μs/op ± 3.03% (667ns..2ms)
+
+1MB
+xsalsa20poly1305 x 161 ops/sec @ 6ms/op
+chacha20poly1305 x 153 ops/sec @ 6ms/op
+xchacha20poly1305 x 153 ops/sec @ 6ms/op
+aes-256-gcm x 91 ops/sec @ 10ms/op ± 1.16% (10ms..16ms)
+aes-256-gcm-siv x 82 ops/sec @ 12ms/op ± 3.77% (10ms..21ms)
+# Unauthenticated encryption
+salsa20 x 256 ops/sec @ 3ms/op
+xsalsa20 x 256 ops/sec @ 3ms/op
+chacha20 x 231 ops/sec @ 4ms/op
+xchacha20 x 231 ops/sec @ 4ms/op
+chacha8 x 403 ops/sec @ 2ms/op ± 1.14% (2ms..3ms)
+chacha12 x 322 ops/sec @ 3ms/op
+aes-ecb-256 x 276 ops/sec @ 3ms/op
+`aes-cbc-256 x 109 ops/sec @ 9ms/op
+aes-ctr-256 x 121 ops/sec @ 8ms/op
+# Wrapper over built-in webcrypto
+webcrypto ctr-256 x 6,154 ops/sec @ 162μs/op ± 1.70% (130μs..2ms)
+webcrypto cbc-256 x 1,785 ops/sec @ 560μs/op ± 1.01% (518μs..1ms)
+webcrypto gcm-256 x 4,865 ops/sec @ 205μs/op ± 1.43% (169μs..1ms)
