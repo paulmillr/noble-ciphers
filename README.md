@@ -11,6 +11,7 @@ Audited & minimal JS implementation of Salsa20, ChaCha and AES.
 - 🥈 Two AES implementations: pure JS or friendly WebCrypto wrapper
 - 🪶 11KB gzipped for everything, 3KB for ChaCha-only build
 
+
 Take a glance at [GitHub Discussions](https://github.com/paulmillr/noble-ciphers/discussions) for questions and support.
 
 ### This library belongs to _noble_ cryptography
