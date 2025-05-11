@@ -12,6 +12,11 @@
 import { crypto } from '@noble/ciphers/crypto';
 import { abytes, anumber, type AsyncCipher, type Cipher, concatBytes } from './utils.ts';
 
+function getWebcryptoSubtle(): any {
+  if (crypto && typeof crypto.subtle === 'object' && crypto.subtle != null) return crypto.subtle;
+  throw new Error('crypto.subtle must be defined');
+}
+
 /**
  * Secure PRNG. Uses `crypto.getRandomValues`, which defers to OS.
  */
@@ -24,11 +29,6 @@ export function randomBytes(bytesLength = 32): Uint8Array {
     return Uint8Array.from(crypto.randomBytes(bytesLength));
   }
   throw new Error('crypto.getRandomValues must be defined');
-}
-
-export function getWebcryptoSubtle(): any {
-  if (crypto && typeof crypto.subtle === 'object' && crypto.subtle != null) return crypto.subtle;
-  throw new Error('crypto.subtle must be defined');
 }
 
 type RemoveNonceInner<T extends any[], Ret> = ((...args: T) => Ret) extends (
@@ -46,6 +46,12 @@ type CipherWithNonce = ((key: Uint8Array, nonce: Uint8Array, ...args: any[]) => 
 
 /**
  * Uses CSPRG for nonce, nonce injected in ciphertext.
+ * For `encrypt`, a `nonceBytes`-length buffer is fetched from CSPRNG and
+ * prepended to encrypted ciphertext. For `decrypt`, first `nonceBytes` of ciphertext
+ * are treated as nonce.
+ *
+ * NOTE: Under the same key, using random nonces (e.g. `managedNonce`) with AES-GCM and ChaCha
+ * should be limited to `2**23` (8M) messages to get a collision chance of `2**-50`. Stretching to  * `2**32` (4B) messages, chance would become `2**-33` - still negligible, but creeping up.
  * @example
  * const gcm = managedNonce(aes.gcm);
  * const ciphr = gcm(key).encrypt(data);
@@ -70,8 +76,10 @@ export function managedNonce<T extends CipherWithNonce>(fn: T): RemoveNonce<T> {
   })) as RemoveNonce<T>;
 }
 
-// Overridable
-// @TODO
+/**
+ * Internal webcrypto utils. Can be overridden of crypto.subtle is not present,
+ * for example in React Native.
+ */
 export const utils: {
   encrypt: (key: Uint8Array, ...all: any[]) => Promise<Uint8Array>;
   decrypt: (key: Uint8Array, ...all: any[]) => Promise<Uint8Array>;

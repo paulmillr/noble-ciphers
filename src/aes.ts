@@ -4,13 +4,16 @@
  * is a variant of Rijndael block cipher, standardized by NIST in 2001.
  * We provide the fastest available pure JS implementation.
  *
+ * `cipher = encrypt(block, key)`
+ *
  * Data is split into 128-bit blocks. Encrypted in 10/12/14 rounds (128/192/256 bits). In every round:
  * 1. **S-box**, table substitution
  * 2. **Shift rows**, cyclic shift left of all rows of data array
  * 3. **Mix columns**, multiplying every column by fixed polynomial
  * 4. **Add round key**, round_key xor i-th column of array
  *
- * Check out [FIPS-197](https://csrc.nist.gov/files/pubs/fips/197/final/docs/fips-197.pdf)
+ * Check out [FIPS-197](https://csrc.nist.gov/files/pubs/fips/197/final/docs/fips-197.pdf),
+ * [NIST 800-38G](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf)
  * and [original proposal](https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf)
  * @module
  */
@@ -326,8 +329,8 @@ function ctr32(
 }
 
 /**
- * CTR: counter mode. Creates stream cipher.
- * Requires good IV. Parallelizable. OK, but no MAC.
+ * **CTR** (Counter Mode): Turns a block cipher into a stream cipher using a counter and IV (nonce).
+ * Efficient and parallelizable. Requires a unique nonce per encryption. Unauthenticated: needs MAC.
  */
 export const ctr: ((key: Uint8Array, nonce: Uint8Array) => CipherWithOutput) & {
   blockSize: number;
@@ -409,8 +412,9 @@ function padPCKS(left: Uint8Array) {
 export type BlockOpts = { disablePadding?: boolean };
 
 /**
- * ECB: Electronic CodeBook. Simple deterministic replacement.
- * Dangerous: always map x to y. See [AES Penguin](https://words.filippo.io/the-ecb-penguin/).
+ * **ECB** (Electronic Codebook): Deterministic encryption; identical plaintext blocks yield
+ * identical ciphertexts. Not secure due to pattern leakage.
+ * See [AES Penguin](https://words.filippo.io/the-ecb-penguin/).
  */
 export const ecb: ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
   blockSize: number;
@@ -456,8 +460,9 @@ export const ecb: ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
 );
 
 /**
- * CBC: Cipher-Block-Chaining. Key is previous round’s block.
- * Fragile: needs proper padding. Unauthenticated: needs MAC.
+ * **CBC** (Cipher Block Chaining): Each plaintext block is XORed with the
+ * previous block of ciphertext before encryption.
+ * Hard to use: requires proper padding and an IV. Unauthenticated: needs MAC.
  */
 export const cbc: ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
   blockSize: number;
@@ -591,11 +596,11 @@ function computeTag(
 }
 
 /**
- * GCM: Galois/Counter Mode.
- * Modern, parallel version of CTR, with MAC.
- * Be careful: MACs can be forged.
- * Unsafe to use random nonces under the same key, due to collision chance.
- * As for nonce size, prefer 12-byte, instead of 8-byte.
+ * **GCM** (Galois/Counter Mode): Combines CTR mode with polynomial MAC. Efficient and widely used.
+ * Not perfect:
+ * a) conservative key wear-out is `2**32` (4B) msgs.
+ * b) key wear-out under random nonces is even smaller: `2**23` (8M) messages for `2**-50` chance.
+ * c) MAC can be forged: see Poly1305 documentation.
  */
 export const gcm: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
   blockSize: number;
@@ -673,10 +678,10 @@ const limit = (name: string, min: number, max: number) => (value: number) => {
 };
 
 /**
- * AES-GCM-SIV: classic AES-GCM with nonce-misuse resistance.
- * Guarantees that, when a nonce is repeated, the only security loss is that identical
- * plaintexts will produce identical ciphertexts.
- * RFC 8452, https://datatracker.ietf.org/doc/html/rfc8452
+ * **SIV** (Synthetic IV): GCM with nonce-misuse resistance.
+ * Repeating nonces reveal only the fact plaintexts are identical.
+ * Also suffers from GCM issues: key wear-out limits & MAC forging.
+ * See [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452).
  */
 export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
   blockSize: number;
@@ -814,8 +819,8 @@ function decryptBlock(xk: Uint32Array, block: Uint8Array): Uint8Array {
 /**
  * AES-W (base for AESKW/AESKWP).
  * Specs: [SP800-38F](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38F.pdf),
- * [RFC 3394](https://datatracker.ietf.org/doc/rfc3394/),
- * [RFC 5649](https://datatracker.ietf.org/doc/rfc5649/).
+ * [RFC 3394](https://www.rfc-editor.org/rfc/rfc3394),
+ * [RFC 5649](https://www.rfc-editor.org/rfc/rfc5649).
  */
 const AESW = {
   /*
@@ -883,7 +888,7 @@ const AESKW_IV = /* @__PURE__ */ new Uint8Array(8).fill(0xa6); // A6A6A6A6A6A6A6
  * AES-KW (key-wrap). Injects static IV into plaintext, adds counter, encrypts 6 times.
  * Reduces block size from 16 to 8 bytes.
  * For padded version, use aeskwp.
- * [RFC 3394](https://datatracker.ietf.org/doc/rfc3394/),
+ * [RFC 3394](https://www.rfc-editor.org/rfc/rfc3394/),
  * [NIST.SP.800-38F](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38F.pdf).
  */
 export const aeskw: ((kek: Uint8Array) => Cipher) & {
