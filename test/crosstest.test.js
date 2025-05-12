@@ -1,5 +1,5 @@
 import { describe, should } from 'micro-should';
-import { deepStrictEqual } from 'node:assert';
+import { deepStrictEqual as eql } from 'node:assert';
 import { createCipheriv, createDecipheriv, getCiphers } from 'node:crypto';
 import * as aes from '../esm/aes.js';
 import { chacha20, chacha20poly1305, xchacha20poly1305 } from '../esm/chacha.js';
@@ -313,21 +313,21 @@ describe('Cross-test (node)', () => {
       should('basic round-trip', () => {
         const BUF = buf(32);
         const enc = v.noble.encrypt(BUF, v.opts);
-        deepStrictEqual(v.noble.decrypt(enc, v.opts), BUF);
+        eql(v.noble.decrypt(enc, v.opts), BUF);
       });
       if (v.node) {
         describe('node', () => {
           should('basic', () => {
             const BUF = buf(32);
             const enc = v.node.encrypt(BUF, v.opts);
-            deepStrictEqual(v.noble.encrypt(BUF, v.opts), enc);
-            deepStrictEqual(v.noble.decrypt(enc, v.opts), BUF);
+            eql(v.noble.encrypt(BUF, v.opts), enc);
+            eql(v.noble.decrypt(enc, v.opts), BUF);
           });
           should('1 MB', () => {
             const BUF = new Uint8Array(1 * MB);
             const enc = v.node.encrypt(BUF, v.opts);
-            deepStrictEqual(v.noble.encrypt(BUF, v.opts), enc);
-            deepStrictEqual(v.noble.decrypt(enc, v.opts), BUF);
+            eql(v.noble.encrypt(BUF, v.opts), enc);
+            eql(v.noble.decrypt(enc, v.opts), BUF);
           });
           if (SLOW) {
             // NOTE: this is actually super important even if nobody will use 5GB arrays,
@@ -346,8 +346,8 @@ describe('Cross-test (node)', () => {
               should('5 GB', () => {
                 const BUF = new Uint8Array(5 * GB);
                 const enc = v.node.encrypt(BUF, v.opts);
-                deepStrictEqual(v.noble.encrypt(BUF, v.opts), enc);
-                deepStrictEqual(v.noble.decrypt(enc, v.opts), BUF);
+                eql(v.noble.encrypt(BUF, v.opts), enc);
+                eql(v.noble.decrypt(enc, v.opts), BUF);
               });
             }
           }

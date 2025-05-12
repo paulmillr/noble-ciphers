@@ -1,7 +1,7 @@
-import { deepStrictEqual } from 'node:assert';
-import { should, describe } from 'micro-should';
+import { describe, should } from 'micro-should';
+import { deepStrictEqual as eql } from 'node:assert';
+import { _toGHASHKey, ghash, polyval } from '../esm/_polyval.js';
 import * as utils from '../esm/utils.js';
-import { ghash, polyval, _toGHASHKey } from '../esm/_polyval.js';
 import { json } from './utils.js';
 
 const hex = { decode: utils.hexToBytes, encode: utils.bytesToHex };
@@ -41,17 +41,16 @@ describe('Polyval', () => {
       '01000000000000000000000000000000': '00800000000000000000000000000000',
       '9c98c04df9387ded828175a92ba652d8': '4e4c6026fc9c3ef6c140bad495d3296c',
     };
-    for (const k in vectors)
-      deepStrictEqual(hex.encode(_toGHASHKey(hex.decode(k).reverse())), vectors[k]);
+    for (const k in vectors) eql(hex.encode(_toGHASHKey(hex.decode(k).reverse())), vectors[k]);
   });
 
   should('Basic', () => {
     for (const v of VECTORS_GHASH) {
       const concated = utils.concatBytes(...v.msg);
-      deepStrictEqual(hex.encode(v.fn(concated, v.key)), hex.encode(v.exp));
+      eql(hex.encode(v.fn(concated, v.key)), hex.encode(v.exp));
       const h = v.fn.create(v.key);
       for (const m of v.msg) h.update(m);
-      deepStrictEqual(hex.encode(h.digest()), hex.encode(v.exp));
+      eql(hex.encode(h.digest()), hex.encode(v.exp));
     }
   });
 
@@ -59,7 +58,7 @@ describe('Polyval', () => {
     for (let i = 0; i < VECTORS[flavor].length; i++) {
       const v = VECTORS[flavor][i];
       should(`${flavor}(${i}): polyval`, () => {
-        deepStrictEqual(
+        eql(
           hex.encode(polyval(hex.decode(v.polyvalInput), hex.decode(v.authKey))),
           v.polyvalResult
         );

@@ -1,6 +1,6 @@
 import { base64 } from '@scure/base';
 import { describe, should } from 'micro-should';
-import { deepStrictEqual, throws } from 'node:assert';
+import { deepStrictEqual as eql, throws } from 'node:assert';
 import { poly1305 } from '../esm/_poly1305.js';
 import {
   chacha12,
@@ -46,7 +46,7 @@ describe('Salsa20', () => {
         const res = new Uint8Array(64);
         let i = 0;
         while (i < dst.length) for (let j = 0; j < 64; j++) res[j] ^= dst[i++];
-        deepStrictEqual(hex.encode(res), v.digest);
+        eql(hex.encode(res), v.digest);
       }
     }
   });
@@ -59,7 +59,7 @@ describe('Salsa20', () => {
       hex.decode('000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f')
     );
     hsalsa(sigma, u32(key), u32(src), u32(dst));
-    deepStrictEqual(hex.encode(dst), good);
+    eql(hex.encode(dst), good);
   });
   should('xsalsa20', () => {
     const key = hex.decode('000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f');
@@ -71,7 +71,7 @@ describe('Salsa20', () => {
       '579b60d419b8a8c03da3494993577b4597dcb658be52ab7';
     const dst = new Uint8Array(good.length / 2);
     xsalsa20(key, nonce, dst, dst);
-    deepStrictEqual(hex.encode(dst), good);
+    eql(hex.encode(dst), good);
   });
 });
 
@@ -84,7 +84,7 @@ describe('chacha', () => {
         hex.decode(v.nonce),
         new Uint8Array(v.stream.length / 2)
       );
-      deepStrictEqual(hex.encode(res), v.stream);
+      eql(hex.encode(res), v.stream);
     }
   });
   should('short key', () => {
@@ -93,7 +93,7 @@ describe('chacha', () => {
       new Uint8Array(8).fill(2),
       new Uint8Array(10).fill(10)
     );
-    deepStrictEqual(hex.encode(res), '4ad24b21cba95a002754');
+    eql(hex.encode(res), '4ad24b21cba95a002754');
   });
   should('small nonce', () => {
     throws(() =>
@@ -115,7 +115,7 @@ describe('chacha', () => {
     const good = '82413b4227b27bfed30e42508a877d73a0f9e4d58a74a853c12ec41326d3ecdc';
     const subkey = new Uint8Array(32);
     hchacha(sigma, u32(key), u32(nonce.subarray(0, 16)), u32(subkey));
-    deepStrictEqual(hex.encode(subkey), good);
+    eql(hex.encode(subkey), good);
   });
 
   // test taken from XChaCha20 TV1 in libsodium (line 93 in libsodium/test/default/xchacha20.c)
@@ -123,7 +123,7 @@ describe('chacha', () => {
     const key = hex.decode('79c99798ac67300bbb2704c95c341e3245f3dcb21761b98e52ff45b24f304fc4');
     const nonce = hex.decode('b33ffd3096479bcfbc9aee49417688a0a2554f8d95389419');
     const good = 'c6e9758160083ac604ef90e712ce6e75d7797590744e0cf060f013739c';
-    deepStrictEqual(hex.encode(xchacha20(key, nonce, new Uint8Array(good.length / 2))), good);
+    eql(hex.encode(xchacha20(key, nonce, new Uint8Array(good.length / 2))), good);
   });
 
   // test taken from draft-arciszewski-xchacha-03 section A.3.2
@@ -163,7 +163,7 @@ describe('chacha', () => {
       'cb87c25f0ae045f0cce1e7989a9aa220' +
       'a28bdd4827e751a24a6d5c62d790a663' +
       '93b93111c1a55dd7421a10184974c7c5';
-    deepStrictEqual(hex.encode(xchacha20(key, nonce, plaintext)), ciphertext);
+    eql(hex.encode(xchacha20(key, nonce, plaintext)), ciphertext);
   });
   should('output length', () => {
     for (const fn of [chacha12, chacha20, chacha20orig, xchacha20, xsalsa20, salsa20]) {
@@ -178,10 +178,7 @@ describe('chacha', () => {
 describe('poly1305', () => {
   should('basic', () => {
     for (const v of stable_poly1305) {
-      deepStrictEqual(
-        hex.encode(poly1305(hex.decode(v.data), hex.decode(v.key).subarray(0, 32))),
-        v.mac
-      );
+      eql(hex.encode(poly1305(hex.decode(v.data), hex.decode(v.key).subarray(0, 32))), v.mac);
     }
   });
 
@@ -193,10 +190,10 @@ describe('poly1305', () => {
     const d1 = data.subarray(0, 4);
     const d2 = data.subarray(4, 4 + 64);
     const d3 = data.subarray(4 + 64);
-    deepStrictEqual([d1, d2, d3].map(hex.encode).join(''), hex.encode(data));
+    eql([d1, d2, d3].map(hex.encode).join(''), hex.encode(data));
     const r1 = poly1305.create(key).update(data).digest();
     const r2 = poly1305.create(key).update(d1).update(d2).update(d3).digest();
-    deepStrictEqual(hex.encode(r1), hex.encode(r2));
+    eql(hex.encode(r1), hex.encode(r2));
   });
 
   const t = (name, testVectors, cipher) => {
@@ -210,9 +207,9 @@ describe('poly1305', () => {
           const exp = hex.decode(v.result);
 
           // console.log('V', v);
-          deepStrictEqual(hex.encode(c.encrypt(msg)), v.result, 'encrypt');
+          eql(hex.encode(c.encrypt(msg)), v.result, 'encrypt');
           const plaintext = c.decrypt(exp);
-          deepStrictEqual(hex.encode(plaintext), v.msg, 'decrypt');
+          eql(hex.encode(plaintext), v.msg, 'decrypt');
           const corrupt = exp.slice();
           corrupt[corrupt.length - 1] = 0;
           throws(() => c.decrypt(corrupt));
@@ -230,11 +227,11 @@ should('tweetnacl secretbox compat', () => {
     const v = tweetnacl_secretbox[i];
     const [key, nonce, msg, exp] = v.map(base64.decode);
     const c = xsalsa20poly1305(key, nonce);
-    deepStrictEqual(hex.encode(c.encrypt(msg)), hex.encode(exp), i);
-    deepStrictEqual(hex.encode(c.decrypt(exp)), hex.encode(msg), i);
+    eql(hex.encode(c.encrypt(msg)), hex.encode(exp), i);
+    eql(hex.encode(c.decrypt(exp)), hex.encode(msg), i);
     // Secret box
-    deepStrictEqual(secretbox(key, nonce).seal(msg), exp);
-    deepStrictEqual(secretbox(key, nonce).open(exp), msg);
+    eql(secretbox(key, nonce).seal(msg), exp);
+    eql(secretbox(key, nonce).open(exp), msg);
   }
 });
 
@@ -254,16 +251,16 @@ describe('handle byte offsets correctly', () => {
       const stream_c = v.stream(key, nonce);
       const encrypted_c = stream_c.encrypt(data);
       const decrypted_c = stream_c.decrypt(encrypted_c);
-      deepStrictEqual(decrypted_c, data);
+      eql(decrypted_c, data);
       // Key + nonce with offset
       const keyOffset = new Uint8Array(v.keyLen + 1).fill(2).subarray(1);
       const nonceOffset = new Uint8Array(v.nonceLen + 1).fill(3).subarray(1);
       const stream_c2 = v.stream(key, nonce);
       const streamOffset = v.stream(keyOffset, nonceOffset);
       const encryptedOffset = stream_c2.encrypt(data);
-      deepStrictEqual(encryptedOffset, encrypted_c);
+      eql(encryptedOffset, encrypted_c);
       const decryptedOffset = streamOffset.decrypt(encryptedOffset);
-      deepStrictEqual(decryptedOffset, data);
+      eql(decryptedOffset, data);
     });
   }
 });
@@ -278,16 +275,16 @@ describe('Wycheproof', () => {
           if (t.result !== 'invalid') {
             const c = cipher(hex.decode(t.key), hex.decode(t.iv), aad);
             const enc = c.encrypt(hex.decode(t.msg));
-            deepStrictEqual(hex.encode(enc), ct);
+            eql(hex.encode(enc), ct);
             const dec = c.decrypt(hex.decode(ct));
-            deepStrictEqual(hex.encode(dec), t.msg);
+            eql(hex.encode(dec), t.msg);
           } else {
             throws(() => {
               const c = cipher(hex.decode(t.key), hex.decode(t.iv), aad);
               const enc = c.encrypt(hex.decode(t.msg));
-              deepStrictEqual(hex.encode(enc), ct);
+              eql(hex.encode(enc), ct);
               const dec = c.decrypt(hex.decode(ct));
-              deepStrictEqual(hex.encode(dec), t.msg);
+              eql(hex.encode(dec), t.msg);
             });
           }
         }

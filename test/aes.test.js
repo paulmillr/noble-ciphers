@@ -1,10 +1,10 @@
-import { deepStrictEqual, throws } from 'node:assert';
+import { describe, should } from 'micro-should';
+import { deepStrictEqual as eql, throws } from 'node:assert';
 import { createCipheriv, createDecipheriv } from 'node:crypto';
-import { should, describe } from 'micro-should';
+import { aeskw, aeskwp, cbc, ctr, ecb, gcm, gcmsiv } from '../esm/aes.js';
 import { bytesToHex, concatBytes, hexToBytes } from '../esm/utils.js';
-import { ecb, cbc, ctr, siv, gcm, aeskw, aeskwp } from '../esm/aes.js';
-import { json } from './utils.js';
 import * as web from '../esm/webcrypto.js';
+import { json } from './utils.js';
 
 // https://datatracker.ietf.org/doc/html/rfc8452#appendix-C
 const NIST_VECTORS = json('./vectors/nist_800_38a.json');
@@ -19,7 +19,7 @@ const hex = { decode: hexToBytes, encode: bytesToHex };
 const isDeno = 'deno' in process.versions;
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
 
-const CIPHERS = { ecb, cbc, ctr, siv, gcm };
+const CIPHERS = { ecb, cbc, ctr, siv: gcmsiv, gcm };
 
 describe('AES', () => {
   should('CTR', () => {
@@ -51,8 +51,8 @@ describe('AES', () => {
     for (const nonce of nonces) {
       const nodeVal = nodeAES('aes-256-ctr').encrypt(msg, { key, nonce });
       const c = ctr(key, nonce);
-      deepStrictEqual(c.encrypt(msg), nodeVal);
-      deepStrictEqual(c.decrypt(nodeVal), msg);
+      eql(c.encrypt(msg), nodeVal);
+      eql(c.decrypt(nodeVal), msg);
     }
   });
   describe('NIST 800-38a', () => {
@@ -64,8 +64,8 @@ describe('AES', () => {
         else c = cipher(hex.decode(t.key), { disablePadding: true });
         const ciphertext = concatBytes(...t.blocks.map((i) => hex.decode(i.ciphertext)));
         const plaintext = concatBytes(...t.blocks.map((i) => hex.decode(i.plaintext)));
-        deepStrictEqual(c.decrypt(ciphertext), plaintext);
-        deepStrictEqual(c.encrypt(plaintext), ciphertext);
+        eql(c.decrypt(ciphertext), plaintext);
+        eql(c.encrypt(plaintext), ciphertext);
       });
       if (t.name === 'ctr' && typeof web !== 'undefined') {
         should(`${t.name}: web`, async () => {
@@ -75,8 +75,8 @@ describe('AES', () => {
           else c = cipher(hex.decode(t.key), { disablePadding: true });
           const ciphertext = concatBytes(...t.blocks.map((i) => hex.decode(i.ciphertext)));
           const plaintext = concatBytes(...t.blocks.map((i) => hex.decode(i.plaintext)));
-          deepStrictEqual(await c.decrypt(ciphertext), plaintext);
-          deepStrictEqual(await c.encrypt(plaintext), ciphertext);
+          eql(await c.decrypt(ciphertext), plaintext);
+          eql(await c.encrypt(plaintext), ciphertext);
         });
       }
     }
@@ -86,19 +86,19 @@ describe('AES', () => {
       for (let i = 0; i < VECTORS[flavor].length; i++) {
         const v = VECTORS[flavor][i];
         should(`${flavor}(${i}).encrypt`, () => {
-          let a = siv(hex.decode(v.key), hex.decode(v.nonce), hex.decode(v.AAD));
-          deepStrictEqual(a.encrypt(hex.decode(v.plaintext)), hex.decode(v.result));
+          let a = gcmsiv(hex.decode(v.key), hex.decode(v.nonce), hex.decode(v.AAD));
+          eql(a.encrypt(hex.decode(v.plaintext)), hex.decode(v.result));
         });
         should(`${flavor}(${i}).decrypt`, () => {
-          let a = siv(hex.decode(v.key), hex.decode(v.nonce), hex.decode(v.AAD));
-          deepStrictEqual(a.decrypt(hex.decode(v.result)), hex.decode(v.plaintext));
+          let a = gcmsiv(hex.decode(v.key), hex.decode(v.nonce), hex.decode(v.AAD));
+          eql(a.decrypt(hex.decode(v.result)), hex.decode(v.plaintext));
         });
       }
     }
     should(`throws on lengths`, () => {
-      siv(new Uint8Array(32), new Uint8Array(12), new Uint8Array(12));
-      throws(() => siv(new Uint8Array(32), new Uint8Array(11), new Uint8Array(12))); // nonce
-      throws(() => siv(new Uint8Array(33), new Uint8Array(12), new Uint8Array(12))); // key
+      gcmsiv(new Uint8Array(32), new Uint8Array(12), new Uint8Array(12));
+      throws(() => gcmsiv(new Uint8Array(32), new Uint8Array(11), new Uint8Array(12))); // nonce
+      throws(() => gcmsiv(new Uint8Array(33), new Uint8Array(12), new Uint8Array(12))); // key
     });
   });
 
@@ -121,8 +121,8 @@ describe('AES', () => {
               if (t.flags.includes('SmallIv')) return; // skip test, we don't support iv < 8b
               const a = cipher(hex.decode(t.key), hex.decode(t.iv), hex.decode(t.aad || ''));
               const ct = concatBytes(hex.decode(t.ct), hex.decode(t.tag || ''));
-              deepStrictEqual(a.decrypt(ct), msg);
-              deepStrictEqual(a.encrypt(msg), ct);
+              eql(a.decrypt(ct), msg);
+              eql(a.encrypt(msg), ct);
               // Webcrypto has different limits
               if (c.webcipher && t.iv.length !== 16 && t.iv.length % 16 === 0) {
                 const wc = c.webcipher(
@@ -131,8 +131,8 @@ describe('AES', () => {
                   hex.decode(t.aad || '')
                 );
                 if (isDeno) return;
-                deepStrictEqual(await wc.decrypt(ct), msg);
-                deepStrictEqual(await wc.encrypt(msg), ct);
+                eql(await wc.decrypt(ct), msg);
+                eql(await wc.encrypt(msg), ct);
               }
             } else {
               throws(() =>
@@ -193,8 +193,8 @@ describe('AES', () => {
       ];
       for (const t of vectors) {
         const kw = aeskw(t.KEK);
-        deepStrictEqual(kw.encrypt(t.KeyData), t.Ciphertext);
-        deepStrictEqual(kw.decrypt(t.Ciphertext), t.KeyData);
+        eql(kw.encrypt(t.KeyData), t.Ciphertext);
+        eql(kw.decrypt(t.Ciphertext), t.KeyData);
       }
     });
     should('Wycheproof', () => {
@@ -204,11 +204,11 @@ describe('AES', () => {
           // 8-byte keys considered 'acceptable' by Wychenproof, but seems like bug.
           if (t.flags.includes('ShortKey')) continue;
           if (t.result === 'valid' || t.result === 'acceptable') {
-            deepStrictEqual(hex.encode(kw.encrypt(hex.decode(t.msg))), t.ct);
-            deepStrictEqual(hex.encode(kw.decrypt(hex.decode(t.ct))), t.msg);
+            eql(hex.encode(kw.encrypt(hex.decode(t.msg))), t.ct);
+            eql(hex.encode(kw.decrypt(hex.decode(t.ct))), t.msg);
           } else {
             throws(() => kw.decrypt(hex.decode(t.ct)));
-            throws(() => deepStrictEqual(kw.encrypt(hex.decode(t.msg)), hex.decode(t.ct)));
+            throws(() => eql(kw.encrypt(hex.decode(t.msg)), hex.decode(t.ct)));
           }
         }
       }
@@ -232,8 +232,8 @@ describe('AES', () => {
       ];
       for (const t of vectors) {
         const kwp = aeskwp(t.KEK);
-        deepStrictEqual(kwp.encrypt(t.Key), t.Wrap);
-        deepStrictEqual(kwp.decrypt(t.Wrap), t.Key);
+        eql(kwp.encrypt(t.Key), t.Wrap);
+        eql(kwp.decrypt(t.Wrap), t.Key);
       }
     });
     should('AESKWP: Wycheproof', () => {
@@ -241,11 +241,11 @@ describe('AES', () => {
         for (const t of group.tests) {
           const kwp = aeskwp(hex.decode(t.key));
           if (t.result === 'valid' || t.result === 'acceptable') {
-            deepStrictEqual(hex.encode(kwp.encrypt(hex.decode(t.msg))), t.ct);
-            deepStrictEqual(hex.encode(kwp.decrypt(hex.decode(t.ct))), t.msg);
+            eql(hex.encode(kwp.encrypt(hex.decode(t.msg))), t.ct);
+            eql(hex.encode(kwp.decrypt(hex.decode(t.ct))), t.msg);
           } else {
             throws(() => kwp.decrypt(hex.decode(t.ct)), 'decrypt');
-            throws(() => deepStrictEqual(kwp.encrypt(hex.decode(t.msg)), hex.decode(t.ct)));
+            throws(() => eql(kwp.encrypt(hex.decode(t.msg)), hex.decode(t.ct)));
           }
         }
       }

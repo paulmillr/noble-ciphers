@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
-import { gunzipSync } from 'node:zlib';
 import { dirname, join as joinPath } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gunzipSync } from 'node:zlib';
 import { bytesToHex, concatBytes, hexToBytes } from '../esm/utils.js';
 
 export const _dirname = dirname(fileURLToPath(import.meta.url));
@@ -140,18 +140,18 @@ const EMPTY = {
 };
 
 export {
-  utf8ToBytes,
-  hexToBytes,
   bytesToHex,
-  truncate,
-  repeat,
   concatBytes,
-  TYPE_TEST,
-  SPACE,
   EMPTY,
+  hexToBytes,
+  jsonGZ,
+  pattern,
+  repeat,
+  SPACE,
   stats,
   times,
-  pattern,
-  jsonGZ,
+  truncate,
+  TYPE_TEST,
   unalign,
+  utf8ToBytes,
 };

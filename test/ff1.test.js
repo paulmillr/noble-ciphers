@@ -1,7 +1,7 @@
-import { deepStrictEqual, throws } from 'node:assert';
 import { describe, should } from 'micro-should';
-import { FF1, BinaryFF1 } from '../esm/ff1.js';
-import { json, hexToBytes } from './utils.js';
+import { deepStrictEqual as eql, throws } from 'node:assert';
+import { BinaryFF1, FF1 } from '../esm/ff1.js';
+import { hexToBytes, json } from './utils.js';
 
 const fromHex = (hex) => {
   return hex ? hexToBytes(hex) : Uint8Array.from([]);
@@ -76,17 +76,17 @@ describe('FF1', () => {
     ]);
     const ff1 = BinaryFF1(bytes);
     let res = ff1.encrypt([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-    deepStrictEqual(res, new Uint8Array([59, 246, 250, 31, 131, 191, 69, 99, 200, 167, 19]));
+    eql(res, new Uint8Array([59, 246, 250, 31, 131, 191, 69, 99, 200, 167, 19]));
   });
 
   for (let i = 0; i < VECTORS.length; i++) {
     const v = VECTORS[i];
     const ff1 = FF1(v.radix, v.key, v.tweak);
     should(`NIST vector (${i}): encrypt`, () => {
-      deepStrictEqual(ff1.encrypt(v.X), v.AB);
+      eql(ff1.encrypt(v.X), v.AB);
     });
     should(`NIST vector (${i}): decrypt`, () => {
-      deepStrictEqual(ff1.decrypt(v.AB), v.X);
+      eql(ff1.decrypt(v.AB), v.X);
     });
   }
 
@@ -98,7 +98,7 @@ describe('FF1', () => {
       // minLen is 2 by spec
       if (v.data.length < 2) continue;
       const res = ff1.encrypt(fromHex(v.data));
-      deepStrictEqual(res, fromHex(v.exp), i);
+      eql(res, fromHex(v.exp), i);
     }
 
     for (let i = 0; i < BIN_VECTORS.length; i++) {
@@ -107,7 +107,7 @@ describe('FF1', () => {
       // minLen is 2 by spec
       if (v.data.length < 2) continue;
       const res = ff1.decrypt(fromHex(v.exp));
-      deepStrictEqual(res, fromHex(v.data), i);
+      eql(res, fromHex(v.data), i);
     }
   });
 

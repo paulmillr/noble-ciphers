@@ -1,5 +1,5 @@
 import { describe, should } from 'micro-should';
-import { deepStrictEqual, throws } from 'node:assert';
+import { deepStrictEqual as eql, throws } from 'node:assert';
 import { aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv } from '../esm/aes.js';
 import { chacha20poly1305, xchacha20poly1305 } from '../esm/chacha.js';
 import { xsalsa20poly1305 } from '../esm/salsa.js';
@@ -62,11 +62,11 @@ describe('Basic', () => {
       const msg = new Uint8Array(opts.blockSize).fill(12);
       const msgCopy = msg.slice();
       if (checkBlockSize(opts, msgCopy.length)) {
-        deepStrictEqual(c.decrypt(c.encrypt(msgCopy)), msg);
-        deepStrictEqual(msg, msgCopy);
+        eql(c.decrypt(c.encrypt(msgCopy)), msg);
+        eql(msg, msgCopy);
         // Verify that key/nonce is not modified
-        deepStrictEqual(key, copy.key);
-        deepStrictEqual(nonce, copy.nonce);
+        eql(key, copy.key);
+        eql(nonce, copy.nonce);
       }
     });
     if (opts.blockSize) {
@@ -83,28 +83,28 @@ describe('Basic', () => {
       const msgCopy = msg.slice();
       if (checkBlockSize(opts, msgCopy.length)) {
         const { c, key, nonce, copy } = initCipher(opts);
-        deepStrictEqual(c.decrypt(c.encrypt(msgCopy)), msg);
-        deepStrictEqual(msg, msgCopy);
+        eql(c.decrypt(c.encrypt(msgCopy)), msg);
+        eql(msg, msgCopy);
       }
 
       const msg2 = new Uint8Array(2048).fill(255);
       const msg2Copy = msg2.slice();
       if (checkBlockSize(opts, msg2Copy.length)) {
         const { c, key, nonce, copy } = initCipher(opts);
-        deepStrictEqual(c.decrypt(c.encrypt(msg2)), msg2);
-        deepStrictEqual(msg2, msg2Copy);
+        eql(c.decrypt(c.encrypt(msg2)), msg2);
+        eql(msg2, msg2Copy);
       }
 
       const { c, key, nonce, copy } = initCipher(opts);
       const msg3 = new Uint8Array(256).fill(3);
       const msg3Copy = msg3.slice();
       if (!checkBlockSize(opts, msg3Copy.length)) {
-        deepStrictEqual(c.decrypt(c.encrypt(msg3Copy)), msg3);
-        deepStrictEqual(msg3, msg3Copy);
+        eql(c.decrypt(c.encrypt(msg3Copy)), msg3);
+        eql(msg3, msg3Copy);
       }
       // Verify that key/nonce is not modified
-      deepStrictEqual(key, copy.key);
-      deepStrictEqual(nonce, copy.nonce);
+      eql(key, copy.key);
+      eql(nonce, copy.nonce);
     });
     should(`${k}: different sizes`, () => {
       for (let i = 0; i < 2048; i++) {
@@ -112,11 +112,11 @@ describe('Basic', () => {
         const msgCopy = msg.slice();
         if (checkBlockSize(opts, msgCopy.length)) {
           const { c, key, nonce, copy } = initCipher(opts);
-          deepStrictEqual(c.decrypt(c.encrypt(msg)), msg);
-          deepStrictEqual(msg, msgCopy);
+          eql(c.decrypt(c.encrypt(msg)), msg);
+          eql(msg, msgCopy);
 
-          deepStrictEqual(key, copy.key);
-          deepStrictEqual(nonce, copy.nonce);
+          eql(key, copy.key);
+          eql(nonce, copy.nonce);
         }
       }
     });
@@ -131,7 +131,7 @@ describe('Basic', () => {
           const cipher = fn(key, nonce, AAD);
           const encrypted = unalign(cipher.encrypt(msg), i);
           const decrypted = cipher.decrypt(encrypted);
-          deepStrictEqual(decrypted, msg);
+          eql(decrypted, msg);
         }
       });
     }
@@ -225,17 +225,17 @@ describe('Basic', () => {
             // First pass
             cipher = fn(key, nonce, AAD);
             const res = cipher.encrypt(msg, out);
-            deepStrictEqual(res, exp);
+            eql(res, exp);
             // check if res is output
-            deepStrictEqual(res, out.subarray(res.byteOffset, res.byteOffset + res.length));
-            deepStrictEqual(res.buffer, out.buffer); // make sure that underlying array buffer is same
+            eql(res, out.subarray(res.byteOffset, res.byteOffset + res.length));
+            eql(res.buffer, out.buffer); // make sure that underlying array buffer is same
             // Second pass
             out.fill(fillByte);
             cipher = fn(key, nonce, AAD);
             const res2 = cipher.encrypt(msg, out);
-            deepStrictEqual(res2, exp);
-            deepStrictEqual(res2, out.subarray(res2.byteOffset, res2.byteOffset + res2.length));
-            deepStrictEqual(res2.buffer, out.buffer); // make sure that underlying array buffer is same
+            eql(res2, exp);
+            eql(res2, out.subarray(res2.byteOffset, res2.byteOffset + res2.length));
+            eql(res2.buffer, out.buffer); // make sure that underlying array buffer is same
             // Overlap
             cipher = fn(key, nonce, AAD);
             out.fill(fillByte);
@@ -243,7 +243,7 @@ describe('Basic', () => {
             const msg2 = out.subarray(0, msg.length);
             // CFB cannot support overlap
             if (k.includes('cfb')) return throws(() => cipher.encrypt(msg2, out));
-            deepStrictEqual(cipher.encrypt(msg2, out), exp);
+            eql(cipher.encrypt(msg2, out), exp);
 
             overlapTest(msg2, out, (msg2, out2, all) => {
               all.fill(fillByte);
@@ -258,9 +258,9 @@ describe('Basic', () => {
                 if (mayThrow) return;
                 throw e;
               }
-              deepStrictEqual(newOut.buffer, all.buffer); // make sure that underlying array buffer is same
-              deepStrictEqual(newOut.buffer, out2.buffer); // make sure that underlying array buffer is same
-              deepStrictEqual(newOut, exp);
+              eql(newOut.buffer, all.buffer); // make sure that underlying array buffer is same
+              eql(newOut.buffer, out2.buffer); // make sure that underlying array buffer is same
+              eql(newOut, exp);
             });
           }
           if (cipher.decrypt.length === 2) {
@@ -274,15 +274,15 @@ describe('Basic', () => {
             const out = new Uint8Array(outLen);
             // First pass
             const res = cipher.decrypt(input, out);
-            deepStrictEqual(res, msg);
-            deepStrictEqual(res, out.subarray(res.byteOffset, res.byteOffset + res.length));
-            deepStrictEqual(res.buffer, out.buffer); // make sure that underlying array buffer is same
+            eql(res, msg);
+            eql(res, out.subarray(res.byteOffset, res.byteOffset + res.length));
+            eql(res.buffer, out.buffer); // make sure that underlying array buffer is same
             // Second pass
             out.fill(fillByte);
             const res2 = cipher.decrypt(input, out);
-            deepStrictEqual(res2, msg);
-            deepStrictEqual(res2, out.subarray(res2.byteOffset, res2.byteOffset + res2.length));
-            deepStrictEqual(res2.buffer, out.buffer); // make sure that underlying array buffer is same
+            eql(res2, msg);
+            eql(res2, out.subarray(res2.byteOffset, res2.byteOffset + res2.length));
+            eql(res2.buffer, out.buffer); // make sure that underlying array buffer is same
             // Overlap
             const tmp = new Uint8Array(Math.max(out.length, input.length));
             tmp.fill(fillByte);
@@ -291,7 +291,7 @@ describe('Basic', () => {
             const input2 = tmp.subarray(0, input.length);
             // CFB cannot support overlap
             if (k.includes('cfb')) return throws(() => cipher.decrypt(input2, out2));
-            deepStrictEqual(cipher.decrypt(input2, out2), msg);
+            eql(cipher.decrypt(input2, out2), msg);
 
             overlapTest(input2, out2, (input2, out2, all) => {
               all.fill(fillByte);
@@ -305,9 +305,9 @@ describe('Basic', () => {
                 if (mayThrow) return;
                 throw e;
               }
-              deepStrictEqual(newOut.buffer, all.buffer); // make sure that underlying array buffer is same
-              deepStrictEqual(newOut.buffer, out2.buffer); // make sure that underlying array buffer is same
-              deepStrictEqual(newOut, msg);
+              eql(newOut.buffer, all.buffer); // make sure that underlying array buffer is same
+              eql(newOut.buffer, out2.buffer); // make sure that underlying array buffer is same
+              eql(newOut, msg);
             });
           }
         }
@@ -357,11 +357,11 @@ describe('Basic', () => {
 
         // Encrypt
         let ciphertext = cipher.encrypt(buf_p, tmp.subarray(i.c_start, i.c_end));
-        deepStrictEqual(ciphertext, sample_enc, '.encrypt() differs');
+        eql(ciphertext, sample_enc, '.encrypt() differs');
 
         // Decrypt
         let plaintext = cipher.decrypt(ciphertext, buf_dec);
-        deepStrictEqual(msg, plaintext, '.decrypt() differs');
+        eql(msg, plaintext, '.decrypt() differs');
       }
       // deepStrictEqual(data.subarray(0, 8), data.subarray(32, 40))
     });
@@ -385,7 +385,7 @@ describe('Basic', () => {
 
       const encryptedMsg = get().encrypt(msg);
       const decryptedMsg = fn(key, nonce).decrypt(encryptedMsg); // == msg
-      deepStrictEqual(decryptedMsg, msg, 'decryption works');
+      eql(decryptedMsg, msg, 'decryption works');
 
       const L = msg.length;
 
@@ -396,26 +396,22 @@ describe('Basic', () => {
 
       // Part 1: Simply use existing `tmp`
       initTmp();
-      deepStrictEqual(
+      eql(
         get().encrypt(msg, tmp.subarray(0, isSalsa ? L + 32 : L + 16)),
         encryptedMsg,
         'example 1'
       );
       // To decrypt
-      deepStrictEqual(
-        get().decrypt(encryptedMsg, tmp.subarray(0, isSalsa ? L + 48 : 5)),
-        msg,
-        'example 2'
-      );
+      eql(get().decrypt(encryptedMsg, tmp.subarray(0, isSalsa ? L + 48 : 5)), msg, 'example 2');
 
       // Part 2: Share `tmp` between input and output
       initTmp();
       tmp.set(msg, 0);
       const reusedEnc = get().encrypt(msg, tmp.subarray(0, isSalsa ? L + 32 : L + 16));
-      deepStrictEqual(reusedEnc, encryptedMsg, 'example 3');
+      eql(reusedEnc, encryptedMsg, 'example 3');
 
       const reusedDec = get().decrypt(reusedEnc, tmp.subarray(0, isSalsa ? L + 48 : 5));
-      deepStrictEqual(reusedDec, msg, 'example 4');
+      eql(reusedDec, msg, 'example 4');
     });
 
     const msg_10 = new Uint8Array(10);
