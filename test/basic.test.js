@@ -1,9 +1,9 @@
 import { describe, should } from 'micro-should';
 import { deepStrictEqual as eql, throws } from 'node:assert';
-import { aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv } from '../esm/aes.js';
-import { chacha20poly1305, xchacha20poly1305 } from '../esm/chacha.js';
-import { xsalsa20poly1305 } from '../esm/salsa.js';
-import { managedNonce, randomBytes } from '../esm/webcrypto.js';
+import { aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv } from '../aes.js';
+import { chacha20poly1305, xchacha20poly1305 } from '../chacha.js';
+import { xsalsa20poly1305 } from '../salsa.js';
+import { managedNonce, randomBytes } from '../webcrypto.js';
 import { TYPE_TEST, unalign } from './utils.js';
 
 const CIPHERS = {
