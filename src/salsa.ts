@@ -32,6 +32,10 @@ import {
  * 1. Simple loop (salsaCore_small, hsalsa_small)
  * 2. Unrolled loop (salsaCore, hsalsa) - 4x faster, but larger & harder to read
  * The specific implementation is selected in `createCipher` below.
+ * Performance numbers for 1MB inputs:
+ * * default x 779 ops/sec @ 1ms/op
+ * * combined salsa+hsalsa x 459 ops/sec @ 2ms/op
+ * * small x 132 ops/sec @ 7ms/op
  */
 
 /** quarter-round */
@@ -142,7 +146,7 @@ function salsaCore(
  * Need to find a way to merge it with `salsaCore` without 25% performance hit.
  */
 // prettier-ignore
-function hsalsa(
+export function hsalsa(
   s: Uint32Array, k: Uint32Array, i: Uint32Array, out: Uint32Array
 ): void {
   let x00 = s[0], x01 = k[0], x02 = k[1], x03 = k[2],
