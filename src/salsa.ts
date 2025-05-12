@@ -34,7 +34,7 @@ import {
  * The specific implementation is selected in `createCipher` below.
  * Performance numbers for 1MB inputs:
  * * default x 779 ops/sec @ 1ms/op
- * * combined salsa+hsalsa x 459 ops/sec @ 2ms/op
+ * * if salsa+hsalsa are merged x 459 ops/sec @ 2ms/op
  * * small x 132 ops/sec @ 7ms/op
  */
 
