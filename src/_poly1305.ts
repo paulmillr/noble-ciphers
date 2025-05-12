@@ -19,8 +19,9 @@
  */
 // prettier-ignore
 import {
-  Hash, type Input, abytes, aexists, aoutput, bytesToHex,
-  clean, concatBytes, hexToNumber, numberToBytesBE, toBytes
+  Hash,
+  abytes, aexists, aoutput, bytesToHex,
+  clean, concatBytes, copyBytes, hexToNumber, numberToBytesBE
 } from './utils.ts';
 
 function u8to16(a: Uint8Array, i: number) {
@@ -83,9 +84,9 @@ export class Poly1305 implements Hash<Poly1305> {
   protected finished = false;
 
   // Can be speed-up using BigUint64Array, at the cost of complexity
-  constructor(key: Input) {
-    key = toBytes(key);
+  constructor(key: Uint8Array) {
     abytes(key, 32);
+    key = copyBytes(key);
     const t0 = u8to16(key, 0);
     const t1 = u8to16(key, 2);
     const t2 = u8to16(key, 4);
@@ -282,10 +283,10 @@ export class Poly1305 implements Hash<Poly1305> {
     }
     clean(g);
   }
-  update(data: Input): this {
+  update(data: Uint8Array): this {
     aexists(this);
-    data = toBytes(data);
     abytes(data);
+    data = copyBytes(data);
     const { buffer, blockLen } = this;
     const len = data.length;
 
@@ -339,18 +340,19 @@ export class Poly1305 implements Hash<Poly1305> {
 
 export type CHash = ReturnType<typeof wrapConstructorWithKey>;
 export function wrapConstructorWithKey<H extends Hash<H>>(
-  hashCons: (key: Input) => Hash<H>
+  hashCons: (key: Uint8Array) => Hash<H>
 ): {
-  (msg: Input, key: Input): Uint8Array;
+  (msg: Uint8Array, key: Uint8Array): Uint8Array;
   outputLen: number;
   blockLen: number;
-  create(key: Input): Hash<H>;
+  create(key: Uint8Array): Hash<H>;
 } {
-  const hashC = (msg: Input, key: Input): Uint8Array => hashCons(key).update(toBytes(msg)).digest();
+  const hashC = (msg: Uint8Array, key: Uint8Array): Uint8Array =>
+    hashCons(key).update(msg).digest();
   const tmp = hashCons(new Uint8Array(32)); // tmp array, used just once below
   hashC.outputLen = tmp.outputLen;
   hashC.blockLen = tmp.blockLen;
-  hashC.create = (key: Input) => hashCons(key);
+  hashC.create = (key: Uint8Array) => hashCons(key);
   return hashC;
 }
 
