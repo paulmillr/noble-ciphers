@@ -26,18 +26,6 @@ export function abytes(b: Uint8Array | undefined, ...lengths: number[]): void {
     throw new Error('Uint8Array expected of length ' + lengths + ', got length=' + b.length);
 }
 
-/**
- * Asserts something is hash
- * TODO: remove
- * @deprecated
- */
-export function ahash(h: IHash): void {
-  if (typeof h !== 'function' || typeof h.create !== 'function')
-    throw new Error('Hash should be wrapped by utils.createHasher');
-  anumber(h.outputLen);
-  anumber(h.blockLen);
-}
-
 /** Asserts a hash instance has not been destroyed / finished */
 export function aexists(instance: any, checkFinished = true): void {
   if (instance.destroyed) throw new Error('Hash instance has been destroyed');
@@ -167,12 +155,6 @@ export function numberToBytesBE(n: number | bigint, len: number): Uint8Array {
   return hexToBytes(n.toString(16).padStart(len * 2, '0'));
 }
 
-// TODO: remove
-// There is no setImmediate in browser and setTimeout is slow.
-// call of async fn will return Promise, which will be fullfiled only on
-// next scheduler queue processing step and this is exactly what we need.
-export const nextTick = async (): Promise<void> => {};
-
 // Global symbols, but ts doesn't see them: https://github.com/microsoft/TypeScript/issues/31535
 declare const TextEncoder: any;
 declare const TextDecoder: any;
@@ -192,20 +174,6 @@ export function utf8ToBytes(str: string): Uint8Array {
  */
 export function bytesToUtf8(bytes: Uint8Array): string {
   return new TextDecoder().decode(bytes);
-}
-
-// TODO: remove
-export type Input = Uint8Array | string;
-/**
- * Normalizes (non-hex) string or Uint8Array to Uint8Array.
- * Warning: when Uint8Array is passed, it would NOT get copied.
- * Keep in mind for future mutable operations.
- */
-export function toBytes(data: string | Uint8Array): Uint8Array {
-  if (typeof data === 'string') data = utf8ToBytes(data);
-  else if (isBytes(data)) data = copyBytes(data);
-  else throw new Error('Uint8Array expected, got ' + typeof data);
-  return data;
 }
 
 /**

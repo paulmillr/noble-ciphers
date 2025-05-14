@@ -1,9 +1,9 @@
 import { describe, should } from 'micro-should';
 import { deepStrictEqual as eql, throws } from 'node:assert';
 import { createCipheriv, createDecipheriv } from 'node:crypto';
-import { aeskw, aeskwp, cbc, ctr, ecb, gcm, gcmsiv } from '../esm/aes.js';
-import { bytesToHex, concatBytes, hexToBytes } from '../esm/utils.js';
-import * as web from '../esm/webcrypto.js';
+import { aeskw, aeskwp, cbc, ctr, ecb, gcm, gcmsiv } from '../aes.js';
+import { bytesToHex, concatBytes, hexToBytes } from '../utils.js';
+import * as web from '../webcrypto.js';
 import { json } from './utils.js';
 
 // https://datatracker.ietf.org/doc/html/rfc8452#appendix-C
