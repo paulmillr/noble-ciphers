@@ -12,10 +12,11 @@ function getWebcryptoSubtle(): any {
 }
 
 /**
- * Secure PRNG. Uses `crypto.getRandomValues`, which defers to OS.
+ * Cryptographically secure PRNG. Uses internal OS-level `crypto.getRandomValues`.
+ * We use WebCrypto aka globalThis.crypto, which exists in browsers and node.js 16+.
  */
 export function randomBytes(bytesLength = 32): Uint8Array {
-  const cr = typeof globalThis !== 'undefined' && (globalThis as any).crypto;
+  const cr = typeof globalThis != null && (globalThis as any).crypto;
   if (!cr || typeof cr.getRandomValues !== 'function')
     throw new Error('crypto.getRandomValues must be defined');
   return cr.getRandomValues(new Uint8Array(bytesLength));
