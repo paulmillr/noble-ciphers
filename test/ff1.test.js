@@ -1,6 +1,6 @@
 import { describe, should } from 'micro-should';
 import { deepStrictEqual as eql, throws } from 'node:assert';
-import { BinaryFF1, FF1 } from '../esm/ff1.js';
+import { BinaryFF1, FF1 } from '../ff1.js';
 import { hexToBytes, json } from './utils.js';
 
 const fromHex = (hex) => {

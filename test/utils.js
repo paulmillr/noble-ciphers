@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join as joinPath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
-import { bytesToHex, concatBytes, hexToBytes } from '../esm/utils.js';
+import { bytesToHex, concatBytes, hexToBytes } from '../utils.js';
 
 export const _dirname = dirname(fileURLToPath(import.meta.url));
 

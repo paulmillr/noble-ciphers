@@ -3,33 +3,15 @@
   "version": "1.3.0",
   "exports": {
     ".": "./src/index.ts",
-    "./_arx": "./src/_arx.ts",
-    "./_assert": "./src/_assert.ts",
-    "./_micro": "./src/_micro.ts",
-    "./_poly1305": "./src/_poly1305.ts",
-    "./_polyval": "./src/_polyval.ts",
-    "./aes": "./src/aes.ts",
-    "./crypto": "./src/crypto.ts",
-    "./chacha": "./src/chacha.ts",
-    "./ff1": "./src/ff1.ts",
-    "./salsa": "./src/salsa.ts",
-    "./utils": "./src/utils.ts",
-    "./webcrypto": "./src/webcrypto.ts",
     "./_arx.js": "./src/_arx.ts",
-    "./_assert.js": "./src/_assert.ts",
-    "./_micro.js": "./src/_micro.ts",
     "./_poly1305.js": "./src/_poly1305.ts",
     "./_polyval.js": "./src/_polyval.ts",
     "./aes.js": "./src/aes.ts",
-    "./crypto.js": "./src/crypto.ts",
     "./chacha.js": "./src/chacha.ts",
     "./ff1.js": "./src/ff1.ts",
     "./salsa.js": "./src/salsa.ts",
     "./utils.js": "./src/utils.ts",
     "./webcrypto.js": "./src/webcrypto.ts"
-  },
-  "imports": {
-    "@noble/ciphers/crypto": "./src/crypto.ts"
   },
   "publish": {
     "include": [
@@ -37,9 +19,6 @@
       "jsr.json",
       "LICENSE",
       "README.md"
-    ],
-    "exclude": [
-      "src/cryptoNode.ts"
     ]
   },
   "license": "MIT"
