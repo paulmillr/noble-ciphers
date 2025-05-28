@@ -40,7 +40,7 @@
     "typescript": "5.8.3"
   },
   "engines": {
-    "node": ">= 20.19"
+    "node": ">= 20.19.0"
   },
   "type": "module",
   "module": "index.js",
