@@ -1,19 +1,19 @@
 import { describe, should } from 'micro-should';
 import { deepStrictEqual as eql, throws } from 'node:assert';
 import { createCipheriv, createDecipheriv } from 'node:crypto';
-import { aeskw, aeskwp, cbc, ctr, ecb, gcm, gcmsiv } from '../esm/aes.js';
-import { bytesToHex, concatBytes, hexToBytes } from '../esm/utils.js';
-import * as web from '../esm/webcrypto.js';
-import { json } from './utils.js';
+import { aeskw, aeskwp, cbc, ctr, ecb, gcm, gcmsiv } from '../src/aes.ts';
+import { bytesToHex, concatBytes, hexToBytes } from '../src/utils.ts';
+import * as web from '../src/webcrypto.ts';
+import { json } from './utils.ts';
 
 // https://datatracker.ietf.org/doc/html/rfc8452#appendix-C
 const NIST_VECTORS = json('./vectors/nist_800_38a.json');
 const VECTORS = json('./vectors/siv.json');
-const aes_gcm_test = json('./wycheproof/aes_gcm_test.json');
-const aes_gcm_siv_test = json('./wycheproof/aes_gcm_siv_test.json');
-const aes_cbc_test = json('./wycheproof/aes_cbc_pkcs5_test.json');
-const aes_kw_test = json('./wycheproof/aes_wrap_test.json');
-const aes_kwp_test = json('./wycheproof/aes_kwp_test.json');
+const aes_gcm_test = json('./vectors/wycheproof/aes_gcm_test.json');
+const aes_gcm_siv_test = json('./vectors/wycheproof/aes_gcm_siv_test.json');
+const aes_cbc_test = json('./vectors/wycheproof/aes_cbc_pkcs5_test.json');
+const aes_kw_test = json('./vectors/wycheproof/aes_wrap_test.json');
+const aes_kwp_test = json('./vectors/wycheproof/aes_kwp_test.json');
 const hex = { decode: hexToBytes, encode: bytesToHex };
 
 const isDeno = 'deno' in process.versions;

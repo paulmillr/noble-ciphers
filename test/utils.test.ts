@@ -1,7 +1,7 @@
 import fc from 'fast-check';
 import { describe, should } from 'micro-should';
 import { deepStrictEqual as eql, throws } from 'node:assert';
-import * as u from '../esm/utils.js';
+import * as u from '../src/utils.ts';
 import {
   bytesToHex,
   bytesToUtf8,
@@ -11,10 +11,9 @@ import {
   hexToBytes,
   overlapBytes,
   setBigUint64,
-  toBytes,
   u64Lengths,
-} from '../esm/utils.js';
-import { TYPE_TEST, unalign } from './utils.js';
+} from '../src/utils.ts';
+import { TYPE_TEST, unalign } from './utils.ts';
 
 function hexa() {
   const items = '0123456789abcdef';
@@ -117,11 +116,6 @@ describe('utils', () => {
   should('bytesToUtf8', () => {
     eql(bytesToUtf8(new Uint8Array([97, 98, 99])), 'abc');
   });
-  should('toBytes', () => {
-    eql(toBytes(new Uint8Array([97, 98, 99])), new Uint8Array([97, 98, 99]));
-    eql(toBytes('abc'), new Uint8Array([97, 98, 99]));
-    throws(() => toBytes(1));
-  });
   should('getOutput', () => {
     eql(getOutput(32), new Uint8Array(32));
     throws(() => getOutput(32, new Uint8Array(31)));
@@ -211,15 +205,6 @@ describe('assert', () => {
     throws(() => u.abytes('test'));
     throws(() => u.abytes(new Uint8Array(10), 11, 12));
     throws(() => u.abytes(new Uint8Array(10), 11, 12));
-  });
-  should('ahash', () => {
-    const sha256 = () => {};
-    sha256.blockLen = 1;
-    sha256.outputLen = 1;
-    sha256.create = () => {};
-    eql(u.ahash(sha256), undefined);
-    throws(() => u.ahash({}));
-    throws(() => u.ahash({ blockLen: 1, outputLen: 1, create: () => {} }));
   });
   should('aexists', () => {
     eql(u.aexists({}), undefined);

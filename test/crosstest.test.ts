@@ -1,10 +1,10 @@
 import { describe, should } from 'micro-should';
 import { deepStrictEqual as eql } from 'node:assert';
 import { createCipheriv, createDecipheriv, getCiphers } from 'node:crypto';
-import * as aes from '../esm/aes.js';
-import { chacha20, chacha20poly1305, xchacha20poly1305 } from '../esm/chacha.js';
-import { xsalsa20poly1305 } from '../esm/salsa.js';
-import { concatBytes } from '../esm/utils.js';
+import * as aes from '../src/aes.ts';
+import { chacha20, chacha20poly1305, xchacha20poly1305 } from '../src/chacha.ts';
+import { xsalsa20poly1305 } from '../src/salsa.ts';
+import { concatBytes } from '../src/utils.ts';
 
 const KB = 1024;
 const MB = 1024 * KB;

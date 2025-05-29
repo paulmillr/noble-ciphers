@@ -101,7 +101,7 @@ function chachaCore(
   let y00 = s[0], y01 = s[1], y02 = s[2], y03 = s[3], // "expa"   "nd 3"  "2-by"  "te k"
       y04 = k[0], y05 = k[1], y06 = k[2], y07 = k[3], // Key      Key     Key     Key
       y08 = k[4], y09 = k[5], y10 = k[6], y11 = k[7], // Key      Key     Key     Key
-      y12 = cnt, y13 = n[0], y14 = n[1], y15 = n[2];  // Counter  Counter	Nonce   Nonce
+      y12 = cnt,  y13 = n[0], y14 = n[1], y15 = n[2];  // Counter  Counter	Nonce   Nonce
   // Save state to temporary variables
   let x00 = y00, x01 = y01, x02 = y02, x03 = y03,
       x04 = y04, x05 = y05, x06 = y06, x07 = y07,
