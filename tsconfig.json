@@ -2,12 +2,7 @@
   "extends": "@paulmillr/jsbt/tsconfig.esm.json",
   "compilerOptions": {
     "baseUrl": ".",
-    "outDir": ".",
-    "paths": {
-      "@noble/ciphers/crypto": [
-        "src/crypto.ts"
-      ]
-    }
+    "outDir": "."
   },
   "include": [
     "src"
