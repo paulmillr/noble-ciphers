@@ -9,8 +9,9 @@ Audited & minimal JS implementation of Salsa20, ChaCha and AES.
 - 💼 AES: ECB, CBC, CTR, CFB, GCM, SIV (nonce misuse-resistant), AESKW, AESKWP
 - 💃 Salsa20, ChaCha, XSalsa20, XChaCha, ChaCha8, ChaCha12, Poly1305
 - 🥈 Two AES implementations: pure JS or friendly WebCrypto wrapper
-- 🪶 11KB gzipped for everything, 3KB for ChaCha-only build
+- 🪶 11KB (gzipped) for everything, 3KB for ChaCha-only build
 
+Check out [Upgrading](#upgrading) for information about upgrading from previous versions.
 Take a glance at [GitHub Discussions](https://github.com/paulmillr/noble-ciphers/discussions) for questions and support.
 
 ### This library belongs to _noble_ cryptography
@@ -492,9 +493,9 @@ Benchmark results on Apple M4:
 
 ```
 64B
-xsalsa20poly1305 x 675,675 ops/sec @ 1μs/op
-chacha20poly1305 x 568,181 ops/sec @ 1μs/op
-xchacha20poly1305 x 460,617 ops/sec @ 2μs/op
+xsalsa20poly1305 x 735,835 ops/sec @ 1μs/op
+chacha20poly1305 x 581,395 ops/sec @ 1μs/op
+xchacha20poly1305 x 468,384 ops/sec @ 2μs/op
 aes-256-gcm x 201,126 ops/sec @ 4μs/op
 aes-256-gcm-siv x 162,284 ops/sec @ 6μs/op
 # Unauthenticated encryption
@@ -509,18 +510,18 @@ aes-cbc-256 x 931,966 ops/sec @ 1μs/op
 aes-ctr-256 x 954,198 ops/sec @ 1μs/op
 
 1MB
-xsalsa20poly1305 x 322 ops/sec @ 3ms/op
-chacha20poly1305 x 327 ops/sec @ 3ms/op
-xchacha20poly1305 x 331 ops/sec @ 3ms/op
+xsalsa20poly1305 x 334 ops/sec @ 2ms/op
+chacha20poly1305 x 333 ops/sec @ 2ms/op
+xchacha20poly1305 x 334 ops/sec @ 2ms/op
 aes-256-gcm x 94 ops/sec @ 10ms/op
 aes-256-gcm-siv x 90 ops/sec @ 11ms/op
 # Unauthenticated encryption
-salsa20 x 791 ops/sec @ 1ms/op
-xsalsa20 x 801 ops/sec @ 1ms/op
-chacha20 x 787 ops/sec @ 1ms/op
-xchacha20 x 781 ops/sec @ 1ms/op
-chacha8 x 1,457 ops/sec @ 686μs/op
-chacha12 x 1,130 ops/sec @ 884μs/op
+salsa20 x 831 ops/sec @ 1ms/op
+xsalsa20 x 830 ops/sec @ 1ms/op
+chacha20 x 804 ops/sec @ 1ms/op
+xchacha20 x 797 ops/sec @ 1ms/op
+chacha8 x 1,495 ops/sec @ 668μs/op
+chacha12 x 1,148 ops/sec @ 871μs/op
 aes-ecb-256 x 289 ops/sec @ 3ms/op
 aes-cbc-256 x 114 ops/sec @ 8ms/op
 aes-ctr-256 x 127 ops/sec @ 7ms/op
@@ -548,6 +549,17 @@ aes-ctr-256 (encrypt, 1MB)
 ├─noble-webcrypto x 5,965 ops/sec
 └─noble x 124 ops/sec
 ```
+
+## Upgrading
+
+Upgrading from noble-ciphers v1 to v2:
+
+- Bump minimum node.js version from v14 to v20.19
+- Package is now ESM-only
+- _assert, _micro: removed modules
+- crypto: remove this internal module, use webcrypto
+- ghash, poly1305, polyval: prohibit string inputs, only uint8array is allowed now
+- utils: remove ahash, toBytes
 
 ## Contributing & testing
 
