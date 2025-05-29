@@ -555,9 +555,13 @@ aes-ctr-256 (encrypt, 1MB)
 Upgrading from noble-ciphers v1 to v2:
 
 - Bump minimum node.js version from v14 to v20.19
-- Package is now ESM-only
-- _assert, _micro: removed modules
-- crypto: remove this internal module, use webcrypto
+- Bump compilation target from es2020 to es2022
+- Make package ESM-only
+    - node.js v20.19+ allows loading ESM modules from common.js
+- Rename / remove some modules for consistency. Previously, sha384 resided in sha512, which was weird
+    - `_micro`: got merged into corresponding chacha.js, salsa.js for auditability
+    - `_assert`: moved into `utils.js`
+    - `crypto` internal module got removed: use built-in WebCrypto instead
 - ghash, poly1305, polyval: prohibit string inputs, only uint8array is allowed now
 - utils: remove ahash, toBytes
 
