@@ -15,6 +15,14 @@ import {
 } from '../src/utils.ts';
 import { TYPE_TEST, unalign } from './utils.ts';
 
+function hexa() {
+  const items = '0123456789abcdef';
+  return fc.integer({ min: 0, max: 15 }).map((n) => items[n]);
+}
+function hexaString(constraints = {}) {
+  return fc.string({ ...constraints, unit: hexa() });
+}
+
 describe('utils', () => {
   const staticHexVectors = [
     { bytes: Uint8Array.from([]), hex: '' },
@@ -37,7 +45,7 @@ describe('utils', () => {
   });
   should('hexToBytes <=> bytesToHex roundtrip', () =>
     fc.assert(
-      fc.property(fc.hexaString({ minLength: 2, maxLength: 64 }), (hex) => {
+      fc.property(hexaString({ minLength: 2, maxLength: 64 }), (hex) => {
         if (hex.length % 2 !== 0) return;
         eql(hex, bytesToHex(hexToBytes(hex)));
         eql(hex, bytesToHex(hexToBytes(hex.toUpperCase())));
