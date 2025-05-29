@@ -562,7 +562,7 @@ Upgrading from noble-ciphers v1 to v2:
     - `_micro`: got merged into corresponding chacha.js, salsa.js for auditability
     - `_assert`: moved into `utils.js`
     - `crypto` internal module got removed: use built-in WebCrypto instead
-- ghash, poly1305, polyval: prohibit string inputs, only uint8array is allowed now
+- ghash, poly1305, polyval: only allow Uint8Array as hash inputs, prohibit `string`
 - utils: remove ahash, toBytes
 
 ## Contributing & testing
