@@ -12,12 +12,7 @@
  *
  * @module
  */
-// prettier-ignore
-import {
-  abytes, aexists, aoutput,
-  clean, copyBytes, createView, Hash,
-  u32
-} from './utils.ts';
+import { abytes, aexists, aoutput, clean, copyBytes, createView, Hash, u32 } from './utils.ts';
 
 const BLOCK_SIZE = 16;
 // TODO: rewrite

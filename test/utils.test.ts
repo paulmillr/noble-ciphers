@@ -1,7 +1,7 @@
 import fc from 'fast-check';
 import { describe, should } from 'micro-should';
 import { deepStrictEqual as eql, throws } from 'node:assert';
-import * as u from '../utils.js';
+import * as u from '../src/utils.ts';
 import {
   bytesToHex,
   bytesToUtf8,
@@ -12,8 +12,8 @@ import {
   overlapBytes,
   setBigUint64,
   u64Lengths,
-} from '../utils.js';
-import { TYPE_TEST, unalign } from './utils.js';
+} from '../src/utils.ts';
+import { TYPE_TEST, unalign } from './utils.ts';
 
 describe('utils', () => {
   const staticHexVectors = [

@@ -1,8 +1,8 @@
 import { describe, should } from 'micro-should';
 import { deepStrictEqual as eql } from 'node:assert';
-import { _toGHASHKey, ghash, polyval } from '../_polyval.js';
-import * as utils from '../utils.js';
-import { json } from './utils.js';
+import { _toGHASHKey, ghash, polyval } from '../src/_polyval.ts';
+import * as utils from '../src/utils.ts';
+import { json } from './utils.ts';
 
 const hex = { decode: utils.hexToBytes, encode: utils.bytesToHex };
 

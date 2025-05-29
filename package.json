@@ -18,9 +18,10 @@
     "build:clean": "rm *.{js,d.ts,js.map,d.ts.map} 2> /dev/null",
     "lint": "prettier --check 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
     "format": "prettier --write 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
-    "test": "node test/index.js",
-    "test:bun": "bun test/index.js",
-    "test:deno": "deno --allow-env --allow-read test/index.js",
+    "test": "node --experimental-strip-types --no-warnings test/index.ts",
+    "test:bun": "bun test/index.ts",
+    "test:deno": "deno --allow-env --allow-read test/index.ts",
+    "test:node20": "cd test; npx tsc; node compiled/test/index.js",
     "test:big": "node test/crosstest.test.js slow"
   },
   "author": "Paul Miller (https://paulmillr.com)",
