@@ -1,4 +1,4 @@
-import { deepStrictEqual } from 'assert';
+import { deepStrictEqual } from 'node:assert';
 
 export const onlyNoble = process.argv[2] === 'noble';
 export function buf(n) {

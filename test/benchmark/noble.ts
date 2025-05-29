@@ -1,12 +1,16 @@
-import { cbc, ctr, ecb, gcm, siv } from '@noble/ciphers/aes';
-// prettier-ignore
-import {
-  chacha12, chacha20, chacha20poly1305, chacha8, xchacha20, xchacha20poly1305,
-} from '@noble/ciphers/chacha';
-import { salsa20, xsalsa20, xsalsa20poly1305 } from '@noble/ciphers/salsa';
-import * as aesw from '@noble/ciphers/webcrypto';
 import mark from 'micro-bmark';
-import { buf } from './_utils.js';
+import { cbc, ctr, ecb, gcm, gcmsiv } from '../../src/aes.ts';
+import {
+  chacha12,
+  chacha20,
+  chacha20poly1305,
+  chacha8,
+  xchacha20,
+  xchacha20poly1305,
+} from '../../src/chacha.ts';
+import { salsa20, xsalsa20, xsalsa20poly1305 } from '../../src/salsa.ts';
+import * as aesw from '../../src/webcrypto.ts';
+import { buf } from './_utils.ts';
 
 const buffers = [
   // { size: '16B', samples: 1_500_000, data: buf(16) }, // common block size
@@ -31,7 +35,7 @@ async function main() {
     await mark('chacha20poly1305', i, () => chacha20poly1305(key, nonce).encrypt(buf));
     await mark('xchacha20poly1305', i, () => xchacha20poly1305(key, nonce24).encrypt(buf));
     await mark('aes-256-gcm', i, () => gcm(key, nonce).encrypt(buf));
-    await mark('aes-256-gcm-siv', i, () => siv(key, nonce).encrypt(buf));
+    await mark('aes-256-gcm-siv', i, () => gcmsiv(key, nonce).encrypt(buf));
 
     console.log('# Unauthenticated encryption');
     await mark('salsa20', i, () => salsa20(key, nonce8, buf));

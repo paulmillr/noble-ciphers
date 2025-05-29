@@ -10,9 +10,9 @@
     "*.d.ts.map"
   ],
   "scripts": {
-    "bench": "node benchmark/noble.js",
-    "bench:compare": "node benchmark/compare.js",
-    "bench:install": "cd benchmark; npm install; npm install .. --install-links",
+    "bench": "node test/benchmark/noble.ts",
+    "bench:compare": "node test/benchmark/compare.ts",
+    "bench:install": "cd test/benchmark; npm install",
     "build": "npm run build:clean; tsc",
     "build:release": "npx jsbt esbuild test/build",
     "build:clean": "rm *.{js,d.ts,js.map,d.ts.map} 2> /dev/null",

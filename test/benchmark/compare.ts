@@ -2,12 +2,6 @@ import {
   ChaCha20Poly1305 as ChsfChachaPoly,
   newInstance as chainsafe_init_wasm,
 } from '@chainsafe/as-chacha20poly1305';
-import * as micro from '@noble/ciphers/_micro';
-import * as aes from '@noble/ciphers/aes';
-import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha';
-import { xsalsa20poly1305 } from '@noble/ciphers/salsa';
-import { concatBytes } from '@noble/ciphers/utils';
-import * as webcrypto from '@noble/ciphers/webcrypto';
 import { AES as STABLE_AES } from '@stablelib/aes';
 import { ChaCha20Poly1305 as StableChachaPoly } from '@stablelib/chacha20poly1305';
 import { CTR as STABLE_CTR } from '@stablelib/ctr';
@@ -17,14 +11,19 @@ import { default as aesjs } from 'aes-js';
 import compareMatrix from 'micro-bmark/compare.js';
 import { createCipheriv, createDecipheriv } from 'node:crypto';
 import { default as tweetnacl } from 'tweetnacl'; // secretbox = xsalsa20-poly1305.
-import { buf, crossValidate } from './_utils.js';
+import * as aes from '../../src/aes.ts';
+import { chacha20poly1305, xchacha20poly1305 } from '../../src/chacha.ts';
+import { xsalsa20poly1305 } from '../../src/salsa.ts';
+import { concatBytes } from '../../src/utils.ts';
+import * as webcrypto from '../../src/webcrypto.ts';
+import { buf, crossValidate } from './_utils.ts';
 // ciphers.js
-import { chacha20, xchacha20 } from '@noble/ciphers/chacha';
-import { salsa20, xsalsa20 } from '@noble/ciphers/salsa';
 import { streamXOR as stableChacha } from '@stablelib/chacha';
 import { streamXOR as stableSalsa } from '@stablelib/salsa20';
 import { streamXOR as stableXchacha } from '@stablelib/xchacha20';
 import { streamXOR as stableXSalsa } from '@stablelib/xsalsa20';
+import { chacha20, xchacha20 } from '../../src/chacha.ts';
+import { salsa20, xsalsa20 } from '../../src/salsa.ts';
 
 const cipherSame = (fn) => ({ encrypt: fn, decrypt: fn });
 
@@ -359,7 +358,6 @@ export const CIPHERS = {
             stableSalsa(opts.key, opts.nonce, buf, new Uint8Array(buf.length))
           ),
           noble: cipherSame((buf, opts) => salsa20(opts.key, opts.nonce, buf)),
-          micro: cipherSame((buf, opts) => micro.salsa20(opts.key, opts.nonce, buf)),
         },
       },
     },
@@ -389,7 +387,6 @@ export const CIPHERS = {
             stableChacha(opts.key, opts.nonce, buf, new Uint8Array(buf.length))
           ),
           noble: cipherSame((buf, opts) => chacha20(opts.key, opts.nonce, buf)),
-          micro: cipherSame((buf, opts) => micro.chacha20(opts.key, opts.nonce, buf)),
         },
       },
     },
@@ -401,7 +398,6 @@ export const CIPHERS = {
             stableXSalsa(opts.key, opts.nonce, buf, new Uint8Array(buf.length))
           ),
           noble: cipherSame((buf, opts) => xsalsa20(opts.key, opts.nonce, buf)),
-          micro: cipherSame((buf, opts) => micro.xsalsa20(opts.key, opts.nonce, buf)),
         },
       },
     },
@@ -413,7 +409,6 @@ export const CIPHERS = {
             stableXchacha(opts.key, opts.nonce, buf, new Uint8Array(buf.length))
           ),
           noble: cipherSame((buf, opts) => xchacha20(opts.key, opts.nonce, buf)),
-          micro: cipherSame((buf, opts) => micro.xchacha20(opts.key, opts.nonce, buf)),
         },
       },
     },
@@ -430,10 +425,6 @@ export const CIPHERS = {
           noble: {
             encrypt: (buf, opts) => xsalsa20poly1305(opts.key, opts.nonce).encrypt(buf),
             decrypt: (buf, opts) => xsalsa20poly1305(opts.key, opts.nonce).decrypt(buf),
-          },
-          micro: {
-            encrypt: (buf, opts) => micro.xsalsa20poly1305(opts.key, opts.nonce).encrypt(buf),
-            decrypt: (buf, opts) => micro.xsalsa20poly1305(opts.key, opts.nonce).decrypt(buf),
           },
         },
       },
@@ -477,10 +468,6 @@ export const CIPHERS = {
             encrypt: (buf, opts) => chacha20poly1305(opts.key, opts.nonce).encrypt(buf),
             decrypt: (buf, opts) => chacha20poly1305(opts.key, opts.nonce).decrypt(buf),
           },
-          micro: {
-            encrypt: (buf, opts) => micro.chacha20poly1305(opts.key, opts.nonce).encrypt(buf),
-            decrypt: (buf, opts) => micro.chacha20poly1305(opts.key, opts.nonce).decrypt(buf),
-          },
         },
       },
     },
@@ -495,10 +482,6 @@ export const CIPHERS = {
           noble: {
             encrypt: (buf, opts) => xchacha20poly1305(opts.key, opts.nonce).encrypt(buf),
             decrypt: (buf, opts) => xchacha20poly1305(opts.key, opts.nonce).decrypt(buf),
-          },
-          micro: {
-            encrypt: (buf, opts) => micro.xchacha20poly1305(opts.key, opts.nonce).encrypt(buf),
-            decrypt: (buf, opts) => micro.xchacha20poly1305(opts.key, opts.nonce).decrypt(buf),
           },
         },
       },
