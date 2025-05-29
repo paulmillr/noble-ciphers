@@ -6,11 +6,9 @@ import {
   bytesToHex,
   bytesToUtf8,
   concatBytes,
-  createView,
   getOutput,
   hexToBytes,
   overlapBytes,
-  setBigUint64,
   u64Lengths,
 } from '../src/utils.ts';
 import { TYPE_TEST, unalign } from './utils.ts';
@@ -123,58 +121,6 @@ describe('utils', () => {
     const t = new Uint8Array(33).subarray(1);
     throws(() => getOutput(32, t));
     eql(getOutput(32, t, false), new Uint8Array(32));
-  });
-  should('setBigUint64', () => {
-    const t = new Uint8Array(20);
-    const v = createView(t);
-    const VECTORS = [
-      {
-        n: 123n,
-        le: false,
-        hex: '000000000000007b000000000000000000000000',
-      },
-      {
-        n: 123n,
-        le: true,
-        hex: '7b00000000000000000000000000000000000000',
-      },
-      {
-        n: 2n ** 64n - 1n,
-        le: true,
-        hex: 'ffffffffffffffff000000000000000000000000',
-      },
-      {
-        n: 2n ** 64n - 1n,
-        le: true,
-        hex: '000000ffffffffffffffff000000000000000000',
-        pos: 3,
-      },
-      {
-        n: 0x123456789abcdef0n,
-        le: true,
-        hex: 'f0debc9a78563412000000000000000000000000',
-      },
-      {
-        n: 0x123456789abcdef0n,
-        le: false,
-        hex: '123456789abcdef0000000000000000000000000',
-      },
-    ];
-    const createViewMock = (u8) => {
-      const v = createView(u8);
-      return {
-        setUint32: (o, wh, isLE) => v.setUint32(o, wh, isLE),
-      };
-    };
-
-    for (const cv of [createView, createViewMock]) {
-      for (const t of VECTORS) {
-        const b = new Uint8Array(20);
-        const v = cv(b);
-        setBigUint64(v, t.pos || 0, t.n, t.le);
-        eql(bytesToHex(b), t.hex);
-      }
-    }
   });
   should('u64Lengths', () => {
     eql(

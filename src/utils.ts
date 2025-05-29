@@ -383,30 +383,12 @@ export function getOutput(
   return out;
 }
 
-/** Polyfill for Safari 14. */
-export function setBigUint64(
-  view: DataView,
-  byteOffset: number,
-  value: bigint,
-  isLE: boolean
-): void {
-  if (typeof view.setBigUint64 === 'function') return view.setBigUint64(byteOffset, value, isLE);
-  const _32n = BigInt(32);
-  const _u32_max = BigInt(0xffffffff);
-  const wh = Number((value >> _32n) & _u32_max);
-  const wl = Number(value & _u32_max);
-  const h = isLE ? 4 : 0;
-  const l = isLE ? 0 : 4;
-  view.setUint32(byteOffset + h, wh, isLE);
-  view.setUint32(byteOffset + l, wl, isLE);
-}
-
 export function u64Lengths(dataLength: number, aadLength: number, isLE: boolean): Uint8Array {
   abool(isLE);
   const num = new Uint8Array(16);
   const view = createView(num);
-  setBigUint64(view, 0, BigInt(aadLength), isLE);
-  setBigUint64(view, 8, BigInt(dataLength), isLE);
+  view.setBigUint64(0, BigInt(aadLength), isLE);
+  view.setBigUint64(8, BigInt(dataLength), isLE);
   return num;
 }
 

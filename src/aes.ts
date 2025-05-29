@@ -22,8 +22,8 @@ import { ghash, polyval } from './_polyval.ts';
 import {
   abytes, clean, complexOverlapBytes, concatBytes,
   copyBytes, createView, equalBytes, getOutput, isAligned32, overlapBytes,
-  setBigUint64, u32, u64Lengths, u8, wrapCipher,
-  type Cipher, type CipherWithOutput,
+  u32, u64Lengths, u8, wrapCipher,
+  type Cipher, type CipherWithOutput
 } from './utils.ts';
 
 const BLOCK_SIZE = 16;
@@ -631,7 +631,7 @@ export const gcm: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cip
       } else {
         const nonceLen = EMPTY_BLOCK.slice();
         const view = createView(nonceLen);
-        setBigUint64(view, 8, BigInt(nonce.length * 8), false);
+        view.setBigUint64(8, BigInt(nonce.length * 8), false);
         // ghash(nonce || u64be(0) || u64be(nonceLen*8))
         const g = ghash.create(authKey).update(nonce).update(nonceLen);
         g.digestInto(counter); // digestInto doesn't trigger '.destroy'
