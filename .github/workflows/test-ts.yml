@@ -6,5 +6,5 @@ jobs:
   test-js:
     name: 'jsbt v0.4.1'
     uses: paulmillr/jsbt/.github/workflows/test-ts.yml@2318b9efe24831b4bd4cadf720c96f071c69c64d
-    # with:
-    #   submodules: false
+    with:
+      submodules: true

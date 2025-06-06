@@ -448,9 +448,9 @@ The analysis was mentioned in [hal-04652991](https://hal.science/hal-04652991/do
 ### Supply chain security
 
 - **Commits** are signed with PGP keys, to prevent forgery. Make sure to verify commit signatures
-- **Releases** are transparent and built on GitHub CI. Make sure to verify [provenance](https://docs.npmjs.com/generating-provenance-statements) logs
-  - Use GitHub CLI to verify single-file builds:
-    `gh attestation verify --owner paulmillr noble-ciphers.js`
+- **Releases** are transparent and built on GitHub CI.
+  Check out [attested checksums of single-file builds](https://github.com/paulmillr/noble-ciphers/attestations)
+  and [provenance logs](https://github.com/paulmillr/noble-ciphers/actions/workflows/release.yml)
 - **Rare releasing** is followed to ensure less re-audit need for end-users
 - **Dependencies** are minimized and locked-down: any dependency could get hacked and users will be downloading malware with every install.
   - We make sure to use as few dependencies as possible
@@ -483,13 +483,16 @@ Australian ASD prohibits AES128 [after 2030](https://www.cyber.gov.au/resources-
 
 ## Speed
 
-To summarize, noble is the fastest JS implementation of Salsa, ChaCha and AES.
+```sh
+npm run bench
+```
 
+To summarize, noble is the fastest JS implementation of Salsa, ChaCha and AES.
 You can gain additional speed-up and
 avoid memory allocations by passing `output`
 uint8array into encrypt / decrypt methods.
 
-Benchmark results on Apple M4:
+Benchmarks measured on Apple M4:
 
 ```
 64B
