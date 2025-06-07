@@ -566,7 +566,7 @@ Changelog of v2, when upgrading from ciphers v1:
 - Bump compilation target from es2020 to es2022
 - Make package ESM-only
     - node.js v20.19+ allows loading ESM modules from common.js
-- Rename / remove some modules for consistency. Previously, sha384 resided in sha512, which was weird
+- Rename / remove some modules for consistency
     - `_micro`: got merged into corresponding chacha.js, salsa.js for auditability
     - `_assert`: moved into `utils.js`
     - `crypto` internal module got removed: use built-in WebCrypto instead
