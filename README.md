@@ -555,7 +555,12 @@ aes-ctr-256 (encrypt, 1MB)
 
 ## Upgrading
 
-Upgrading from noble-ciphers v1 to v2:
+Supported node.js versions:
+
+- v2: v20.19+ (ESM-only)
+- v1: v14.21+ (ESM & CJS)
+
+Changelog of v2, when upgrading from ciphers v1:
 
 - Bump minimum node.js version from v14 to v20.19
 - Bump compilation target from es2020 to es2022
