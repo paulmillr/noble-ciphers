@@ -235,8 +235,8 @@ due to its inner workings.
 #### Use password for encryption
 
 It is not safe to convert password into Uint8Array.
-Instead, KDF strething function like PBKDF2 / Scrypt / Argon2id
-should be used to convert password to AES key.
+Instead, KDF stretching function like PBKDF2 / Scrypt / Argon2id
+should be applied to convert password to AES key.
 Make sure to use salt (app-specific secret) in addition to password.
 
 ```js
