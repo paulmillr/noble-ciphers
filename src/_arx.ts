@@ -36,10 +36,18 @@ xchacha [^2] uses the subkey and remaining 8 byte nonce with ChaCha20 as normal
 
  * @module
  */
-// prettier-ignore
 import {
-  type XorStream, abool, abytes, anumber, checkOpts, clean, copyBytes, u32
+  type PRG,
+  type XorStream,
+  abool,
+  abytes,
+  anumber,
+  checkOpts,
+  clean,
+  copyBytes,
+  u32,
 } from './utils.ts';
+import { randomBytes } from './webcrypto.ts';
 
 // Can't use similar utils.utf8ToBytes, because it uses `TextEncoder` - not available in all envs
 const _utf8ToBytes = (str: string) => Uint8Array.from(str.split('').map((c) => c.charCodeAt(0)));
@@ -222,3 +230,107 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
     return output;
   };
 }
+
+/** Internal class which wraps chacha20 or chacha8 to create CSPRNG. */
+export class _XorStreamPRG implements PRG {
+  readonly blockLen: number;
+  readonly keyLen: number;
+  readonly nonceLen: number;
+  private state: Uint8Array;
+  private buf: Uint8Array;
+  private key: Uint8Array;
+  private nonce: Uint8Array;
+  private pos: number;
+  private ctr: number;
+  private cipher: XorStream;
+  constructor(
+    cipher: XorStream,
+    blockLen: number,
+    keyLen: number,
+    nonceLen: number,
+    seed: Uint8Array
+  ) {
+    this.cipher = cipher;
+    this.blockLen = blockLen;
+    this.keyLen = keyLen;
+    this.nonceLen = nonceLen;
+    this.state = new Uint8Array(this.keyLen + this.nonceLen);
+    this.reseed(seed);
+    this.ctr = 0;
+    this.pos = this.blockLen;
+    this.buf = new Uint8Array(this.blockLen);
+    this.key = this.state.subarray(0, this.keyLen);
+    this.nonce = this.state.subarray(this.keyLen);
+  }
+  private reseed(seed: Uint8Array) {
+    abytes(seed);
+    if (!seed || seed.length === 0) throw new Error('entropy required');
+    for (let i = 0; i < seed.length; i++) this.state[i % this.state.length] ^= seed[i];
+    this.ctr = 0;
+    this.pos = this.blockLen;
+  }
+  addEntropy(seed: Uint8Array): void {
+    this.state.set(this.randomBytes(this.state.length));
+    this.reseed(seed);
+  }
+  randomBytes(len: number): Uint8Array {
+    anumber(len);
+    if (len === 0) return new Uint8Array(0);
+    const out = new Uint8Array(len);
+    let outPos = 0;
+    // Leftovers
+    if (this.pos < this.blockLen) {
+      const take = Math.min(len, this.blockLen - this.pos);
+      out.set(this.buf.subarray(this.pos, this.pos + take), 0);
+      this.pos += take;
+      outPos += take;
+      if (outPos === len) return out; // fast path
+    }
+    // Full blocks directly to out
+    const blocks = Math.floor((len - outPos) / this.blockLen);
+    if (blocks > 0) {
+      const blockBytes = blocks * this.blockLen;
+      const b = out.subarray(outPos, outPos + blockBytes);
+      this.cipher(this.key, this.nonce, b, b, this.ctr);
+      this.ctr += blocks;
+      outPos += blockBytes;
+    }
+    // Save leftovers
+    const left = len - outPos;
+    if (left > 0) {
+      this.buf.fill(0);
+      // NOTE: cipher will handle overflow
+      this.cipher(this.key, this.nonce, this.buf, this.buf, this.ctr++);
+      out.set(this.buf.subarray(0, left), outPos);
+      this.pos = left;
+    }
+    return out;
+  }
+  clone(): _XorStreamPRG {
+    return new _XorStreamPRG(
+      this.cipher,
+      this.blockLen,
+      this.keyLen,
+      this.nonceLen,
+      this.randomBytes(this.state.length)
+    );
+  }
+  clean(): void {
+    this.pos = 0;
+    this.ctr = 0;
+    this.buf.fill(0);
+    this.state.fill(0);
+  }
+}
+
+export type XorPRG = (seed?: Uint8Array) => _XorStreamPRG;
+
+export const createPRG = (
+  cipher: XorStream,
+  blockLen: number,
+  keyLen: number,
+  nonceLen: number
+): XorPRG => {
+  return (seed: Uint8Array = randomBytes(32)): _XorStreamPRG =>
+    new _XorStreamPRG(cipher, blockLen, keyLen, nonceLen, seed);
+};

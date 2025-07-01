@@ -20,11 +20,12 @@
 import { ghash, polyval } from './_polyval.ts';
 // prettier-ignore
 import {
-  abytes, clean, complexOverlapBytes, concatBytes,
+  abytes, anumber, clean, complexOverlapBytes, concatBytes,
   copyBytes, createView, equalBytes, getOutput, isAligned32, overlapBytes,
   u32, u64Lengths, u8, wrapCipher,
-  type Cipher, type CipherWithOutput
+  type Cipher, type CipherWithOutput, type PRG
 } from './utils.ts';
+import { randomBytes } from './webcrypto.ts';
 
 const BLOCK_SIZE = 16;
 const BLOCK_SIZE32 = 4;
@@ -45,6 +46,19 @@ function mul(a: number, b: number) {
   }
   return res;
 }
+
+// Increments bigint with wrap around
+// NOTE: we cannot use u32 here since it may overflow on carry!
+const incBytes = (data: Uint8Array, isLE: boolean, carry: number = 1) => {
+  if (!Number.isSafeInteger(carry)) throw new Error('incBytes: wrong carry ' + carry);
+  abytes(data);
+  for (let i = 0; i < data.length; i++) {
+    const pos = !isLE ? data.length - 1 - i : i;
+    carry = (carry + (data[pos] & 0xff)) | 0;
+    data[pos] = carry & 0xff;
+    carry >>>= 8;
+  }
+};
 
 // AES S-box is generated using finite field inversion,
 // an affine transform, and xor of a constant 0x63.
@@ -263,13 +277,7 @@ function ctrCounter(
     dst32[i + 1] = src32[i + 1] ^ s1;
     dst32[i + 2] = src32[i + 2] ^ s2;
     dst32[i + 3] = src32[i + 3] ^ s3;
-    // Full 128 bit counter with wrap around
-    let carry = 1;
-    for (let i = ctr.length - 1; i >= 0; i--) {
-      carry = (carry + (ctr[i] & 0xff)) | 0;
-      ctr[i] = carry & 0xff;
-      carry >>>= 8;
-    }
+    incBytes(ctr, false, 1); // Full 128 bit counter with wrap around
     ({ s0, s1, s2, s3 } = encrypt(xk, c32[0], c32[1], c32[2], c32[3]));
   }
   // leftovers (less than block)
@@ -998,6 +1006,69 @@ export const aeskwp: ((kek: Uint8Array) => Cipher) & {
     },
   })
 );
+
+class _AesCtrDRBG implements PRG {
+  readonly blockLen: number;
+  private key: Uint8Array;
+  private nonce: Uint8Array;
+  private state: Uint8Array;
+  private reseedCnt: number;
+  constructor(keyLen: number, seed: Uint8Array, personalization?: Uint8Array) {
+    this.blockLen = ctr.blockSize;
+    const keyLenBytes = keyLen / 8;
+    const nonceLen = 16;
+    this.state = new Uint8Array(keyLenBytes + nonceLen);
+    this.key = this.state.subarray(0, keyLenBytes);
+    this.nonce = this.state.subarray(keyLenBytes, keyLenBytes + nonceLen);
+    this.reseedCnt = 1;
+    incBytes(this.nonce, false, 1);
+    this.addEntropy(seed, personalization);
+  }
+  private update(data?: Uint8Array) {
+    // cannot re-use state here, because we will wipe current key
+    ctr(this.key, this.nonce).encrypt(new Uint8Array(this.state.length), this.state);
+    if (data) {
+      abytes(data);
+      for (let i = 0; i < data.length; i++) this.state[i] ^= data[i];
+    }
+    incBytes(this.nonce, false, 1);
+  }
+  addEntropy(seed: Uint8Array, info?: Uint8Array): void {
+    abytes(seed, this.state.length);
+    const _seed = seed.slice();
+    if (info) {
+      abytes(info);
+      if (info.length > _seed.length) throw new Error('info length is too big');
+      for (let i = 0; i < info.length; i++) _seed[i] ^= info[i];
+    }
+    this.update(_seed);
+    _seed.fill(0);
+    this.reseedCnt = 1;
+  }
+  randomBytes(len: number, info?: Uint8Array): Uint8Array {
+    anumber(len);
+    if (this.reseedCnt++ >= 2 ** 48) throw new Error('entropy exhausted');
+    if (info) this.update(info);
+    const res = new Uint8Array(len);
+    ctr(this.key, this.nonce).encrypt(res, res);
+    incBytes(this.nonce, false, Math.ceil(len / this.blockLen));
+    this.update(info);
+    return res;
+  }
+  clean(): void {
+    this.state.fill(0);
+    this.reseedCnt = 0;
+  }
+}
+
+/**
+ * AES-CTR DRBG - CSPRNG (cryptographically secure pseudorandom number generator).
+ * It's best to limit usage to non-production, non-critical cases: for example, test-only.
+ */
+export const rngAesCtrDrbg = (keyLen: number) => {
+  return (seed: Uint8Array = randomBytes(keyLen), personalization?: Uint8Array): _AesCtrDRBG =>
+    new _AesCtrDRBG(keyLen, seed, personalization);
+};
 
 /** Unsafe low-level internal methods. May change at any time. */
 export const unsafe: {

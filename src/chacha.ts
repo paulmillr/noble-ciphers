@@ -14,7 +14,7 @@
  *
  * @module
  */
-import { createCipher, rotl } from './_arx.ts';
+import { type XorPRG, createCipher, createPRG, rotl } from './_arx.ts';
 import { poly1305 } from './_poly1305.ts';
 import {
   type ARXCipher,
@@ -350,3 +350,16 @@ export const xchacha20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
   _poly1305_aead(xchacha20)
 );
+
+/**
+ * Chacha20 CSPRNG (cryptographically secure pseudorandom number generator).
+ * It's best to limit usage to non-production, non-critical cases: for example, test-only.
+ * Compatible with libtomcrypt. It does not have a specification, so unclear how secure it is.
+ */
+export const rngChacha20: XorPRG = /* @__PURE__ */ createPRG(chacha20orig, 64, 32, 8);
+/**
+ * Chacha20/8 CSPRNG (cryptographically secure pseudorandom number generator).
+ * It's best to limit usage to non-production, non-critical cases: for example, test-only.
+ * Faster than `rngChacha20`.
+ */
+export const rngChacha8: XorPRG = /* @__PURE__ */ createPRG(chacha8, 64, 32, 12);

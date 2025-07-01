@@ -1,0 +1,150 @@
+{
+  "vsId": 0,
+  "algorithm": "ctrDRBG",
+  "revision": "1.0",
+  "isSample": false,
+  "conformances": [],
+  "predResistanceEnabled": [
+    true,
+    false
+  ],
+  "reseedImplemented": true,
+  "capabilities": [
+    {
+      "mode": "AES-128",
+      "derFuncEnabled": true,
+      "entropyInputLen": [
+        256
+      ],
+      "nonceLen": [
+        256
+      ],
+      "persoStringLen": [
+        256
+      ],
+      "additionalInputLen": [
+        256
+      ],
+      "returnedBitsLen": 4096
+    },
+    {
+      "mode": "AES-192",
+      "derFuncEnabled": true,
+      "entropyInputLen": [
+        320
+      ],
+      "nonceLen": [
+        320
+      ],
+      "persoStringLen": [
+        320
+      ],
+      "additionalInputLen": [
+        320
+      ],
+      "returnedBitsLen": 4096
+    },
+    {
+      "mode": "AES-256",
+      "derFuncEnabled": true,
+      "entropyInputLen": [
+        384
+      ],
+      "nonceLen": [
+        384
+      ],
+      "persoStringLen": [
+        384
+      ],
+      "additionalInputLen": [
+        384
+      ],
+      "returnedBitsLen": 4096
+    },
+    {
+      "mode": "TDES",
+      "derFuncEnabled": true,
+      "entropyInputLen": [
+        232
+      ],
+      "nonceLen": [
+        232
+      ],
+      "persoStringLen": [
+        232
+      ],
+      "additionalInputLen": [
+        232
+      ],
+      "returnedBitsLen": 4096
+    },
+    {
+      "mode": "AES-128",
+      "derFuncEnabled": false,
+      "entropyInputLen": [
+        256
+      ],
+      "nonceLen": [
+        0
+      ],
+      "persoStringLen": [
+        256
+      ],
+      "additionalInputLen": [
+        256
+      ],
+      "returnedBitsLen": 4096
+    },
+    {
+      "mode": "AES-192",
+      "derFuncEnabled": false,
+      "entropyInputLen": [
+        320
+      ],
+      "nonceLen": [
+        0
+      ],
+      "persoStringLen": [
+        320
+      ],
+      "additionalInputLen": [
+        320
+      ],
+      "returnedBitsLen": 4096
+    },
+    {
+      "mode": "AES-256",
+      "derFuncEnabled": false,
+      "entropyInputLen": [
+        384
+      ],
+      "nonceLen": [
+        0
+      ],
+      "persoStringLen": [
+        384
+      ],
+      "additionalInputLen": [
+        384
+      ],
+      "returnedBitsLen": 4096
+    },
+    {
+      "mode": "TDES",
+      "derFuncEnabled": false,
+      "entropyInputLen": [
+        232
+      ],
+      "nonceLen": [
+        0
+      ],
+      "persoStringLen": [
+        232
+      ],
+      "additionalInputLen": [
+        232
+      ],
+      "returnedBitsLen": 4096
+    }
+  ]
+}

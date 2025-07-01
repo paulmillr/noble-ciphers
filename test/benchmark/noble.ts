@@ -5,6 +5,8 @@ import {
   chacha20,
   chacha20poly1305,
   chacha8,
+  rngChacha20,
+  rngChacha8,
   xchacha20,
   xchacha20poly1305,
 } from '../../src/chacha.ts';
@@ -27,6 +29,9 @@ async function main() {
   const nonce8 = buf(8);
   const nonce16 = buf(16);
   const nonce24 = buf(24);
+  const rng8 = rngChacha8();
+  const rng20 = rngChacha20();
+
   // Do we need this at all?
   for (let i = 0; i < 100_000; i++) xsalsa20poly1305(key, nonce24).encrypt(buf(64)); // warm-up
   for (const { size, data: buf } of buffers) {
@@ -47,6 +52,11 @@ async function main() {
     await mark('aes-ecb-256', () => ecb(key).encrypt(buf));
     await mark('aes-cbc-256', () => cbc(key, nonce16).encrypt(buf));
     await mark('aes-ctr-256', () => ctr(key, nonce16).encrypt(buf));
+
+    console.log('# Random number generator');
+    const len = buf.length;
+    await mark('rngChacha8', () => rng8.randomBytes(len));
+    await mark('rngChacha20', () => rng20.randomBytes(len));
 
     if (size === '1MB') {
       console.log('# Wrapper over built-in webcrypto');

@@ -232,6 +232,25 @@ chacha.decrypt(buf, start); // decrypt into `start`
 xsalsa20poly1305 also supports this, but requires 32 additional bytes for encryption / decryption,
 due to its inner workings.
 
+#### Randomness generation
+
+We provide userspace CSPRNG (cryptographically secure pseudorandom number generator).
+It's best to limit their usage to non-production, non-critical cases: for example, test-only usage.
+ChaCha-based CSPRNG does not have a specification as per 2025, which makes it less secure.
+
+```js
+import { randomBytes } from '@noble/ciphers/webcrypto.js';
+import { rngAesCtrDrbg } from '@noble/ciphers/aes.js';
+import { rngChacha8, rngChacha20 } from '@noble/ciphers/chacha.js';
+
+// 1. Best: WebCrypto
+const rnd1 = randomBytes(32);
+// 2. AES-CTR DRBG
+const rnd2 = rngAesCtrDrbg(randomBytes(32)).randomBytes(1024);
+// 3. ChaCha8 CSPRNG
+const rnd3 = rngChacha8(randomBytes(32)).randomBytes(1024);
+```
+
 #### Use password for encryption
 
 It is not safe to convert password into Uint8Array.

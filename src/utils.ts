@@ -401,3 +401,15 @@ export function isAligned32(bytes: Uint8Array): boolean {
 export function copyBytes(bytes: Uint8Array): Uint8Array {
   return Uint8Array.from(bytes);
 }
+
+/**
+ * The pseudorandom number generator doesn't wipe current state:
+ * instead, it generates new one based on previous state + entropy.
+ * Not reseed/rekey, since AES CTR DRBG does rekey on each randomBytes,
+ * which is in fact `reseed`, since it changes counter too.
+ */
+export interface PRG {
+  addEntropy(seed: Uint8Array): void;
+  randomBytes(len: number): Uint8Array;
+  clean(): void;
+}
