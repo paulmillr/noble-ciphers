@@ -1,5 +1,5 @@
 import mark from 'micro-bmark';
-import { cbc, ctr, ecb, gcm, gcmsiv } from '../../src/aes.ts';
+import { cbc, ctr, ecb, gcm, gcmsiv, rngAesCtrDrbg } from '../../src/aes.ts';
 import {
   chacha12,
   chacha20,
@@ -54,9 +54,17 @@ async function main() {
     await mark('aes-ctr-256', () => ctr(key, nonce16).encrypt(buf));
 
     console.log('# Random number generator');
+    const rng8 = rngChacha8();
+    const rng20 = rngChacha20();
+    const rngCtr = rngAesCtrDrbg(256)(aesw.randomBytes(48));
+
     const len = buf.length;
+    if (size !== '1MB') {
+      await mark('native getRandomValues', () => aesw.randomBytes(len));
+    }
     await mark('rngChacha8', () => rng8.randomBytes(len));
     await mark('rngChacha20', () => rng20.randomBytes(len));
+    await mark('rngAesCtrDrbg', () => rngCtr.randomBytes(len));
 
     if (size === '1MB') {
       console.log('# Wrapper over built-in webcrypto');

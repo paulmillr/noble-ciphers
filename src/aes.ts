@@ -25,7 +25,6 @@ import {
   u32, u64Lengths, u8, wrapCipher,
   type Cipher, type CipherWithOutput, type PRG
 } from './utils.ts';
-import { randomBytes } from './webcrypto.ts';
 
 const BLOCK_SIZE = 16;
 const BLOCK_SIZE32 = 4;
@@ -1066,7 +1065,7 @@ class _AesCtrDRBG implements PRG {
  * It's best to limit usage to non-production, non-critical cases: for example, test-only.
  */
 export const rngAesCtrDrbg = (keyLen: number) => {
-  return (seed: Uint8Array = randomBytes(keyLen), personalization?: Uint8Array): _AesCtrDRBG =>
+  return (seed: Uint8Array, personalization?: Uint8Array): _AesCtrDRBG =>
     new _AesCtrDRBG(keyLen, seed, personalization);
 };
 

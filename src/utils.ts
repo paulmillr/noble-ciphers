@@ -410,6 +410,6 @@ export function copyBytes(bytes: Uint8Array): Uint8Array {
  */
 export interface PRG {
   addEntropy(seed: Uint8Array): void;
-  randomBytes(len: number): Uint8Array;
+  randomBytes(length: number): Uint8Array;
   clean(): void;
 }
