@@ -5,6 +5,7 @@ import './basic.test.ts';
 import './crosstest.test.ts';
 import './ff1.test.ts';
 import './polyval.test.ts';
+import './webcrypto.test.ts';
 import './utils.test.ts';
 
 should.runWhen(import.meta.url);

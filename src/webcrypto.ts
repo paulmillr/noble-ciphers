@@ -31,7 +31,11 @@ type RemoveNonceInner<T extends any[], Ret> = ((...args: T) => Ret) extends (
   : never;
 
 type RemoveNonce<T extends (...args: any) => any> = RemoveNonceInner<Parameters<T>, ReturnType<T>>;
-type CipherWithNonce = ((key: Uint8Array, nonce: Uint8Array, ...args: any[]) => Cipher) & {
+type CipherWithNonce = ((
+  key: Uint8Array,
+  nonce: Uint8Array,
+  ...args: any[]
+) => Cipher | AsyncCipher) & {
   nonceLength: number;
 };
 
@@ -51,18 +55,23 @@ type CipherWithNonce = ((key: Uint8Array, nonce: Uint8Array, ...args: any[]) => 
 export function managedNonce<T extends CipherWithNonce>(fn: T): RemoveNonce<T> {
   const { nonceLength } = fn;
   anumber(nonceLength);
+  const addNonce = (nonce: Uint8Array, ciphertext: Uint8Array) => {
+    const out = concatBytes(nonce, ciphertext);
+    ciphertext.fill(0);
+    return out;
+  };
   return ((key: Uint8Array, ...args: any[]): any => ({
     encrypt(plaintext: Uint8Array, ...argsEnc: any[]) {
       const nonce = randomBytes(nonceLength);
-      const ciphertext = (fn(key, nonce, ...args).encrypt as any)(plaintext, ...argsEnc);
-      const out = concatBytes(nonce, ciphertext);
-      ciphertext.fill(0);
-      return out;
+      const encrypted = (fn(key, nonce, ...args).encrypt as any)(plaintext, ...argsEnc);
+      // @ts-ignore
+      if (encrypted instanceof Promise) return encrypted.then((ct) => addNonce(nonce, ct));
+      return addNonce(nonce, encrypted);
     },
     decrypt(ciphertext: Uint8Array, ...argsDec: any[]) {
       const nonce = ciphertext.subarray(0, nonceLength);
-      const data = ciphertext.subarray(nonceLength);
-      return (fn(key, nonce, ...args).decrypt as any)(data, ...argsDec);
+      const decrypted = ciphertext.subarray(nonceLength);
+      return (fn(key, nonce, ...args).decrypt as any)(decrypted, ...argsDec);
     },
   })) as RemoveNonce<T>;
 }
@@ -117,8 +126,9 @@ function getCryptParams(algo: BlockMode, nonce: Uint8Array, AAD?: Uint8Array) {
   throw new Error('unknown aes block mode');
 }
 
-function generate(algo: BlockMode) {
-  return (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): AsyncCipher => {
+function generate(algo: BlockMode, nonceLength: number) {
+  anumber(nonceLength);
+  const res = (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): AsyncCipher => {
     abytes(key);
     abytes(nonce);
     const keyParams = { name: algo, length: key.length * 8 };
@@ -138,17 +148,26 @@ function generate(algo: BlockMode) {
       },
     };
   };
+  res.nonceLength = nonceLength;
+  res.blockSize = 16; // always for AES
+  return res;
 }
 
 /** AES-CBC, native webcrypto version */
-export const cbc: (key: Uint8Array, iv: Uint8Array) => AsyncCipher = /* @__PURE__ */ (() =>
-  generate(mode.CBC))();
+export const cbc: ((key: Uint8Array, iv: Uint8Array) => AsyncCipher) & {
+  blockSize: number;
+  nonceLength: number;
+} = /* @__PURE__ */ (() => generate(mode.CBC, 16))();
 /** AES-CTR, native webcrypto version */
-export const ctr: (key: Uint8Array, nonce: Uint8Array) => AsyncCipher = /* @__PURE__ */ (() =>
-  generate(mode.CTR))();
+export const ctr: ((key: Uint8Array, nonce: Uint8Array) => AsyncCipher) & {
+  blockSize: number;
+  nonceLength: number;
+} = /* @__PURE__ */ (() => generate(mode.CTR, 16))();
 /** AES-GCM, native webcrypto version */
-export const gcm: (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => AsyncCipher =
-  /* @__PURE__ */ (() => generate(mode.GCM))();
+export const gcm: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => AsyncCipher) & {
+  blockSize: number;
+  nonceLength: number;
+} = /* @__PURE__ */ (() => generate(mode.GCM, 12))();
 
 // // Type tests
 // import { siv, gcm, ctr, ecb, cbc } from '../aes.ts';
@@ -166,3 +185,6 @@ export const gcm: (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Asyn
 // // should fail
 // const wcbc2 = managedNonce(managedNonce(cbc));
 // const wctr = managedNonce(ctr);
+// import { gcm as gcmSync } from '../aes.ts';
+// const x1 = managedNonce(gcmSync); // const x1: (key: Uint8Array, AAD?: Uint8Array | undefined) => Cipher
+// const x2 = managedNonce(gcm); // const x2: (key: Uint8Array, AAD?: Uint8Array | undefined) => AsyncCipher
