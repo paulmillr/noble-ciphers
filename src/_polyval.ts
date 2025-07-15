@@ -12,7 +12,16 @@
  *
  * @module
  */
-import { abytes, aexists, aoutput, clean, copyBytes, createView, Hash, u32 } from './utils.ts';
+import {
+  abytes,
+  aexists,
+  aoutput,
+  clean,
+  copyBytes,
+  createView,
+  u32,
+  type IHash2,
+} from './utils.ts';
 
 const BLOCK_SIZE = 16;
 // TODO: rewrite
@@ -67,7 +76,7 @@ const estimateWindow = (bytes: number) => {
   return 2;
 };
 
-export class GHASH implements Hash<GHASH> {
+export class GHASH implements IHash2 {
   readonly blockLen: number = BLOCK_SIZE;
   readonly outputLen: number = BLOCK_SIZE;
   protected s0 = 0;
@@ -235,13 +244,13 @@ export class Polyval extends GHASH {
 }
 
 export type CHashPV = ReturnType<typeof wrapConstructorWithKey>;
-function wrapConstructorWithKey<H extends Hash<H>>(
-  hashCons: (key: Uint8Array, expectedLength?: number) => Hash<H>
+function wrapConstructorWithKey<H extends IHash2>(
+  hashCons: (key: Uint8Array, expectedLength?: number) => H
 ): {
   (msg: Uint8Array, key: Uint8Array): Uint8Array;
   outputLen: number;
   blockLen: number;
-  create(key: Uint8Array, expectedLength?: number): Hash<H>;
+  create(key: Uint8Array, expectedLength?: number): H;
 } {
   const hashC = (msg: Uint8Array, key: Uint8Array): Uint8Array =>
     hashCons(key, msg.length).update(msg).digest();

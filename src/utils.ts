@@ -238,20 +238,19 @@ export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 // TODO: remove
-/** For runtime check if class implements interface. */
-export abstract class Hash<T extends Hash<T>> {
-  abstract blockLen: number; // Bytes per block
-  abstract outputLen: number; // Bytes in output
-  abstract update(buf: string | Uint8Array): this;
+export interface IHash2 {
+  blockLen: number; // Bytes per block
+  outputLen: number; // Bytes in output
+  update(buf: string | Uint8Array): this;
   // Writes digest into buf
-  abstract digestInto(buf: Uint8Array): void;
-  abstract digest(): Uint8Array;
+  digestInto(buf: Uint8Array): void;
+  digest(): Uint8Array;
   /**
    * Resets internal state. Makes Hash instance unusable.
    * Reset is impossible for keyed hashes if key is consumed into state. If digest is not consumed
    * by user, they will need to manually call `destroy()` when zeroing is necessary.
    */
-  abstract destroy(): void;
+  destroy(): void;
 }
 
 // This will allow to re-use with composable things like packed & base encoders

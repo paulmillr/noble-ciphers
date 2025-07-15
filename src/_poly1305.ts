@@ -19,9 +19,9 @@
  */
 // prettier-ignore
 import {
-  Hash,
   abytes, aexists, aoutput, bytesToHex,
-  clean, concatBytes, copyBytes, hexToNumber, numberToBytesBE
+  clean, concatBytes, copyBytes, hexToNumber, numberToBytesBE,
+  type IHash2
 } from './utils.ts';
 
 function u8to16(a: Uint8Array, i: number) {
@@ -73,7 +73,7 @@ function poly1305_computeTag_small(
 }
 
 /** Poly1305 class. Prefer poly1305() function instead. */
-export class Poly1305 implements Hash<Poly1305> {
+export class Poly1305 implements IHash2 {
   readonly blockLen = 16;
   readonly outputLen = 16;
   private buffer = new Uint8Array(16);
@@ -339,13 +339,13 @@ export class Poly1305 implements Hash<Poly1305> {
 }
 
 export type CHash = ReturnType<typeof wrapConstructorWithKey>;
-export function wrapConstructorWithKey<H extends Hash<H>>(
-  hashCons: (key: Uint8Array) => Hash<H>
+export function wrapConstructorWithKey<H extends IHash2>(
+  hashCons: (key: Uint8Array) => H
 ): {
   (msg: Uint8Array, key: Uint8Array): Uint8Array;
   outputLen: number;
   blockLen: number;
-  create(key: Uint8Array): Hash<H>;
+  create(key: Uint8Array): H;
 } {
   const hashC = (msg: Uint8Array, key: Uint8Array): Uint8Array =>
     hashCons(key).update(msg).digest();
