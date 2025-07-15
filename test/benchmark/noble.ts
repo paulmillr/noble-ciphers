@@ -1,5 +1,5 @@
 import mark from 'micro-bmark';
-import { cbc, ctr, ecb, gcm, gcmsiv, rngAesCtrDrbg } from '../../src/aes.ts';
+import { cbc, ctr, ecb, gcm, gcmsiv, rngAesCtrDrbg128 } from '../../src/aes.ts';
 import {
   chacha12,
   chacha20,
@@ -56,7 +56,7 @@ async function main() {
     console.log('# Random number generator');
     const rng8 = rngChacha8();
     const rng20 = rngChacha20();
-    const rngCtr = rngAesCtrDrbg(256)(aesw.randomBytes(48));
+    const rngCtr = rngAesCtrDrbg128(aesw.randomBytes(32));
 
     const len = buf.length;
     if (size !== '1MB') {

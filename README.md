@@ -240,13 +240,13 @@ ChaCha-based CSPRNG does not have a specification as per 2025, which makes it le
 
 ```js
 import { randomBytes } from '@noble/ciphers/webcrypto.js';
-import { rngAesCtrDrbg } from '@noble/ciphers/aes.js';
+import { rngAesCtrDrbg256 } from '@noble/ciphers/aes.js';
 import { rngChacha8, rngChacha20 } from '@noble/ciphers/chacha.js';
 
 // 1. Best: WebCrypto
 const rnd1 = randomBytes(32);
 // 2. AES-CTR DRBG
-const rnd2 = rngAesCtrDrbg(randomBytes(32)).randomBytes(1024);
+const rnd2 = rngAesCtrDrbg256(randomBytes(32)).randomBytes(1024);
 // 3. ChaCha8 CSPRNG
 const rnd3 = rngChacha8(randomBytes(32)).randomBytes(1024);
 ```

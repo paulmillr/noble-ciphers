@@ -1060,14 +1060,22 @@ class _AesCtrDRBG implements PRG {
   }
 }
 
+export type AesCtrDrbg = (seed: Uint8Array, personalization?: Uint8Array) => _AesCtrDRBG;
+
+const createAesDrbg: (keyLen: number) => AesCtrDrbg = (keyLen) => {
+  return (seed, personalization = undefined) => new _AesCtrDRBG(keyLen, seed, personalization);
+};
+
 /**
- * AES-CTR DRBG - CSPRNG (cryptographically secure pseudorandom number generator).
+ * AES-CTR DRBG 128-bit - CSPRNG (cryptographically secure pseudorandom number generator).
  * It's best to limit usage to non-production, non-critical cases: for example, test-only.
  */
-export const rngAesCtrDrbg = (keyLen: number) => {
-  return (seed: Uint8Array, personalization?: Uint8Array): _AesCtrDRBG =>
-    new _AesCtrDRBG(keyLen, seed, personalization);
-};
+export const rngAesCtrDrbg128: AesCtrDrbg = /* @__PURE__ */ createAesDrbg(128);
+/**
+ * AES-CTR DRBG 256-bit - CSPRNG (cryptographically secure pseudorandom number generator).
+ * It's best to limit usage to non-production, non-critical cases: for example, test-only.
+ */
+export const rngAesCtrDrbg256: AesCtrDrbg = /* @__PURE__ */ createAesDrbg(256);
 
 /** Unsafe low-level internal methods. May change at any time. */
 export const unsafe: {

@@ -1,6 +1,6 @@
 import { describe, should } from 'micro-should';
 import { deepStrictEqual as eql } from 'node:assert';
-import { rngAesCtrDrbg } from '../src/aes.ts';
+import { rngAesCtrDrbg128, rngAesCtrDrbg256 } from '../src/aes.ts';
 import { rngChacha20 } from '../src/chacha.ts';
 import { hexToBytes } from '../src/utils.ts';
 import { json } from './utils.ts';
@@ -91,7 +91,9 @@ describe('PRNG', () => {
       if (!g.mode.startsWith('AES-')) continue;
       const bits = +g.mode.slice(4);
       for (const t of g.tests) {
-        const drbg = rngAesCtrDrbg(bits)(hexToBytes(t.entropyInput), hexToBytes(t.persoString));
+        if (bits === 192) continue;
+        let fn = bits === 128 ? rngAesCtrDrbg128 : rngAesCtrDrbg256;
+        const drbg = fn(hexToBytes(t.entropyInput), hexToBytes(t.persoString));
         let lastVal;
         for (const i of t.otherInput) {
           if (i.intendedUse === 'reSeed') {
@@ -101,7 +103,9 @@ describe('PRNG', () => {
               drbg.addEntropy(hexToBytes(i.entropyInput), hexToBytes(i.additionalInput));
               lastVal = drbg.randomBytes(g.returnedBitsLen / 8);
             } else lastVal = drbg.randomBytes(g.returnedBitsLen / 8, hexToBytes(i.additionalInput));
-          } else throw new Error('unkwnon op');
+          } else {
+            throw new Error('unknown op');
+          }
         }
         eql(lastVal, hexToBytes(t.returnedBits));
       }
