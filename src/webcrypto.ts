@@ -60,18 +60,25 @@ export function managedNonce<T extends CipherWithNonce>(fn: T): RemoveNonce<T> {
     ciphertext.fill(0);
     return out;
   };
+  // NOTE: we cannot support DST here, it would be mistake:
+  // - we don't know how much dst length cipher requires
+  // - nonce may unalign dst and break everything
+  // - we create new u8a anyway (concatBytes)
+  // - previously we passed all args to cipher, but that was mistake!
   return ((key: Uint8Array, ...args: any[]): any => ({
-    encrypt(plaintext: Uint8Array, ...argsEnc: any[]) {
+    encrypt(plaintext: Uint8Array) {
+      abytes(plaintext);
       const nonce = randomBytes(nonceLength);
-      const encrypted = (fn(key, nonce, ...args).encrypt as any)(plaintext, ...argsEnc);
+      const encrypted = fn(key, nonce, ...args).encrypt(plaintext);
       // @ts-ignore
       if (encrypted instanceof Promise) return encrypted.then((ct) => addNonce(nonce, ct));
       return addNonce(nonce, encrypted);
     },
-    decrypt(ciphertext: Uint8Array, ...argsDec: any[]) {
+    decrypt(ciphertext: Uint8Array) {
+      abytes(ciphertext);
       const nonce = ciphertext.subarray(0, nonceLength);
       const decrypted = ciphertext.subarray(nonceLength);
-      return (fn(key, nonce, ...args).decrypt as any)(decrypted, ...argsDec);
+      return fn(key, nonce, ...args).decrypt(decrypted);
     },
   })) as RemoveNonce<T>;
 }
