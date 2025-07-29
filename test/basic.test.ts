@@ -175,7 +175,10 @@ describe('Basic', () => {
 
       let cipher = fn(key, nonce, AAD);
       // Throws if output provided to function without output support
-      if (['micro', 'gcm', 'gcmsiv', 'aeskw'].map((i) => k.includes(i)).includes(true)) {
+      if (
+        !k.endsWith('managedNonce') &&
+        ['micro', 'gcm', 'gcmsiv', 'aeskw'].map((i) => k.includes(i)).includes(true)
+      ) {
         const msg = randomBytes(2 * opts.fn.blockSize);
         throws(() => cipher.encrypt(msg, new Uint8Array(msg.length)));
         cipher = fn(key, nonce, AAD);
