@@ -143,14 +143,14 @@ describe('assert', () => {
     throws(() => u.anumber(NaN));
   });
   should('abytes', () => {
-    eql(u.abytes(new Uint8Array(0)), undefined);
-    if (typeof Buffer !== 'undefined') eql(u.abytes(Buffer.alloc(10)), undefined);
-    eql(u.abytes(new Uint8Array(10)), undefined);
-    u.abytes(new Uint8Array(11), 11, 12);
-    u.abytes(new Uint8Array(12), 12, 12);
+    eql(u.abytes(new Uint8Array(0)), new Uint8Array(0));
+    if (typeof Buffer !== 'undefined') eql(u.abytes(Buffer.alloc(10)), Buffer.alloc(10));
+    eql(u.abytes(new Uint8Array(10)), new Uint8Array(10));
+    u.abytes(new Uint8Array(11), 11, '11');
+    u.abytes(new Uint8Array(12), 12, '12');
     throws(() => u.abytes('test'));
-    throws(() => u.abytes(new Uint8Array(10), 11, 12));
-    throws(() => u.abytes(new Uint8Array(10), 11, 12));
+    throws(() => u.abytes(new Uint8Array(10), 11, '11'));
+    throws(() => u.abytes(new Uint8Array(10), 12, '12'));
   });
   should('aexists', () => {
     eql(u.aexists({}), undefined);

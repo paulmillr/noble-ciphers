@@ -31,6 +31,11 @@ const BLOCK_SIZE32 = 4;
 const EMPTY_BLOCK = /* @__PURE__ */ new Uint8Array(BLOCK_SIZE);
 const POLY = 0x11b; // 1 + x + x**3 + x**4 + x**8
 
+function validateKeyLength(key: Uint8Array) {
+  if (![16, 24, 32].includes(key.length))
+    throw new Error('"aes key" expected Uint8Array of length 16/24/32, got length=' + key.length);
+}
+
 // TODO: remove multiplication, binary ops only
 function mul2(n: number) {
   return (n << 1) ^ (POLY & -(n >> 7));
@@ -131,8 +136,7 @@ const xPowers = /* @__PURE__ */ (() => {
 function expandKeyLE(key: Uint8Array): Uint32Array {
   abytes(key);
   const len = key.length;
-  if (![16, 24, 32].includes(len))
-    throw new Error('aes: invalid key size, should be 16, 24 or 32, got ' + len);
+  validateKeyLength(key);
   const { sbox2 } = tableEncoding;
   const toClean = [];
   if (!isAligned32(key)) toClean.push((key = copyBytes(key)));
@@ -259,7 +263,7 @@ function ctrCounter(
   src: Uint8Array,
   dst?: Uint8Array
 ): Uint8Array {
-  abytes(nonce, BLOCK_SIZE);
+  abytes(nonce, BLOCK_SIZE, 'nonce');
   abytes(src);
   const srcLen = src.length;
   dst = getOutput(srcLen, dst);
@@ -301,7 +305,7 @@ function ctr32(
   src: Uint8Array,
   dst?: Uint8Array
 ): Uint8Array {
-  abytes(nonce, BLOCK_SIZE);
+  abytes(nonce, BLOCK_SIZE, 'nonce');
   abytes(src);
   dst = getOutput(src.length, dst);
   const ctr = nonce; // write new value to nonce, so it can be re-used
@@ -704,7 +708,8 @@ export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => 
     const PLAIN_LIMIT = limit('plaintext', 0, 2 ** 36);
     const NONCE_LIMIT = limit('nonce', 12, 12);
     const CIPHER_LIMIT = limit('ciphertext', 16, 2 ** 36 + 16);
-    abytes(key, 16, 24, 32);
+    abytes(key);
+    validateKeyLength(key);
     NONCE_LIMIT(nonce.length);
     if (AAD !== undefined) AAD_LIMIT(AAD.length);
     function deriveKeys() {
@@ -806,7 +811,7 @@ function isBytes32(a: unknown): a is Uint32Array {
 }
 
 function encryptBlock(xk: Uint32Array, block: Uint8Array): Uint8Array {
-  abytes(block, 16);
+  abytes(block, 16, 'block');
   if (!isBytes32(xk)) throw new Error('_encryptBlock accepts result of expandKeyLE');
   const b32 = u32(block);
   let { s0, s1, s2, s3 } = encrypt(xk, b32[0], b32[1], b32[2], b32[3]);
@@ -815,7 +820,7 @@ function encryptBlock(xk: Uint32Array, block: Uint8Array): Uint8Array {
 }
 
 function decryptBlock(xk: Uint32Array, block: Uint8Array): Uint8Array {
-  abytes(block, 16);
+  abytes(block, 16, 'block');
   if (!isBytes32(xk)) throw new Error('_decryptBlock accepts result of expandKeyLE');
   const b32 = u32(block);
   let { s0, s1, s2, s3 } = decrypt(xk, b32[0], b32[1], b32[2], b32[3]);
@@ -1033,7 +1038,7 @@ class _AesCtrDRBG implements PRG {
     incBytes(this.nonce, false, 1);
   }
   addEntropy(seed: Uint8Array, info?: Uint8Array): void {
-    abytes(seed, this.state.length);
+    abytes(seed, this.state.length, 'seed');
     const _seed = seed.slice();
     if (info) {
       abytes(info);

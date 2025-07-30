@@ -164,12 +164,12 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
     output?: Uint8Array,
     counter = 0
   ): Uint8Array => {
-    abytes(key);
-    abytes(nonce);
-    abytes(data);
+    abytes(key, undefined, 'key');
+    abytes(nonce, undefined, 'nonce');
+    abytes(data, undefined, 'data');
     const len = data.length;
     if (output === undefined) output = new Uint8Array(len);
-    abytes(output);
+    abytes(output, undefined, 'output');
     anumber(counter);
     if (counter < 0 || counter >= MAX_COUNTER) throw new Error('arx: counter overflow');
     if (output.length < len)
@@ -192,7 +192,9 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
       sigma = sigma16_32;
       toClean.push(k);
     } else {
-      throw new Error(`arx: invalid 32-byte key, got length=${l}`);
+      abytes(key, 32, 'arx key');
+      throw new Error('invalid key size');
+      // throw new Error(`"arx key" expected Uint8Array of length 32, got length=${l}`);
     }
 
     // Nonce

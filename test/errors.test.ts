@@ -1,9 +1,9 @@
 import { should } from 'micro-should';
 import { deepStrictEqual as eql } from 'node:assert';
-import { bytesToHex } from '../src/utils.ts';
 import { aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv } from '../src/aes.ts';
 import { chacha20poly1305, xchacha20poly1305 } from '../src/chacha.ts';
 import { xsalsa20poly1305 } from '../src/salsa.ts';
+import { bytesToHex } from '../src/utils.ts';
 import { managedNonce, randomBytes } from '../src/webcrypto.ts';
 
 const CIPHERS = {
@@ -63,13 +63,14 @@ for (const keyLen of [16, 24, 32]) {
 for (const k in CIPHERS) {
   const opts = CIPHERS[k];
   if (!opts.withNonce) continue;
-  CIPHERS[`${k}_managedNonce`] = {
+  const opt = {
     ...opts,
     fn: managedNonce(opts.fn),
     withNonce: false,
     DSTAdditionalBytes: opts.DSTAdditionalBytes || 0,
     withDST: false,
   };
+  CIPHERS[`${k}_managedNonce`] = opt;
 }
 CIPHERS.managedCbcNoPadding = {
   fn: managedNonce(cbc),
@@ -127,9 +128,12 @@ should('Errors', () => {
     const AAD = C.withAAD ? BYTES10 : undefined;
     const msg = randomBytes(C.minLength || C.fn.blockSize);
     C.fn(key, nonce, AAD);
-    CEG('cipher: wrong key=', U8, key, (s) => C.fn(s, nonce, AAD));
-    if (C.withNonce) CEG('cipher: wrong nonce=', U8, key, (s) => C.fn(key, s, AAD));
-    if (C.withAAD) CEG('cipher: wrong AAD=', U8, AAD, (s) => C.fn(key, nonce, s));
+    CEG('cipher: wrong key=', U8, key, (s) => C.fn(s, nonce, AAD).encrypt(msg));
+    if (C.withNonce) CEG('cipher: wrong nonce=', U8, key, (s) => C.fn(key, s, AAD).encrypt(msg));
+    if (C.withAAD) {
+      console.log(name);
+      CEG('cipher: wrong AAD=', U8, AAD, (s) => C.fn(key, s).encrypt(msg));
+    }
     const getC = () => C.fn(key, nonce);
     const enc = getC().encrypt(msg);
     eql(getC().decrypt(enc), msg);

@@ -20,10 +20,17 @@ export function anumber(n: number): void {
 }
 
 /** Asserts something is Uint8Array. */
-export function abytes(b: Uint8Array | undefined, ...lengths: number[]): void {
-  if (!isBytes(b)) throw new Error('Uint8Array expected');
-  if (lengths.length > 0 && !lengths.includes(b.length))
-    throw new Error('Uint8Array expected of length ' + lengths + ', got length=' + b.length);
+export function abytes(value: Uint8Array, length?: number, title: string = ''): Uint8Array {
+  const bytes = isBytes(value);
+  const len = value?.length;
+  const needsLen = length !== undefined;
+  if (!bytes || (needsLen && len !== length)) {
+    const prefix = title && `"${title}" `;
+    const ofLen = needsLen ? ` of length ${length}` : '';
+    const got = bytes ? `length=${len}` : `type=${typeof value}`;
+    throw new Error(prefix + 'expected Uint8Array' + ofLen + ', got ' + got);
+  }
+  return value;
 }
 
 /** Asserts a hash instance has not been destroyed / finished */
@@ -34,7 +41,7 @@ export function aexists(instance: any, checkFinished = true): void {
 
 /** Asserts output is properly-sized byte array */
 export function aoutput(out: any, instance: any): void {
-  abytes(out);
+  abytes(out, undefined, 'output');
   const min = instance.outputLen;
   if (out.length < min) {
     throw new Error('digestInto() expects output buffer of length at least ' + min);
@@ -305,7 +312,7 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
 ): C & P => {
   function wrappedCipher(key: Uint8Array, ...args: any[]): CipherWithOutput {
     // Validate key
-    abytes(key);
+    abytes(key, undefined, 'key');
 
     // Big-Endian hardware is rare. Just in case someone still decides to run ciphers:
     if (!isLE) throw new Error('Non little-endian hardware is not yet supported');
@@ -313,22 +320,18 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
     // Validate nonce if nonceLength is present
     if (params.nonceLength !== undefined) {
       const nonce = args[0];
-      if (!nonce) throw new Error('nonce / iv required');
-      if (params.varSizeNonce) abytes(nonce);
-      else abytes(nonce, params.nonceLength);
+      abytes(nonce, params.varSizeNonce ? undefined : params.nonceLength, 'nonce');
     }
 
     // Validate AAD if tagLength present
     const tagl = params.tagLength;
-    if (tagl && args[1] !== undefined) {
-      abytes(args[1]);
-    }
+    if (tagl && args[1] !== undefined) abytes(args[1], undefined, 'AAD');
 
     const cipher = constructor(key, ...args);
     const checkOutput = (fnLength: number, output?: Uint8Array) => {
       if (output !== undefined) {
         if (fnLength !== 2) throw new Error('cipher output not supported');
-        abytes(output);
+        abytes(output, undefined, 'output');
       }
     };
     // Create wrapped cipher with validation and single-use encryption
@@ -344,7 +347,7 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
       decrypt(data: Uint8Array, output?: Uint8Array) {
         abytes(data);
         if (tagl && data.length < tagl)
-          throw new Error('invalid ciphertext length: smaller than tagLength=' + tagl);
+          throw new Error('"ciphertext" expected length bigger than tagLength=' + tagl);
         checkOutput(cipher.decrypt.length, output);
         return (cipher as CipherWithOutput).decrypt(data, output);
       },
@@ -377,7 +380,9 @@ export function getOutput(
 ): Uint8Array {
   if (out === undefined) return new Uint8Array(expectedLength);
   if (out.length !== expectedLength)
-    throw new Error('invalid output length, expected ' + expectedLength + ', got: ' + out.length);
+    throw new Error(
+      '"output" expected Uint8Array of length ' + expectedLength + ', got: ' + out.length
+    );
   if (onlyAligned && !isAligned32(out)) throw new Error('invalid output, must be aligned');
   return out;
 }

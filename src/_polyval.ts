@@ -89,7 +89,7 @@ export class GHASH implements IHash2 {
   private windowSize: number;
   // We select bits per window adaptively based on expectedLength
   constructor(key: Uint8Array, expectedLength?: number) {
-    abytes(key, 16);
+    abytes(key, 16, 'key');
     key = copyBytes(key);
     const kView = createView(key);
     let k0 = kView.getUint32(0, false);

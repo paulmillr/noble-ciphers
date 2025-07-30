@@ -35,7 +35,7 @@ function bytesToNumberLE(bytes: Uint8Array): bigint {
 /** Small version of `poly1305` without loop unrolling. Unused, provided for auditability. */
 function poly1305_small(msg: Uint8Array, key: Uint8Array): Uint8Array {
   abytes(msg);
-  abytes(key, 32);
+  abytes(key, 32, 'key');
   const POW_2_130_5 = BigInt(2) ** BigInt(130) - BigInt(5); // 2^130-5
   const POW_2_128_1 = BigInt(2) ** BigInt(128) - BigInt(1); // 2^128-1
   const CLAMP_R = BigInt('0x0ffffffc0ffffffc0ffffffc0fffffff');
@@ -85,8 +85,7 @@ export class Poly1305 implements IHash2 {
 
   // Can be speed-up using BigUint64Array, at the cost of complexity
   constructor(key: Uint8Array) {
-    abytes(key, 32);
-    key = copyBytes(key);
+    key = copyBytes(abytes(key, 32, 'key'));
     const t0 = u8to16(key, 0);
     const t1 = u8to16(key, 2);
     const t2 = u8to16(key, 4);

@@ -20,6 +20,7 @@ import {
   type ARXCipher,
   type CipherWithOutput,
   type XorStream,
+  abytes,
   clean,
   equalBytes,
   getOutput,
@@ -277,6 +278,7 @@ function computeTag(
   ciphertext: Uint8Array,
   AAD?: Uint8Array
 ): Uint8Array {
+  if (AAD !== undefined) abytes(AAD, undefined, 'AAD');
   const authKey = fn(key, nonce, ZEROS32);
   const lengths = u64Lengths(ciphertext.length, AAD ? AAD.length : 0, true);
 
