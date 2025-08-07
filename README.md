@@ -56,7 +56,7 @@ import { ctr, cfb, cbc, ecb } from '@noble/ciphers/aes.js';
 import { salsa20, xsalsa20 } from '@noble/ciphers/salsa.js';
 import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha.js';
 import { aeskw, aeskwp } from '@noble/ciphers/aes.js'; // KW
-import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils.js';
+import { bytesToHex, hexToBytes } from '@noble/ciphers/utils.js';
 import { managedNonce, randomBytes } from '@noble/ciphers/webcrypto.js';
 ```
 
@@ -90,7 +90,6 @@ import { managedNonce, randomBytes } from '@noble/ciphers/webcrypto.js';
 
 ```js
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js';
-import { utf8ToBytes } from '@noble/ciphers/utils.js';
 import { randomBytes } from '@noble/ciphers/webcrypto.js';
 const key = randomBytes(32); // random key
 // const key = new Uint8Array([ // existing key
@@ -101,23 +100,22 @@ const key = randomBytes(32); // random key
 // const key = hexToBytes('4b7f89bac90a1086fef73f5da2cbe93b2fae9dfbf7678ae1f3e75fd118ddf999');
 const nonce = randomBytes(24);
 const chacha = xchacha20poly1305(key, nonce);
-const data = utf8ToBytes('hello, noble');
+const data = new TextEncoder().encode('hello noble');
 const ciphertext = chacha.encrypt(data);
-const data_ = chacha.decrypt(ciphertext); // utils.bytesToUtf8(data_) === data
+const data_ = chacha.decrypt(ciphertext); // new TextDecoder().decode(data_) === data
 ```
 
 #### AES-256-GCM encryption
 
 ```js
 import { gcm } from '@noble/ciphers/aes.js';
-import { utf8ToBytes } from '@noble/ciphers/utils.js';
 import { randomBytes } from '@noble/ciphers/webcrypto.js';
 const key = randomBytes(32);
 const nonce = randomBytes(24);
-const data = utf8ToBytes('hello, noble');
+const data = new TextEncoder().encode('hello noble');
 const aes = gcm(key, nonce);
 const ciphertext = aes.encrypt(data);
-const data_ = aes.decrypt(ciphertext); // utils.bytesToUtf8(data_) === data
+const data_ = aes.decrypt(ciphertext); // new TextDecoder().decode(data_) === data
 ```
 
 #### managedNonce: automatic nonce handling
@@ -135,10 +133,10 @@ For `decrypt`: first `nonceBytes` of ciphertext are treated as nonce.
 ```js
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js';
 import { managedNonce } from '@noble/ciphers/webcrypto.js';
-import { hexToBytes, utf8ToBytes } from '@noble/ciphers/utils.js';
+import { hexToBytes } from '@noble/ciphers/utils.js';
 const key = hexToBytes('fa686bfdffd3758f6377abbc23bf3d9bdc1a0dda4a6e7f8dbdd579fa1ff6d7e1');
 const chacha = managedNonce(xchacha20poly1305)(key); // manages nonces for you
-const data = utf8ToBytes('hello, noble');
+const data = new TextEncoder().encode('hello noble');
 const ciphertext = chacha.encrypt(data);
 const data_ = chacha.decrypt(ciphertext);
 ```
@@ -210,14 +208,13 @@ between encryption and decryption calls.
 
 ```js
 import { chacha20poly1305 } from '@noble/ciphers/chacha.js';
-import { utf8ToBytes } from '@noble/ciphers/utils.js';
 import { randomBytes } from '@noble/ciphers/webcrypto.js';
 
 const key = randomBytes(32);
 const nonce = randomBytes(12);
 const chacha = chacha20poly1305(key, nonce);
 
-const input = utf8ToBytes('hello, noble'); // length == 12
+const input = new TextEncoder().encode('hello noble'); // length == 12
 const inputLength = input.length;
 const tagLength = 16;
 
@@ -273,7 +270,7 @@ const key = scrypt(PASSWORD, APP_SPECIFIC_SECRET, { N: SECURITY_LEVEL, r: 8, p: 
 // Use random, managed nonce
 const chacha = managedNonce(xchacha20poly1305)(key);
 
-const data = utf8ToBytes('hello, noble');
+const data = new TextEncoder().encode('hello noble');
 const ciphertext = chacha.encrypt(data);
 const data_ = chacha.decrypt(ciphertext);
 ```
