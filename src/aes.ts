@@ -207,14 +207,14 @@ function encrypt(
 ): { s0: number; s1: number; s2: number; s3: number } {
   const { sbox2, T01, T23 } = tableEncoding;
   let k = 0;
-  (s0 ^= xk[k++]), (s1 ^= xk[k++]), (s2 ^= xk[k++]), (s3 ^= xk[k++]);
+  ((s0 ^= xk[k++]), (s1 ^= xk[k++]), (s2 ^= xk[k++]), (s3 ^= xk[k++]));
   const rounds = xk.length / 4 - 2;
   for (let i = 0; i < rounds; i++) {
     const t0 = xk[k++] ^ apply0123(T01, T23, s0, s1, s2, s3);
     const t1 = xk[k++] ^ apply0123(T01, T23, s1, s2, s3, s0);
     const t2 = xk[k++] ^ apply0123(T01, T23, s2, s3, s0, s1);
     const t3 = xk[k++] ^ apply0123(T01, T23, s3, s0, s1, s2);
-    (s0 = t0), (s1 = t1), (s2 = t2), (s3 = t3);
+    ((s0 = t0), (s1 = t1), (s2 = t2), (s3 = t3));
   }
   // last round (without mixcolumns, so using SBOX2 table)
   const t0 = xk[k++] ^ applySbox(sbox2, s0, s1, s2, s3);
@@ -239,14 +239,14 @@ function decrypt(
 } {
   const { sbox2, T01, T23 } = tableDecoding;
   let k = 0;
-  (s0 ^= xk[k++]), (s1 ^= xk[k++]), (s2 ^= xk[k++]), (s3 ^= xk[k++]);
+  ((s0 ^= xk[k++]), (s1 ^= xk[k++]), (s2 ^= xk[k++]), (s3 ^= xk[k++]));
   const rounds = xk.length / 4 - 2;
   for (let i = 0; i < rounds; i++) {
     const t0 = xk[k++] ^ apply0123(T01, T23, s0, s3, s2, s1);
     const t1 = xk[k++] ^ apply0123(T01, T23, s1, s0, s3, s2);
     const t2 = xk[k++] ^ apply0123(T01, T23, s2, s1, s0, s3);
     const t3 = xk[k++] ^ apply0123(T01, T23, s3, s2, s1, s0);
-    (s0 = t0), (s1 = t1), (s2 = t2), (s3 = t3);
+    ((s0 = t0), (s1 = t1), (s2 = t2), (s3 = t3));
   }
   // Last round
   const t0: number = xk[k++] ^ applySbox(sbox2, s0, s3, s2, s1);
@@ -440,12 +440,12 @@ export const ecb: ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
         let i = 0;
         for (; i + 4 <= b.length; ) {
           const { s0, s1, s2, s3 } = encrypt(xk, b[i + 0], b[i + 1], b[i + 2], b[i + 3]);
-          (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
+          ((o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3));
         }
         if (pcks5) {
           const tmp32 = padPCKS(plaintext.subarray(i * 4));
           const { s0, s1, s2, s3 } = encrypt(xk, tmp32[0], tmp32[1], tmp32[2], tmp32[3]);
-          (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
+          ((o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3));
         }
         clean(xk);
         return _out;
@@ -461,7 +461,7 @@ export const ecb: ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
         const o = u32(dst);
         for (let i = 0; i + 4 <= b.length; ) {
           const { s0, s1, s2, s3 } = decrypt(xk, b[i + 0], b[i + 1], b[i + 2], b[i + 3]);
-          (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
+          ((o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3));
         }
         clean(...toClean);
         return validatePCKS(dst, pcks5);
@@ -494,15 +494,15 @@ export const cbc: ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => Cipher
         let s0 = n32[0], s1 = n32[1], s2 = n32[2], s3 = n32[3];
         let i = 0;
         for (; i + 4 <= b.length; ) {
-          (s0 ^= b[i + 0]), (s1 ^= b[i + 1]), (s2 ^= b[i + 2]), (s3 ^= b[i + 3]);
+          ((s0 ^= b[i + 0]), (s1 ^= b[i + 1]), (s2 ^= b[i + 2]), (s3 ^= b[i + 3]));
           ({ s0, s1, s2, s3 } = encrypt(xk, s0, s1, s2, s3));
-          (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
+          ((o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3));
         }
         if (pcks5) {
           const tmp32 = padPCKS(plaintext.subarray(i * 4));
-          (s0 ^= tmp32[0]), (s1 ^= tmp32[1]), (s2 ^= tmp32[2]), (s3 ^= tmp32[3]);
+          ((s0 ^= tmp32[0]), (s1 ^= tmp32[1]), (s2 ^= tmp32[2]), (s3 ^= tmp32[3]));
           ({ s0, s1, s2, s3 } = encrypt(xk, s0, s1, s2, s3));
-          (o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3);
+          ((o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3));
         }
         clean(...toClean);
         return _out;
@@ -524,9 +524,9 @@ export const cbc: ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => Cipher
         for (let i = 0; i + 4 <= b.length; ) {
           // prettier-ignore
           const ps0 = s0, ps1 = s1, ps2 = s2, ps3 = s3;
-          (s0 = b[i + 0]), (s1 = b[i + 1]), (s2 = b[i + 2]), (s3 = b[i + 3]);
+          ((s0 = b[i + 0]), (s1 = b[i + 1]), (s2 = b[i + 2]), (s3 = b[i + 3]));
           const { s0: o0, s1: o1, s2: o2, s3: o3 } = decrypt(xk, s0, s1, s2, s3);
-          (o[i++] = o0 ^ ps0), (o[i++] = o1 ^ ps1), (o[i++] = o2 ^ ps2), (o[i++] = o3 ^ ps3);
+          ((o[i++] = o0 ^ ps0), (o[i++] = o1 ^ ps1), (o[i++] = o2 ^ ps2), (o[i++] = o3 ^ ps3));
         }
         clean(...toClean);
         return validatePCKS(dst, pcks5);
@@ -567,7 +567,7 @@ export const cfb: ((key: Uint8Array, iv: Uint8Array) => CipherWithOutput) & {
         dst32[i + 1] = src32[i + 1] ^ e1;
         dst32[i + 2] = src32[i + 2] ^ e2;
         dst32[i + 3] = src32[i + 3] ^ e3;
-        (s0 = next32[i++]), (s1 = next32[i++]), (s2 = next32[i++]), (s3 = next32[i++]);
+        ((s0 = next32[i++]), (s1 = next32[i++]), (s2 = next32[i++]), (s3 = next32[i++]));
       }
       // leftovers (less than block)
       const start = BLOCK_SIZE * Math.floor(src32.length / BLOCK_SIZE32);
@@ -750,7 +750,7 @@ export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => 
       // prettier-ignore
       let s0 = t32[0], s1 = t32[1], s2 = t32[2], s3 = t32[3];
       ({ s0, s1, s2, s3 } = encrypt(encKey, s0, s1, s2, s3));
-      (t32[0] = s0), (t32[1] = s1), (t32[2] = s2), (t32[3] = s3);
+      ((t32[0] = s0), (t32[1] = s1), (t32[2] = s2), (t32[3] = s3));
       return tag;
     }
     // actual decrypt/encrypt of message.
@@ -815,7 +815,7 @@ function encryptBlock(xk: Uint32Array, block: Uint8Array): Uint8Array {
   if (!isBytes32(xk)) throw new Error('_encryptBlock accepts result of expandKeyLE');
   const b32 = u32(block);
   let { s0, s1, s2, s3 } = encrypt(xk, b32[0], b32[1], b32[2], b32[3]);
-  (b32[0] = s0), (b32[1] = s1), (b32[2] = s2), (b32[3] = s3);
+  ((b32[0] = s0), (b32[1] = s1), (b32[2] = s2), (b32[3] = s3));
   return block;
 }
 
@@ -824,7 +824,7 @@ function decryptBlock(xk: Uint32Array, block: Uint8Array): Uint8Array {
   if (!isBytes32(xk)) throw new Error('_decryptBlock accepts result of expandKeyLE');
   const b32 = u32(block);
   let { s0, s1, s2, s3 } = decrypt(xk, b32[0], b32[1], b32[2], b32[3]);
-  (b32[0] = s0), (b32[1] = s1), (b32[2] = s2), (b32[3] = s3);
+  ((b32[0] = s0), (b32[1] = s1), (b32[2] = s2), (b32[3] = s3));
   return block;
 }
 
@@ -865,10 +865,10 @@ const AESW = {
         for (let pos = 2; pos < o32.length; pos += 2, ctr++) {
           const { s0, s1, s2, s3 } = encrypt(xk, a0, a1, o32[pos], o32[pos + 1]);
           // A = MSB(64, B) ^ t where t = (n*j)+i
-          (a0 = s0), (a1 = s1 ^ byteSwap(ctr)), (o32[pos] = s2), (o32[pos + 1] = s3);
+          ((a0 = s0), (a1 = s1 ^ byteSwap(ctr)), (o32[pos] = s2), (o32[pos + 1] = s3));
         }
       }
-      (o32[0] = a0), (o32[1] = a1); // out = A || out
+      ((o32[0] = a0), (o32[1] = a1)); // out = A || out
     }
     xk.fill(0);
   },
@@ -885,10 +885,10 @@ const AESW = {
         for (let pos = chunks * 2; pos >= 1; pos -= 2, ctr--) {
           a1 ^= byteSwap(ctr);
           const { s0, s1, s2, s3 } = decrypt(xk, a0, a1, o32[pos], o32[pos + 1]);
-          (a0 = s0), (a1 = s1), (o32[pos] = s2), (o32[pos + 1] = s3);
+          ((a0 = s0), (a1 = s1), (o32[pos] = s2), (o32[pos + 1] = s3));
         }
       }
-      (o32[0] = a0), (o32[1] = a1);
+      ((o32[0] = a0), (o32[1] = a1));
     }
     xk.fill(0);
   },

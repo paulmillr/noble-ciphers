@@ -120,7 +120,7 @@ export class GHASH implements IHash2 {
           const bit = (byte >>> (W - j - 1)) & 1;
           if (!bit) continue;
           const { s0: d0, s1: d1, s2: d2, s3: d3 } = doubles[W * w + j];
-          (s0 ^= d0), (s1 ^= d1), (s2 ^= d2), (s3 ^= d3);
+          ((s0 ^= d0), (s1 ^= d1), (s2 ^= d2), (s3 ^= d3));
         }
         items.push({ s0, s1, s2, s3 });
       }
@@ -128,7 +128,7 @@ export class GHASH implements IHash2 {
     this.t = items;
   }
   protected _updateBlock(s0: number, s1: number, s2: number, s3: number): void {
-    (s0 ^= this.s0), (s1 ^= this.s1), (s2 ^= this.s2), (s3 ^= this.s3);
+    ((s0 ^= this.s0), (s1 ^= this.s1), (s2 ^= this.s2), (s3 ^= this.s3));
     const { W, t, windowSize } = this;
     // prettier-ignore
     let o0 = 0, o1 = 0, o2 = 0, o3 = 0;
@@ -140,7 +140,7 @@ export class GHASH implements IHash2 {
         for (let bitPos = 8 / W - 1; bitPos >= 0; bitPos--) {
           const bit = (byte >>> (W * bitPos)) & mask;
           const { s0: e0, s1: e1, s2: e2, s3: e3 } = t[w * windowSize + bit];
-          (o0 ^= e0), (o1 ^= e1), (o2 ^= e2), (o3 ^= e3);
+          ((o0 ^= e0), (o1 ^= e1), (o2 ^= e2), (o3 ^= e3));
           w += 1;
         }
       }
@@ -171,7 +171,7 @@ export class GHASH implements IHash2 {
     const { t } = this;
     // clean precompute table
     for (const elm of t) {
-      (elm.s0 = 0), (elm.s1 = 0), (elm.s2 = 0), (elm.s3 = 0);
+      ((elm.s0 = 0), (elm.s1 = 0), (elm.s2 = 0), (elm.s3 = 0));
     }
   }
   digestInto(out: Uint8Array): Uint8Array {
