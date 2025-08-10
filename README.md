@@ -56,8 +56,7 @@ import { ctr, cfb, cbc, ecb } from '@noble/ciphers/aes.js';
 import { salsa20, xsalsa20 } from '@noble/ciphers/salsa.js';
 import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha.js';
 import { aeskw, aeskwp } from '@noble/ciphers/aes.js'; // KW
-import { bytesToHex, hexToBytes } from '@noble/ciphers/utils.js';
-import { managedNonce, randomBytes } from '@noble/ciphers/webcrypto.js';
+import { bytesToHex, hexToBytes, managedNonce, randomBytes } from '@noble/ciphers/utils.js';
 ```
 
 - [Examples](#examples)
@@ -90,7 +89,7 @@ import { managedNonce, randomBytes } from '@noble/ciphers/webcrypto.js';
 
 ```js
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js';
-import { randomBytes } from '@noble/ciphers/webcrypto.js';
+import { randomBytes } from '@noble/ciphers/utils.js';
 const key = randomBytes(32); // random key
 // const key = new Uint8Array([ // existing key
 //   169, 88, 160, 139, 168, 29, 147, 196, 14, 88, 237, 76, 243, 177, 109, 140,
@@ -109,7 +108,7 @@ const data_ = chacha.decrypt(ciphertext); // new TextDecoder().decode(data_) ===
 
 ```js
 import { gcm } from '@noble/ciphers/aes.js';
-import { randomBytes } from '@noble/ciphers/webcrypto.js';
+import { randomBytes } from '@noble/ciphers/utils.js';
 const key = randomBytes(32);
 const nonce = randomBytes(24);
 const data = new TextEncoder().encode('hello noble');
@@ -132,8 +131,7 @@ For `decrypt`: first `nonceBytes` of ciphertext are treated as nonce.
 
 ```js
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js';
-import { managedNonce } from '@noble/ciphers/webcrypto.js';
-import { hexToBytes } from '@noble/ciphers/utils.js';
+import { hexToBytes, managedNonce } from '@noble/ciphers/utils.js';
 const key = hexToBytes('fa686bfdffd3758f6377abbc23bf3d9bdc1a0dda4a6e7f8dbdd579fa1ff6d7e1');
 const chacha = managedNonce(xchacha20poly1305)(key); // manages nonces for you
 const data = new TextEncoder().encode('hello noble');
@@ -145,7 +143,7 @@ const data_ = chacha.decrypt(ciphertext);
 
 ```js
 import { gcm, gcmsiv, ctr, cfb, cbc, ecb } from '@noble/ciphers/aes.js';
-import { randomBytes } from '@noble/ciphers/webcrypto.js';
+import { randomBytes } from '@noble/ciphers/utils.js';
 const plaintext = new Uint8Array(32).fill(16);
 for (let cipher of [gcm, gcmsiv]) {
   const key = randomBytes(32); // 24 for AES-192, 16 for AES-128
@@ -182,7 +180,7 @@ Noble implements AES. Sometimes people want to use built-in `crypto.subtle` inst
 > Webcrypto methods are always async.
 
 ```js
-import { gcm, ctr, cbc, randomBytes } from '@noble/ciphers/webcrypto.js';
+import { gcm, ctr, cbc, randomBytes } from '@noble/ciphers/utils.js';
 const plaintext = new Uint8Array(32).fill(16);
 const key = randomBytes(32);
 for (const cipher of [gcm]) {
@@ -208,7 +206,7 @@ between encryption and decryption calls.
 
 ```js
 import { chacha20poly1305 } from '@noble/ciphers/chacha.js';
-import { randomBytes } from '@noble/ciphers/webcrypto.js';
+import { randomBytes } from '@noble/ciphers/utils.js';
 
 const key = randomBytes(32);
 const nonce = randomBytes(12);
@@ -236,7 +234,7 @@ It's best to limit their usage to non-production, non-critical cases: for exampl
 ChaCha-based CSPRNG does not have a specification as per 2025, which makes it less secure.
 
 ```js
-import { randomBytes } from '@noble/ciphers/webcrypto.js';
+import { randomBytes } from '@noble/ciphers/utils.js';
 import { rngAesCtrDrbg256 } from '@noble/ciphers/aes.js';
 import { rngChacha8, rngChacha20 } from '@noble/ciphers/chacha.js';
 
@@ -257,7 +255,7 @@ Make sure to use salt (app-specific secret) in addition to password.
 
 ```js
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js';
-import { managedNonce } from '@noble/ciphers/webcrypto.js';
+import { managedNonce } from '@noble/ciphers/utils.js';
 import { scrypt } from '@noble/hashes/scrypt.js';
 
 // Convert password into 32-byte key using scrypt
