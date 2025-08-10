@@ -1,8 +1,8 @@
 import { describe, should } from 'micro-should';
 import { deepStrictEqual as eql } from 'node:assert';
 import { cbc, ctr, gcm } from '../src/aes.ts';
+import { managedNonce, randomBytes } from '../src/utils.ts';
 import * as web from '../src/webcrypto.ts';
-import { managedNonce, randomBytes } from '../src/webcrypto.ts';
 
 describe('Webcrypto', () => {
   const ciphers = {

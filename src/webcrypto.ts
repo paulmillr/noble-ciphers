@@ -3,84 +3,12 @@
  * We use WebCrypto aka globalThis.crypto, which exists in browsers and node.js 16+.
  * @module
  */
-import { abytes, anumber, type AsyncCipher, type Cipher, concatBytes } from './utils.ts';
+import { abytes, anumber, type AsyncCipher } from './utils.ts';
 
 function getWebcryptoSubtle(): any {
   const cr = typeof globalThis !== 'undefined' && (globalThis as any).crypto;
   if (cr && typeof cr.subtle === 'object' && cr.subtle != null) return cr.subtle;
   throw new Error('crypto.subtle must be defined');
-}
-
-/**
- * Cryptographically secure PRNG. Uses internal OS-level `crypto.getRandomValues`.
- * We use WebCrypto aka globalThis.crypto, which exists in browsers and node.js 16+.
- */
-export function randomBytes(bytesLength = 32): Uint8Array {
-  const cr = typeof globalThis != null && (globalThis as any).crypto;
-  if (!cr || typeof cr.getRandomValues !== 'function')
-    throw new Error('crypto.getRandomValues must be defined');
-  return cr.getRandomValues(new Uint8Array(bytesLength));
-}
-
-type RemoveNonceInner<T extends any[], Ret> = ((...args: T) => Ret) extends (
-  arg0: any,
-  arg1: any,
-  ...rest: infer R
-) => any
-  ? (key: Uint8Array, ...args: R) => Ret
-  : never;
-
-type RemoveNonce<T extends (...args: any) => any> = RemoveNonceInner<Parameters<T>, ReturnType<T>>;
-type CipherWithNonce = ((
-  key: Uint8Array,
-  nonce: Uint8Array,
-  ...args: any[]
-) => Cipher | AsyncCipher) & {
-  nonceLength: number;
-};
-
-/**
- * Uses CSPRG for nonce, nonce injected in ciphertext.
- * For `encrypt`, a `nonceBytes`-length buffer is fetched from CSPRNG and
- * prepended to encrypted ciphertext. For `decrypt`, first `nonceBytes` of ciphertext
- * are treated as nonce.
- *
- * NOTE: Under the same key, using random nonces (e.g. `managedNonce`) with AES-GCM and ChaCha
- * should be limited to `2**23` (8M) messages to get a collision chance of `2**-50`. Stretching to  * `2**32` (4B) messages, chance would become `2**-33` - still negligible, but creeping up.
- * @example
- * const gcm = managedNonce(aes.gcm);
- * const ciphr = gcm(key).encrypt(data);
- * const plain = gcm(key).decrypt(ciph);
- */
-export function managedNonce<T extends CipherWithNonce>(fn: T): RemoveNonce<T> {
-  const { nonceLength } = fn;
-  anumber(nonceLength);
-  const addNonce = (nonce: Uint8Array, ciphertext: Uint8Array) => {
-    const out = concatBytes(nonce, ciphertext);
-    ciphertext.fill(0);
-    return out;
-  };
-  // NOTE: we cannot support DST here, it would be mistake:
-  // - we don't know how much dst length cipher requires
-  // - nonce may unalign dst and break everything
-  // - we create new u8a anyway (concatBytes)
-  // - previously we passed all args to cipher, but that was mistake!
-  return ((key: Uint8Array, ...args: any[]): any => ({
-    encrypt(plaintext: Uint8Array) {
-      abytes(plaintext);
-      const nonce = randomBytes(nonceLength);
-      const encrypted = fn(key, nonce, ...args).encrypt(plaintext);
-      // @ts-ignore
-      if (encrypted instanceof Promise) return encrypted.then((ct) => addNonce(nonce, ct));
-      return addNonce(nonce, encrypted);
-    },
-    decrypt(ciphertext: Uint8Array) {
-      abytes(ciphertext);
-      const nonce = ciphertext.subarray(0, nonceLength);
-      const decrypted = ciphertext.subarray(nonceLength);
-      return fn(key, nonce, ...args).decrypt(decrypted);
-    },
-  })) as RemoveNonce<T>;
 }
 
 /**

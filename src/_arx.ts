@@ -45,9 +45,9 @@ import {
   checkOpts,
   clean,
   copyBytes,
+  randomBytes,
   u32,
 } from './utils.ts';
-import { randomBytes } from './webcrypto.ts';
 
 // Can't use similar utils.utf8ToBytes, because it uses `TextEncoder` - not available in all envs
 const _utf8ToBytes = (str: string) => Uint8Array.from(str.split('').map((c) => c.charCodeAt(0)));

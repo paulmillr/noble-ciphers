@@ -3,8 +3,7 @@ import { deepStrictEqual as eql } from 'node:assert';
 import { aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv } from '../src/aes.ts';
 import { chacha20poly1305, xchacha20poly1305 } from '../src/chacha.ts';
 import { xsalsa20poly1305 } from '../src/salsa.ts';
-import { bytesToHex } from '../src/utils.ts';
-import { managedNonce, randomBytes } from '../src/webcrypto.ts';
+import { bytesToHex, managedNonce, randomBytes } from '../src/utils.ts';
 
 const CIPHERS = {
   xsalsa20poly1305: {

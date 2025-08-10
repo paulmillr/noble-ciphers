@@ -11,6 +11,7 @@ import {
   xchacha20poly1305,
 } from '../../src/chacha.ts';
 import { salsa20, xsalsa20, xsalsa20poly1305 } from '../../src/salsa.ts';
+import { randomBytes } from '../../src/utils.ts';
 import * as aesw from '../../src/webcrypto.ts';
 import { buf } from './_utils.ts';
 
@@ -56,11 +57,11 @@ async function main() {
     console.log('# Random number generator');
     const rng8 = rngChacha8();
     const rng20 = rngChacha20();
-    const rngCtr = rngAesCtrDrbg128(aesw.randomBytes(32));
+    const rngCtr = rngAesCtrDrbg128(randomBytes(32));
 
     const len = buf.length;
     if (size !== '1MB') {
-      await mark('native getRandomValues', () => aesw.randomBytes(len));
+      await mark('native getRandomValues', () => randomBytes(len));
     }
     await mark('rngChacha8', () => rng8.randomBytes(len));
     await mark('rngChacha20', () => rng20.randomBytes(len));
