@@ -14,7 +14,7 @@ const VECTORS = [
     // key: fromHex('2B 7E 15 16 28 AE D2 A6 AB F7 15 88 09 CF 4F 3C'),
     key: fromHex('2B7E151628AED2A6ABF7158809CF4F3C'),
     radix: 10,
-    tweak: new Uint8Array([]),
+    tweak: Uint8Array.of(),
     PT: '0123456789',
     X: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
     CT: '2433477484',

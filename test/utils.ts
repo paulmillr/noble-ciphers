@@ -40,7 +40,7 @@ const TYPE_TEST_BASE = [
 
 const TYPE_TEST_OPT = [
   '',
-  new Uint8Array(),
+  Uint8Array.of(),
   new (class Test {})(),
   class Test {},
   () => {},
@@ -51,7 +51,7 @@ const TYPE_TEST_OPT = [
 ];
 
 const TYPE_TEST_NOT_BOOL = [false, true];
-const TYPE_TEST_NOT_BYTES = ['', 'test', '1', new Uint8Array([]), new Uint8Array([1, 2, 3])];
+const TYPE_TEST_NOT_BYTES = ['', 'test', '1', Uint8Array.of(), new Uint8Array([1, 2, 3])];
 const TYPE_TEST_NOT_STR = [
   ' 1 2 3 4 5',
   '010203040x',
@@ -136,7 +136,7 @@ const SPACE = {
 };
 const EMPTY = {
   str: '',
-  bytes: new Uint8Array([]),
+  bytes: Uint8Array.of(),
 };
 
 export {
