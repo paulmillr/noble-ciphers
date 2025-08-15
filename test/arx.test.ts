@@ -22,8 +22,8 @@ const stable_poly1305 = json('./vectors/stablelib_poly1305.json');
 const wycheproof_chacha20_poly1305 = json('./vectors/wycheproof/chacha20_poly1305_test.json');
 const wycheproof_xchacha20_poly1305 = json('./vectors/wycheproof/xchacha20_poly1305_test.json');
 // getKey for hsalsa/hchacha
-const sigma16 = utils.utf8ToBytes('expand 16-byte k');
-const sigma32 = utils.utf8ToBytes('expand 32-byte k');
+const sigma16 = new TextEncoder().encode('expand 16-byte k');
+const sigma32 = new TextEncoder().encode('expand 32-byte k');
 const sigma16_32 = utils.u32(sigma16);
 const sigma32_32 = utils.u32(sigma32);
 const { u32 } = utils;
