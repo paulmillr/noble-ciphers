@@ -9,28 +9,6 @@
     "*.d.ts",
     "*.d.ts.map"
   ],
-  "scripts": {
-    "bench": "node test/benchmark/noble.ts",
-    "bench:compare": "node test/benchmark/compare.ts",
-    "bench:install": "cd test/benchmark; npm install",
-    "build": "npm run build:clean; tsc",
-    "build:release": "npx --no @paulmillr/jsbt esbuild test/build",
-    "build:clean": "rm *.{js,d.ts,js.map,d.ts.map} 2> /dev/null",
-    "lint": "prettier --check 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
-    "format": "prettier --write 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
-    "test": "node --experimental-strip-types --no-warnings test/index.ts",
-    "test:bun": "bun test/index.ts",
-    "test:deno": "deno --allow-env --allow-read test/index.ts",
-    "test:node20": "cd test; npx tsc; node compiled/test/index.js",
-    "test:big": "node test/crosstest.test.js slow"
-  },
-  "author": "Paul Miller (https://paulmillr.com)",
-  "homepage": "https://paulmillr.com/noble/",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/paulmillr/noble-ciphers.git"
-  },
-  "license": "MIT",
   "devDependencies": {
     "@paulmillr/jsbt": "0.4.1",
     "@scure/base": "1.2.5",
@@ -41,13 +19,24 @@
     "prettier": "3.6.2",
     "typescript": "5.9.2"
   },
+  "scripts": {
+    "bench": "node test/benchmark/noble.ts",
+    "bench:compare": "node test/benchmark/compare.ts",
+    "bench:install": "cd test/benchmark; npm install",
+    "build": "tsc",
+    "build:release": "npx --no @paulmillr/jsbt esbuild test/build",
+    "build:clean": "rm *.{js,js.map,d.ts,d.ts.map} 2> /dev/null",
+    "lint": "prettier --check 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
+    "format": "prettier --write 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
+    "test": "node --experimental-strip-types --no-warnings test/index.ts",
+    "test:bun": "bun test/index.ts",
+    "test:deno": "deno --allow-env --allow-read test/index.ts",
+    "test:node20": "cd test; npx tsc; node compiled/test/index.js",
+    "test:big": "node test/crosstest.test.js slow"
+  },
   "engines": {
     "node": ">= 20.19.0"
   },
-  "type": "module",
-  "module": "index.js",
-  "main": "index.js",
-  "sideEffects": false,
   "keywords": [
     "salsa20",
     "chacha",
@@ -68,5 +57,17 @@
     "siv",
     "ff1"
   ],
-  "funding": "https://paulmillr.com/funding/"
+  "homepage": "https://paulmillr.com/noble/",
+  "funding": "https://paulmillr.com/funding/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/paulmillr/noble-ciphers.git"
+  },
+  "type": "module",
+  "main": "index.js",
+  "module": "index.js",
+  "types": "index.d.ts",
+  "sideEffects": false,
+  "author": "Paul Miller (https://paulmillr.com)",
+  "license": "MIT"
 }
