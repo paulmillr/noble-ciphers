@@ -406,13 +406,10 @@ export function copyBytes(bytes: Uint8Array): Uint8Array {
   return Uint8Array.from(bytes);
 }
 
-/**
- * Cryptographically secure PRNG. Uses internal OS-level `crypto.getRandomValues`.
- * We use WebCrypto aka globalThis.crypto, which exists in browsers and node.js 16+.
- */
+/** Cryptographically secure PRNG. Uses internal OS-level `crypto.getRandomValues`. */
 export function randomBytes(bytesLength = 32): Uint8Array {
-  const cr = typeof globalThis != null && (globalThis as any).crypto;
-  if (!cr || typeof cr.getRandomValues !== 'function')
+  const cr = typeof globalThis === 'object' ? (globalThis as any).crypto : null;
+  if (typeof cr?.getRandomValues !== 'function')
     throw new Error('crypto.getRandomValues must be defined');
   return cr.getRandomValues(new Uint8Array(bytesLength));
 }

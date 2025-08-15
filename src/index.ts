@@ -16,8 +16,7 @@ import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha.js
 import { aeskw, aeskwp } from '@noble/ciphers/aes.js';
 
 // Utilities
-import { bytesToHex, hexToBytes, bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils.js';
-import { managedNonce, randomBytes } from '@noble/ciphers/webcrypto.js';
+import { managedNonce, randomBytes, bytesToHex, hexToBytes } from '@noble/ciphers/utils.js';
 import { poly1305 } from '@noble/ciphers/_poly1305.js';
 import { ghash, polyval } from '@noble/ciphers/_polyval.js';
 ```

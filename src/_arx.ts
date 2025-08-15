@@ -49,10 +49,10 @@ import {
   u32,
 } from './utils.ts';
 
-// Can't use similar utils.utf8ToBytes, because it uses `TextEncoder` - not available in all envs
-const _utf8ToBytes = (str: string) => Uint8Array.from(str.split('').map((c) => c.charCodeAt(0)));
-const sigma16 = _utf8ToBytes('expand 16-byte k');
-const sigma32 = _utf8ToBytes('expand 32-byte k');
+// Replaces `TextEncoder`, which is not available in all environments
+const encodeStr = (str: string) => Uint8Array.from(str.split(''), (c) => c.charCodeAt(0));
+const sigma16 = encodeStr('expand 16-byte k');
+const sigma32 = encodeStr('expand 32-byte k');
 const sigma16_32 = u32(sigma16);
 const sigma32_32 = u32(sigma32);
 
