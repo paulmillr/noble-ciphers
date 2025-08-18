@@ -1,4 +1,4 @@
-import { describe, should } from 'micro-should';
+import { describe, should } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual as eql, throws } from 'node:assert';
 import { BinaryFF1, FF1 } from '../src/ff1.ts';
 import { hexToBytes, json } from './utils.ts';

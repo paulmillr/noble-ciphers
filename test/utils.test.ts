@@ -1,15 +1,15 @@
+import { describe, should } from '@paulmillr/jsbt/test.js';
 import fc from 'fast-check';
-import { describe, should } from 'micro-should';
 import { deepStrictEqual as eql, throws } from 'node:assert';
 import * as u from '../src/utils.ts';
 import {
-  bytesToHex,
-  bytesToUtf8,
-  concatBytes,
-  getOutput,
-  hexToBytes,
-  overlapBytes,
-  u64Lengths,
+    bytesToHex,
+    bytesToUtf8,
+    concatBytes,
+    getOutput,
+    hexToBytes,
+    overlapBytes,
+    u64Lengths,
 } from '../src/utils.ts';
 import { TYPE_TEST, unalign } from './utils.ts';
 

@@ -1,4 +1,4 @@
-import mark from 'micro-bmark';
+import mark from '@paulmillr/jsbt/bench.js';
 import { cbc, ctr, ecb, gcm, gcmsiv, rngAesCtrDrbg128 } from '../../src/aes.ts';
 import {
   chacha12,

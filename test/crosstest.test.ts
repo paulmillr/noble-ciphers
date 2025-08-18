@@ -1,4 +1,4 @@
-import { describe, should } from 'micro-should';
+import { describe, should } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual as eql } from 'node:assert';
 import { createCipheriv, createDecipheriv, getCiphers } from 'node:crypto';
 import * as aes from '../src/aes.ts';

@@ -1,4 +1,4 @@
-import { describe, should } from 'micro-should';
+import { describe, should } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual as eql } from 'node:assert';
 import { _toGHASHKey, ghash, polyval } from '../src/_polyval.ts';
 import * as utils from '../src/utils.ts';

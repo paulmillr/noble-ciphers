@@ -1,4 +1,4 @@
-import { describe, should } from 'micro-should';
+import { describe, should } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual as eql } from 'node:assert';
 import { cbc, ctr, gcm } from '../src/aes.ts';
 import { managedNonce, randomBytes } from '../src/utils.ts';
