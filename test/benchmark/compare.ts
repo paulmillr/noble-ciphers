@@ -2,13 +2,13 @@ import {
   ChaCha20Poly1305 as ChsfChachaPoly,
   newInstance as chainsafe_init_wasm,
 } from '@chainsafe/as-chacha20poly1305';
+import compare from '@paulmillr/jsbt/bench-compare.js';
 import { AES as STABLE_AES } from '@stablelib/aes';
 import { ChaCha20Poly1305 as StableChachaPoly } from '@stablelib/chacha20poly1305';
 import { CTR as STABLE_CTR } from '@stablelib/ctr';
 import { GCM as STABLE_GCM } from '@stablelib/gcm';
 import { XChaCha20Poly1305 as StableXchachaPoly } from '@stablelib/xchacha20poly1305';
 import { default as aesjs } from 'aes-js';
-import compareMatrix from 'micro-bmark/compare.js';
 import { createCipheriv, createDecipheriv } from 'node:crypto';
 import { default as tweetnacl } from 'tweetnacl'; // secretbox = xsalsa20-poly1305.
 import * as aes from '../../src/aes.ts';
@@ -577,7 +577,7 @@ export async function main() {
   }
   console.log('Libraries cross-validated against each other correctly');
 
-  await compareMatrix('Ciphers', { buffer: BUFFERS }, CIPHERS, {
+  await compare('Ciphers', { buffer: BUFFERS }, CIPHERS, {
     // type: Basic/Same/AEAD
     // 'Algorithm', Padding, keySize, direction (encrypt/decrypt)
     libDims: ['type', 'algorithm', 'padding', 'key size', 'library', 'direction'],
