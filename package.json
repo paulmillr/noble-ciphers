@@ -10,7 +10,7 @@
     "*.d.ts.map"
   ],
   "devDependencies": {
-    "@paulmillr/jsbt": "0.4.3",
+    "@paulmillr/jsbt": "0.4.4",
     "@scure/base": "1.2.5",
     "@types/node": "24.2.1",
     "fast-check": "4.2.0",
@@ -19,8 +19,7 @@
   },
   "scripts": {
     "bench": "node test/benchmark/noble.ts",
-    "bench:compare": "node test/benchmark/compare.ts",
-    "bench:install": "cd test/benchmark; npm install",
+    "bench:compare": "cd test/benchmark; npm install; node compare.ts",
     "build": "tsc",
     "build:release": "npx --no @paulmillr/jsbt esbuild test/build",
     "build:clean": "rm *.{js,js.map,d.ts,d.ts.map} 2> /dev/null",

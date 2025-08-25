@@ -574,10 +574,7 @@ Supported node.js versions:
 
 Changelog of v2, when upgrading from ciphers v1:
 
-- Bump minimum node.js version from v14 to v20.19
 - Bump compilation target from es2020 to es2022
-- Make package ESM-only
-    - node.js v20.19+ allows loading ESM modules from common.js
 - Rename / remove some modules for consistency
     - `_micro`: got merged into corresponding chacha.js, salsa.js for auditability
     - `_assert`: moved into `utils.js`
@@ -589,11 +586,8 @@ Changelog of v2, when upgrading from ciphers v1:
 
 - `npm install && npm run build && npm test` will build the code and run tests.
 - `npm run lint` / `npm run format` will run linter / fix linter issues.
-- `npm run bench` will run benchmarks, which may need their deps first (`npm run bench:install`)
+- `npm run bench` will run benchmarks
 - `npm run build:release` will build single file
-
-Check out [github.com/paulmillr/guidelines](https://github.com/paulmillr/guidelines)
-for general coding practices and rules.
 
 See [paulmillr.com/noble](https://paulmillr.com/noble/)
 for useful resources, articles, documentation and demos
