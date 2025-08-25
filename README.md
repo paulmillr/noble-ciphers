@@ -574,13 +574,17 @@ Supported node.js versions:
 
 Changelog of v2, when upgrading from ciphers v1:
 
-- Bump compilation target from es2020 to es2022
-- Rename / remove some modules for consistency
-    - `_micro`: got merged into corresponding chacha.js, salsa.js for auditability
-    - `_assert`: moved into `utils.js`
-    - `crypto` internal module got removed: use built-in WebCrypto instead
+- The package is now ESM-only. ESM can finally be loaded from common.js on node v20.19+
+- `.js` extension must be used for all modules
+    - Old: `@noble/ciphers/aes`
+    - New: `@noble/ciphers/aes.js`
+    - This simplifies working in browsers natively without transpilers
+- webcrypto: move `randomBytes` and `managedNonce` to `utils.js`
 - ghash, poly1305, polyval: only allow Uint8Array as hash inputs, prohibit `string`
-- utils: remove ahash, toBytes
+- utils: new abytes; remove ahash, toBytes
+- Remove modules `_assert` (use `utils`), `_micro` and `crypto` (use `webcrypto`)
+- Bump TS compilation target from es2020 to es2022
+- Massively improve error messages, make them more descriptive
 
 ## Contributing & testing
 
