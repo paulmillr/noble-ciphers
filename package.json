@@ -30,6 +30,18 @@
     "test:node20": "cd test; npx tsc; node compiled/test/index.js",
     "test:big": "node test/crosstest.test.js slow"
   },
+  "exports": {
+    ".": "./index.js",
+    "./_arx.js": "./_arx.js",
+    "./_poly1305.js": "./_poly1305.js",
+    "./_polyval.js": "./_polyval.js",
+    "./aes.js": "./aes.js",
+    "./chacha.js": "./chacha.js",
+    "./ff1.js": "./ff1.js",
+    "./salsa.js": "./salsa.js",
+    "./utils.js": "./utils.js",
+    "./webcrypto.js": "./webcrypto.js"
+  },
   "engines": {
     "node": ">= 20.19.0"
   },
