@@ -21,6 +21,7 @@
 import {
   abytes, aexists, aoutput, bytesToHex,
   clean, concatBytes, copyBytes, hexToNumber, numberToBytesBE,
+  type Bytes,
   type IHash2
 } from './utils.ts';
 
@@ -328,7 +329,7 @@ export class Poly1305 implements IHash2 {
     }
     return out;
   }
-  digest(): Uint8Array {
+  digest(): Bytes {
     const { buffer, outputLen } = this;
     this.digestInto(buffer);
     const res = buffer.slice(0, outputLen);

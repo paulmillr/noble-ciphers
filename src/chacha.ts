@@ -18,6 +18,7 @@ import { type XorPRG, createCipher, createPRG, rotl } from './_arx.ts';
 import { poly1305 } from './_poly1305.ts';
 import {
   type ARXCipher,
+  type Bytes,
   type CipherWithOutput,
   type XorStream,
   abytes,
@@ -305,7 +306,7 @@ export const _poly1305_aead =
   (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): CipherWithOutput => {
     const tagLength = 16;
     return {
-      encrypt(plaintext: Uint8Array, output?: Uint8Array) {
+      encrypt(plaintext: Uint8Array, output?: Bytes) {
         const plength = plaintext.length;
         output = getOutput(plength + tagLength, output, false);
         output.set(plaintext);
@@ -317,7 +318,7 @@ export const _poly1305_aead =
         clean(tag);
         return output;
       },
-      decrypt(ciphertext: Uint8Array, output?: Uint8Array) {
+      decrypt(ciphertext: Uint8Array, output?: Bytes) {
         output = getOutput(ciphertext.length - tagLength, output, false);
         const data = ciphertext.subarray(0, -tagLength);
         const passedTag = ciphertext.subarray(-tagLength);

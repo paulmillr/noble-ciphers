@@ -4,7 +4,7 @@
  * @module
  */
 import { unsafe } from './aes.ts';
-import { type Cipher, abytes, anumber, bytesToNumberBE, clean, numberToBytesBE } from './utils.ts';
+import { type Bytes, type Cipher, abytes, anumber, bytesToNumberBE, clean, numberToBytesBE } from './utils.ts';
 
 // NOTE: no point in inlining encrypt instead of encryptBlock, since BigInt stuff will be slow
 const { expandKeyLE, encryptBlock } = unsafe;
@@ -141,7 +141,7 @@ const binLE = {
     }
     return x;
   },
-  decode(b: number[]): Uint8Array {
+  decode(b: number[]): Bytes {
     if (!Array.isArray(b) || b.length % 8) throw new Error('Invalid binary string');
     const res = new Uint8Array(b.length / 8);
     for (let i = 0, j = 0; i < res.length; i++) {

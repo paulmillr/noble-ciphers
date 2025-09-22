@@ -20,6 +20,7 @@ import {
   copyBytes,
   createView,
   u32,
+  type Bytes,
   type IHash2,
 } from './utils.ts';
 
@@ -186,7 +187,7 @@ export class GHASH implements IHash2 {
     o32[3] = s3;
     return out;
   }
-  digest(): Uint8Array {
+  digest(): Bytes {
     const res = new Uint8Array(BLOCK_SIZE);
     this.digestInto(res);
     this.destroy();

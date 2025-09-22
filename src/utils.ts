@@ -49,11 +49,17 @@ export function aoutput(out: any, instance: any): void {
 }
 
 export type IHash = {
-  (data: string | Uint8Array): Uint8Array;
+  (data: Uint8Array): Bytes;
   blockLen: number;
   outputLen: number;
   create: any;
 };
+
+/**
+ * Unified, backwards-compatible ArrayBuffer-based Uint8Array.
+ * In ts5.5: `Uint8Array`; in ts5.9: `Uint8Array<ArrayBuffer>`.
+ */
+export type Bytes = ReturnType<typeof Uint8Array.from>;
 
 /** Generic type encompassing 8/16/32-byte arrays - but not 64-byte. */
 // prettier-ignore
@@ -248,10 +254,10 @@ export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
 export interface IHash2 {
   blockLen: number; // Bytes per block
   outputLen: number; // Bytes in output
-  update(buf: string | Uint8Array): this;
+  update(buf: Uint8Array): this;
   // Writes digest into buf
   digestInto(buf: Uint8Array): void;
-  digest(): Uint8Array;
+  digest(): Bytes;
   /**
    * Resets internal state. Makes Hash instance unusable.
    * Reset is impossible for keyed hashes if key is consumed into state. If digest is not consumed
@@ -265,20 +271,20 @@ export interface IHash2 {
 
 /** Sync cipher: takes byte array and returns byte array. */
 export type Cipher = {
-  encrypt(plaintext: Uint8Array): Uint8Array;
-  decrypt(ciphertext: Uint8Array): Uint8Array;
+  encrypt(plaintext: Uint8Array): Bytes;
+  decrypt(ciphertext: Uint8Array): Bytes;
 };
 
 /** Async cipher e.g. from built-in WebCrypto. */
 export type AsyncCipher = {
-  encrypt(plaintext: Uint8Array): Promise<Uint8Array>;
-  decrypt(ciphertext: Uint8Array): Promise<Uint8Array>;
+  encrypt(plaintext: Uint8Array): Promise<Bytes>;
+  decrypt(ciphertext: Uint8Array): Promise<Bytes>;
 };
 
 /** Cipher with `output` argument which can optimize by doing 1 less allocation. */
 export type CipherWithOutput = Cipher & {
-  encrypt(plaintext: Uint8Array, output?: Uint8Array): Uint8Array;
-  decrypt(ciphertext: Uint8Array, output?: Uint8Array): Uint8Array;
+  encrypt(plaintext: Uint8Array, output?: Uint8Array): Bytes;
+  decrypt(ciphertext: Uint8Array, output?: Uint8Array): Bytes;
 };
 
 /**
@@ -375,9 +381,9 @@ export type XorStream = (
  */
 export function getOutput(
   expectedLength: number,
-  out?: Uint8Array,
+  out?: Bytes,
   onlyAligned = true
-): Uint8Array {
+): Bytes {
   if (out === undefined) return new Uint8Array(expectedLength);
   if (out.length !== expectedLength)
     throw new Error(
@@ -422,7 +428,7 @@ export function randomBytes(bytesLength = 32): Uint8Array {
  */
 export interface PRG {
   addEntropy(seed: Uint8Array): void;
-  randomBytes(length: number): Uint8Array;
+  randomBytes(length: number): Bytes;
   clean(): void;
 }
 

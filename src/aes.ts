@@ -23,6 +23,7 @@ import {
   abytes, anumber, clean, complexOverlapBytes, concatBytes,
   copyBytes, createView, equalBytes, getOutput, isAligned32, overlapBytes,
   u32, u64Lengths, u8, wrapCipher,
+  type Bytes,
   type Cipher, type CipherWithOutput, type PRG
 } from './utils.ts';
 
@@ -261,8 +262,8 @@ function ctrCounter(
   xk: Uint32Array,
   nonce: Uint8Array,
   src: Uint8Array,
-  dst?: Uint8Array
-): Uint8Array {
+  dst?: Bytes
+): Bytes {
   abytes(nonce, BLOCK_SIZE, 'nonce');
   abytes(src);
   const srcLen = src.length;
@@ -303,8 +304,8 @@ function ctr32(
   isLE: boolean,
   nonce: Uint8Array,
   src: Uint8Array,
-  dst?: Uint8Array
-): Uint8Array {
+  dst?: Bytes
+): Bytes {
   abytes(nonce, BLOCK_SIZE, 'nonce');
   abytes(src);
   dst = getOutput(src.length, dst);
@@ -379,7 +380,7 @@ function validateBlockDecrypt(data: Uint8Array) {
   }
 }
 
-function validateBlockEncrypt(plaintext: Uint8Array, pcks5: boolean, dst?: Uint8Array) {
+function validateBlockEncrypt(plaintext: Uint8Array, pcks5: boolean, dst?: Bytes) {
   abytes(plaintext);
   let outLen = plaintext.length;
   const remaining = outLen % BLOCK_SIZE;

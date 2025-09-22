@@ -3,7 +3,7 @@
  * We use WebCrypto aka globalThis.crypto, which exists in browsers and node.js 16+.
  * @module
  */
-import { abytes, anumber, type AsyncCipher } from './utils.ts';
+import { abytes, anumber, type AsyncCipher, type Bytes } from './utils.ts';
 
 function getWebcryptoSubtle(): any {
   const cr = typeof globalThis !== 'undefined' && (globalThis as any).crypto;
@@ -16,15 +16,15 @@ function getWebcryptoSubtle(): any {
  * for example in React Native.
  */
 export const utils: {
-  encrypt: (key: Uint8Array, ...all: any[]) => Promise<Uint8Array>;
-  decrypt: (key: Uint8Array, ...all: any[]) => Promise<Uint8Array>;
+  encrypt: (key: Uint8Array, ...all: any[]) => Promise<Bytes>;
+  decrypt: (key: Uint8Array, ...all: any[]) => Promise<Bytes>;
 } = {
   async encrypt(
     key: Uint8Array,
     keyParams: any,
     cryptParams: any,
     plaintext: Uint8Array
-  ): Promise<Uint8Array> {
+  ): Promise<Bytes> {
     const cr = getWebcryptoSubtle();
     const iKey = await cr.importKey('raw', key, keyParams, true, ['encrypt']);
     const ciphertext = await cr.encrypt(cryptParams, iKey, plaintext);
@@ -35,7 +35,7 @@ export const utils: {
     keyParams: any,
     cryptParams: any,
     ciphertext: Uint8Array
-  ): Promise<Uint8Array> {
+  ): Promise<Bytes> {
     const cr = getWebcryptoSubtle();
     const iKey = await cr.importKey('raw', key, keyParams, true, ['decrypt']);
     const plaintext = await cr.decrypt(cryptParams, iKey, ciphertext);

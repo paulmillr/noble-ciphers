@@ -37,6 +37,7 @@ xchacha [^2] uses the subkey and remaining 8 byte nonce with ChaCha20 as normal
  * @module
  */
 import {
+  type Bytes,
   type PRG,
   type XorStream,
   abool,
@@ -275,7 +276,7 @@ export class _XorStreamPRG implements PRG {
     this.state.set(this.randomBytes(this.state.length));
     this.reseed(seed);
   }
-  randomBytes(len: number): Uint8Array {
+  randomBytes(len: number): Bytes {
     anumber(len);
     if (len === 0) return new Uint8Array(0);
     const out = new Uint8Array(len);

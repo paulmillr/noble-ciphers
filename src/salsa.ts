@@ -19,6 +19,7 @@ import { poly1305 } from './_poly1305.ts';
 import {
   abytes,
   type ARXCipher,
+  type Bytes,
   type CipherWithOutput,
   clean,
   equalBytes,
@@ -202,7 +203,7 @@ export const xsalsa20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
   (key: Uint8Array, nonce: Uint8Array): CipherWithOutput => {
     return {
-      encrypt(plaintext: Uint8Array, output?: Uint8Array) {
+      encrypt(plaintext: Uint8Array, output?: Bytes): Bytes {
         // xsalsa20poly1305 optimizes by calculating auth key during the same call as encryption.
         // Unfortunately, makes it hard to separate tag calculation & encryption itself,
         // because 32 bytes is half-block of 64-byte salsa.
@@ -217,7 +218,7 @@ export const xsalsa20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
         clean(output.subarray(0, 16), tag); // clean-up authKey remnants & copy of tag
         return output.subarray(16); // return output[16..]
       },
-      decrypt(ciphertext: Uint8Array, output?: Uint8Array) {
+      decrypt(ciphertext: Uint8Array, output?: Bytes): Bytes {
         // tmp part     passed tag    ciphertext
         // [0..32]      [32..48]      [48..]
         abytes(ciphertext);
