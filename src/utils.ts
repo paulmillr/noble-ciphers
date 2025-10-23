@@ -492,3 +492,6 @@ export function managedNonce<T extends CipherWithNonce>(
     },
   })) as RemoveNonce<T>;
 }
+
+// workaround for TS 5.9 language mess:
+export type Uint8ArrayBuffer = ReturnType<typeof Uint8Array.of>;

@@ -23,7 +23,7 @@ import {
   abytes, anumber, clean, complexOverlapBytes, concatBytes,
   copyBytes, createView, equalBytes, getOutput, isAligned32, overlapBytes,
   u32, u64Lengths, u8, wrapCipher,
-  type Cipher, type CipherWithOutput, type PRG
+  type Cipher, type CipherWithOutput, type PRG, type Uint8ArrayBuffer
 } from './utils.ts';
 
 const BLOCK_SIZE = 16;
@@ -1114,8 +1114,6 @@ function dbl(block: Uint8Array): Uint8ArrayBuffer {
   return result;
 }
 
-type Uint8ArrayBuffer = ReturnType<typeof Uint8Array.of>;
-
 function xorBlock(a: Uint8Array, b: Uint8Array): Uint8ArrayBuffer {
   if (a.length !== b.length) throw new Error('xorBlock: blocks must have same length');
   const result = new Uint8Array(a.length);
@@ -1272,6 +1270,99 @@ export const cmac = {
 };
 //#endregion
 
+//#region SIV (Synthetic Initialization Vector)
+
+/**
+ * xorend as defined in [RFC 5297 Section 2.1](https://datatracker.ietf.org/doc/html/rfc5297.html#section-2.1).
+ * 
+ * ```
+ * leftmost(A, len(A)-len(B)) || (rightmost(A, len(B)) xor B)
+ * ```
+ */
+function xorend(a: Uint8Array, b: Uint8Array): Uint8ArrayBuffer {
+  // leftmost(A, len(A)-len(B)) || rightmost(A, len(B)):
+  const leftmost = a.subarray(0, a.length - b.length);
+  const rightmost = a.subarray(-b.length);
+  // T = Sn xorend D
+  return concatBytes(leftmost, xorBlock(rightmost, b)).slice();
+}
+
+/**
+ * S2V (Synthetic Initialization Vector) function as described in [RFC 5297 Section 2.4](https://datatracker.ietf.org/doc/html/rfc5297.html#section-2.4).
+ * 
+ * ```
+ * S2V(K, S1, ..., Sn) {
+ *   if n = 0 then
+ *     return V = AES-CMAC(K, <one>)
+ *   fi
+ *   D = AES-CMAC(K, <zero>)
+ *   for i = 1 to n-1 do
+ *     D = dbl(D) xor AES-CMAC(K, Si)
+ *   done
+ *   if len(Sn) >= 128 then
+ *     T = Sn xorend D
+ *   else
+ *     T = dbl(D) xor pad(Sn)
+ *   fi
+ *   return V = AES-CMAC(K, T)
+ * }
+ * ```
+ * 
+ * S2V takes a key and a vector of strings S1, S2, ..., Sn and returns a 128-bit string.
+ * The S2V function is used to generate a synthetic IV for AES-SIV.
+ * 
+ * @param key - AES key (128, 192, or 256 bits)
+ * @param strings - Array of byte arrays to process
+ * @returns 128-bit synthetic IV
+ */
+function s2v(key: Uint8Array, strings: Uint8Array[]): Uint8ArrayBuffer {
+  validateKeyLength(key);
+  
+  if (strings.length === 0) {
+    const one = new Uint8Array(BLOCK_SIZE);
+    one[BLOCK_SIZE - 1] = 0x01;
+    return cmac.tag(key, one);
+  }
+  
+  // D = AES-CMAC(K, <zero>)
+  let d = cmac.tag(key, EMPTY_BLOCK);
+  
+  // for i = 1 to n-1 do
+  //   D = dbl(D) xor AES-CMAC(K, Si)
+  for (let i = 0; i < strings.length - 1; i++) {
+    d = dbl(d);
+    const cmacResult = cmac.tag(key, strings[i]);
+    d = xorBlock(d, cmacResult);
+    clean(cmacResult);
+  }
+  
+  const s_n = strings[strings.length - 1];
+  let t: Uint8Array;
+  
+  // if len(Sn) >= 128 then
+  if (s_n.byteLength >= BLOCK_SIZE) {
+    // T = Sn xorend D
+    t = xorend(s_n, d);
+  } else {
+    // pad(Sn):
+    const paddedSn = new Uint8Array(BLOCK_SIZE);
+    paddedSn.set(s_n);
+    paddedSn[s_n.length] = 0x80; // padding: 0x80 followed by zeros
+
+    // T = dbl(D) xor pad(Sn)
+    t = xorBlock(dbl(d), paddedSn);
+  }
+  
+  // V = AES-CMAC(K, T)
+  const result = cmac.tag(key, t);
+  
+  clean(d);
+  clean(t);
+  
+  return result;
+}
+//#endregion
+
 /** Unsafe low-level internal methods. May change at any time. */
 export const unsafe: {
   expandKeyLE: typeof expandKeyLE;
@@ -1284,6 +1375,8 @@ export const unsafe: {
   ctr32: typeof ctr32;
   dbl: typeof dbl;
   xorBlock: typeof xorBlock;
+  xorend: typeof xorend;
+  s2v: typeof s2v;
 } = {
   expandKeyLE,
   expandKeyDecLE,
@@ -1295,4 +1388,6 @@ export const unsafe: {
   ctr32,
   dbl,
   xorBlock,
+  xorend,
+  s2v,
 };
