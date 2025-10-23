@@ -1082,6 +1082,195 @@ export const rngAesCtrDrbg128: AesCtrDrbg = /* @__PURE__ */ createAesDrbg(128);
  */
 export const rngAesCtrDrbg256: AesCtrDrbg = /* @__PURE__ */ createAesDrbg(256);
 
+//#region CMAC
+
+function leftShift(block: Uint8Array): Uint8Array {
+  const result = new Uint8Array(block.length);
+  let carry = 0;
+  for (let i = block.length - 1; i >= 0; i--) {
+    const shifted = (block[i] << 1) | carry;
+    result[i] = shifted & 0xff;
+    carry = shifted >>> 8;
+  }
+  return result;
+}
+
+type foo = ReturnType<typeof Uint8Array.of>;
+
+function xorBlock(a: Uint8Array, b: Uint8Array): foo {
+  if (a.length !== b.length) throw new Error('xorBlock: blocks must have same length');
+  const result = new Uint8Array(a.length);
+  for (let i = 0; i < a.length; i++) {
+    result[i] = a[i] ^ b[i];
+  }
+  return result;
+}
+
+/**
+ * AES-CMAC (Cipher-based Message Authentication Code).
+ * Specs: [RFC 4493](https://www.rfc-editor.org/rfc/rfc4493.html).
+ */
+export const cmac = {
+
+  /**
+   * Generate subkeys K1 and K2 from the main key according to [RFC 4493, Section 2.3](https://www.rfc-editor.org/rfc/rfc4493.html#section-2.3)
+   */
+  generateSubkeys(key: Uint8Array): { k1: Uint8Array; k2: Uint8Array } {
+    abytes(key);
+    validateKeyLength(key);
+    
+    const xk = expandKeyLE(key);
+    const L = new Uint8Array(BLOCK_SIZE);
+    
+    // L = AES_encrypt(K, const_Zero)
+    encryptBlock(xk, L);
+    
+    // K1
+    let k1: Uint8Array;
+    if ((L[0] & 0x80) === 0) { // if MSB(L) is equal to 0
+      // then    K1 := L << 1;
+      k1 = leftShift(L); 
+    } else {
+      // else    K1 := (L << 1) XOR const_Rb;  
+      k1 = leftShift(L);
+      k1[BLOCK_SIZE - 1] ^= 0x87; // const_Rb for AES (128-bit block)
+    }
+    
+    // K2
+    let k2: Uint8Array;
+    if ((k1[0] & 0x80) === 0) { // if MSB(K1) is equal to 0
+      // then    K2 := K1 << 1;
+      k2 = leftShift(k1);
+    } else {
+      // else    K2 := (K1 << 1) XOR const_Rb;
+      k2 = leftShift(k1);
+      k2[BLOCK_SIZE - 1] ^= 0x87; // const_Rb for AES (128-bit block)
+    }
+    
+    clean(xk, L);
+    return { k1, k2 };
+  },
+
+  /**
+   * Compute CMAC tag for a message
+   */
+  create(key: Uint8Array): {
+    update(data: Uint8Array): void;
+    digest(): Uint8Array;
+    destroy(): void;
+  } {
+    abytes(key);
+    validateKeyLength(key);
+    
+    const xk = expandKeyLE(key);
+    const { k1, k2 } = cmac.generateSubkeys(key);
+    let buffer = new Uint8Array(0);
+    let destroyed = false;
+    
+    const toClean: (Uint8Array | Uint32Array)[] = [xk, k1, k2];
+    
+    return {
+      update(data: Uint8Array) {
+        if (destroyed) throw new Error('CMAC instance was destroyed');
+        abytes(data);
+        const newBuffer = new Uint8Array(buffer.length + data.length);
+        newBuffer.set(buffer);
+        newBuffer.set(data, buffer.length);
+        if (buffer.length > 0) toClean.push(buffer);
+        buffer = newBuffer;
+      },
+      
+      // see https://www.rfc-editor.org/rfc/rfc4493.html#section-2.4
+      digest(): Uint8Array {
+        if (destroyed) throw new Error('CMAC instance was destroyed');
+        
+        const msgLen = buffer.length;
+
+        // Step 2:
+        let n = Math.ceil(msgLen / BLOCK_SIZE); // n := ceil(len/const_Bsize); 
+
+        // Step 3:
+        let flag: boolean; // denoting if last block is complete or not
+        if (n === 0) {
+          n = 1;
+          flag = false;
+        } else {
+          flag = (msgLen % BLOCK_SIZE) === 0; // if len mod const_Bsize is 0
+        }
+
+        // Step 4:
+        const lastBlockStart = (n - 1) * BLOCK_SIZE;
+        const lastBlockData = buffer.subarray(lastBlockStart);
+        let m_last: Uint8Array;
+        if (flag) {
+          // M_last := M_n XOR K1;
+          m_last = xorBlock(lastBlockData, k1);
+        } else {
+          // M_last := padding(M_n) XOR K2;
+          //
+          // [...] padding(x) is the concatenation of x and a single '1',
+          // followed by the minimum number of '0's, so that the total length is
+          // equal to 128 bits.
+          const padded = new Uint8Array(BLOCK_SIZE);
+          padded.set(lastBlockData);
+          padded[lastBlockData.length] = 0x80; // single '1' bit
+          m_last = xorBlock(padded, k2);
+        }
+
+        // Step 5:
+        let x = new Uint8Array(BLOCK_SIZE); // X := const_Zero;
+        let y = new Uint8Array(BLOCK_SIZE);
+
+        // Step 6:
+        for (let i = 0; i < n - 1; i++) {
+          const m_i = buffer.subarray(i * BLOCK_SIZE, (i + 1) * BLOCK_SIZE); // M_i
+          y = xorBlock(x, m_i); // Y := X XOR M_i;
+          x = encryptBlock(xk, y).slice(); // X := AES-128(K,Y);
+        }
+
+        // Step 7:
+        y = xorBlock(m_last, x); // Y := M_last XOR X;
+        const t = encryptBlock(xk, y).slice(); // T := AES-128(K,Y);
+
+        // cleanup:
+        clean(m_last, y);
+
+        return t;
+      },
+      
+      destroy() {
+        if (destroyed) return;
+        destroyed = true;
+        if (buffer.length > 0) toClean.push(buffer);
+        clean(...toClean);
+      }
+    };
+  },
+
+  /**
+   * One-shot CMAC computation
+   */
+  tag(key: Uint8Array, message: Uint8Array): Uint8Array {
+    const cmacInstance = cmac.create(key);
+    cmacInstance.update(message);
+    const result = cmacInstance.digest();
+    cmacInstance.destroy();
+    return result;
+  },
+
+  /**
+   * Verify CMAC tag
+   */
+  verify(key: Uint8Array, message: Uint8Array, tag: Uint8Array): boolean {
+    abytes(tag, BLOCK_SIZE, 'tag');
+    const computedTag = cmac.tag(key, message);
+    const result = equalBytes(computedTag, tag);
+    clean(computedTag);
+    return result;
+  }
+};
+//#endregion
+
 /** Unsafe low-level internal methods. May change at any time. */
 export const unsafe: {
   expandKeyLE: typeof expandKeyLE;
@@ -1092,6 +1281,8 @@ export const unsafe: {
   decryptBlock: typeof decryptBlock;
   ctrCounter: typeof ctrCounter;
   ctr32: typeof ctr32;
+  leftShift: typeof leftShift;
+  xorBlock: typeof xorBlock;
 } = {
   expandKeyLE,
   expandKeyDecLE,
@@ -1101,4 +1292,6 @@ export const unsafe: {
   decryptBlock,
   ctrCounter,
   ctr32,
+  leftShift,
+  xorBlock,
 };
