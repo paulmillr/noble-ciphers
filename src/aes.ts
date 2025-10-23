@@ -1280,6 +1280,9 @@ export const cmac = {
  * ```
  */
 function xorend(a: Uint8Array, b: Uint8Array): Uint8ArrayBuffer {
+  if (b.length > a.length) {
+    throw new Error('xorend: len(B) must be less than or equal to len(A)');
+  }
   // leftmost(A, len(A)-len(B)) || rightmost(A, len(B)):
   const leftmost = a.subarray(0, a.length - b.length);
   const rightmost = a.subarray(-b.length);
