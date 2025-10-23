@@ -797,13 +797,6 @@ export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => 
   }
 );
 
-/**
- * AES-GCM-SIV, not AES-SIV.
- * This is legace name, use `gcmsiv` export instead.
- * @deprecated
- */
-export const siv: typeof gcmsiv = gcmsiv;
-
 function isBytes32(a: unknown): a is Uint32Array {
   return (
     a instanceof Uint32Array || (ArrayBuffer.isView(a) && a.constructor.name === 'Uint32Array')
@@ -1320,6 +1313,10 @@ function xorend(a: Uint8Array, b: Uint8Array): Uint8ArrayBuffer {
  */
 function s2v(key: Uint8Array, strings: Uint8Array[]): Uint8ArrayBuffer {
   validateKeyLength(key);
+  if (strings.length > 127) {
+    // see https://datatracker.ietf.org/doc/html/rfc5297.html#section-7
+    throw new Error('s2v: number of input strings must be less than or equal to 127');
+  }
   
   if (strings.length === 0) {
     const one = new Uint8Array(BLOCK_SIZE);
@@ -1364,6 +1361,77 @@ function s2v(key: Uint8Array, strings: Uint8Array[]): Uint8ArrayBuffer {
   
   return result;
 }
+
+/**
+ * **SIV**: Synthetic Initialization Vector (SIV) Authenticated Encryption
+ * Nonce is derived from the plaintext and AAD using the S2V function.
+ * See [RFC 5297](https://datatracker.ietf.org/doc/html/rfc5297.html).
+ */
+export const siv: ((key: Uint8Array, ...AAD: Uint8Array[]) => Cipher) & {
+  blockSize: number;
+  tagLength: number;
+} = /* @__PURE__ */ wrapCipher(
+  { blockSize: 16, tagLength: 16 },
+  function aessiv(key: Uint8Array, ...AAD: Uint8Array[]): Cipher {
+    // From RFC 5297: Section 6.1, 6.2, 6.3:
+    const PLAIN_LIMIT = limit('plaintext', 0, 2 ** 132);
+    const CIPHER_LIMIT = limit('ciphertext', 16, 2 ** 132 + 16);
+    if (AAD.length > 126) {
+      // see https://datatracker.ietf.org/doc/html/rfc5297.html#section-7
+      throw new Error('"AAD" number of elements must be less than or equal to 126');
+    }
+    abytes(key);
+    if (![32, 48, 64].includes(key.length))
+      throw new Error('"aes key" expected Uint8Array of length 32/48/64, got length=' + key.length);
+
+    // The key is split into equal halves, K1 = leftmost(K, len(K)/2) and
+    // K2 = rightmost(K, len(K)/2).  K1 is used for S2V and K2 is used for CTR.
+    const k1 = key.subarray(0, key.length / 2);
+    const k2 = key.subarray(key.length / 2);
+
+    return {
+      // https://datatracker.ietf.org/doc/html/rfc5297.html#section-2.6
+      encrypt(plaintext: Uint8Array) {
+        PLAIN_LIMIT(plaintext.length);
+
+        const v = s2v(k1, [...AAD, plaintext]);
+
+        // clear out the 31st and 63rd (rightmost) bit:
+        const q = Uint8Array.from(v);
+        q[8] &= 0x7f;
+        q[12] &= 0x7f;
+
+        // encrypt:
+        const c = ctr(k2, q).encrypt(plaintext);
+        
+        return concatBytes(v, c);
+      },
+      // https://datatracker.ietf.org/doc/html/rfc5297.html#section-2.7
+      decrypt(ciphertext: Uint8Array) {
+        CIPHER_LIMIT(ciphertext.length);
+        const v = ciphertext.subarray(0, BLOCK_SIZE);
+        const c = ciphertext.subarray(BLOCK_SIZE);
+
+        // clear out the 31st and 63rd (rightmost) bit:
+        const q = Uint8Array.from(v);
+        q[8] &= 0x7f;
+        q[12] &= 0x7f;
+
+        // decrypt:
+        const p = ctr(k2, q).decrypt(c);
+
+        // verify tag:
+        const t = s2v(k1, [...AAD, p]);
+        
+        if (equalBytes(t, v)) {
+          return p;
+        } else {
+          throw new Error('invalid siv tag');
+        }
+      },
+    };
+  }
+);
 //#endregion
 
 /** Unsafe low-level internal methods. May change at any time. */
