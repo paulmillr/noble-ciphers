@@ -1084,20 +1084,39 @@ export const rngAesCtrDrbg256: AesCtrDrbg = /* @__PURE__ */ createAesDrbg(256);
 
 //#region CMAC
 
-function leftShift(block: Uint8Array): Uint8Array {
-  const result = new Uint8Array(block.length);
+/**
+ * Left-shift by one bit and conditionally XOR with 0x87:
+ * ```
+ * if MSB(L) is equal to 0
+ * then    K1 := L << 1;
+ * else    K1 := (L << 1) XOR const_Rb;
+ * ```
+ * 
+ * Specs: [RFC 4493, Section 2.3](https://www.rfc-editor.org/rfc/rfc4493.html#section-2.3),
+ *        [RFC 5297 Section 2.3](https://datatracker.ietf.org/doc/html/rfc5297.html#section-2.3)
+ */
+function dbl(block: Uint8Array): Uint8ArrayBuffer {
+  const result = new Uint8Array(BLOCK_SIZE);
   let carry = 0;
-  for (let i = block.length - 1; i >= 0; i--) {
-    const shifted = (block[i] << 1) | carry;
-    result[i] = shifted & 0xff;
-    carry = shifted >>> 8;
+  
+  // Left shift by 1 bit
+  for (let i = BLOCK_SIZE - 1; i >= 0; i--) {
+    const newCarry = (block[i] & 0x80) >>> 7;
+    result[i] = (block[i] << 1) | carry;
+    carry = newCarry;
   }
+  
+  // XOR with 0x87 if there was a carry from the most significant bit
+  if (carry) {
+    result[BLOCK_SIZE - 1] ^= 0x87;
+  }
+  
   return result;
 }
 
-type foo = ReturnType<typeof Uint8Array.of>;
+type Uint8ArrayBuffer = ReturnType<typeof Uint8Array.of>;
 
-function xorBlock(a: Uint8Array, b: Uint8Array): foo {
+function xorBlock(a: Uint8Array, b: Uint8Array): Uint8ArrayBuffer {
   if (a.length !== b.length) throw new Error('xorBlock: blocks must have same length');
   const result = new Uint8Array(a.length);
   for (let i = 0; i < a.length; i++) {
@@ -1126,26 +1145,8 @@ export const cmac = {
     encryptBlock(xk, L);
     
     // K1
-    let k1: Uint8Array;
-    if ((L[0] & 0x80) === 0) { // if MSB(L) is equal to 0
-      // then    K1 := L << 1;
-      k1 = leftShift(L); 
-    } else {
-      // else    K1 := (L << 1) XOR const_Rb;  
-      k1 = leftShift(L);
-      k1[BLOCK_SIZE - 1] ^= 0x87; // const_Rb for AES (128-bit block)
-    }
-    
-    // K2
-    let k2: Uint8Array;
-    if ((k1[0] & 0x80) === 0) { // if MSB(K1) is equal to 0
-      // then    K2 := K1 << 1;
-      k2 = leftShift(k1);
-    } else {
-      // else    K2 := (K1 << 1) XOR const_Rb;
-      k2 = leftShift(k1);
-      k2[BLOCK_SIZE - 1] ^= 0x87; // const_Rb for AES (128-bit block)
-    }
+    const k1 = dbl(L);
+    const k2 = dbl(k1);
     
     clean(xk, L);
     return { k1, k2 };
@@ -1156,7 +1157,7 @@ export const cmac = {
    */
   create(key: Uint8Array): {
     update(data: Uint8Array): void;
-    digest(): Uint8Array;
+    digest(): Uint8ArrayBuffer;
     destroy(): void;
   } {
     abytes(key);
@@ -1181,7 +1182,7 @@ export const cmac = {
       },
       
       // see https://www.rfc-editor.org/rfc/rfc4493.html#section-2.4
-      digest(): Uint8Array {
+      digest(): Uint8ArrayBuffer {
         if (destroyed) throw new Error('CMAC instance was destroyed');
         
         const msgLen = buffer.length;
@@ -1250,7 +1251,7 @@ export const cmac = {
   /**
    * One-shot CMAC computation
    */
-  tag(key: Uint8Array, message: Uint8Array): Uint8Array {
+  tag(key: Uint8Array, message: Uint8Array): Uint8ArrayBuffer {
     const cmacInstance = cmac.create(key);
     cmacInstance.update(message);
     const result = cmacInstance.digest();
@@ -1281,7 +1282,7 @@ export const unsafe: {
   decryptBlock: typeof decryptBlock;
   ctrCounter: typeof ctrCounter;
   ctr32: typeof ctr32;
-  leftShift: typeof leftShift;
+  dbl: typeof dbl;
   xorBlock: typeof xorBlock;
 } = {
   expandKeyLE,
@@ -1292,6 +1293,6 @@ export const unsafe: {
   decryptBlock,
   ctrCounter,
   ctr32,
-  leftShift,
+  dbl,
   xorBlock,
 };
