@@ -1,5 +1,5 @@
 import mark from '@paulmillr/jsbt/bench.js';
-import { cbc, ctr, ecb, gcm, gcmsiv, rngAesCtrDrbg128 } from '../../src/aes.ts';
+import { cbc, ctr, ecb, gcm, gcmsiv, rngAesCtrDrbg128, siv } from '../../src/aes.ts';
 import {
   chacha12,
   chacha20,
@@ -26,6 +26,7 @@ const buffers = [
 
 async function main() {
   const key = buf(32);
+  const key64 = buf(64);
   const nonce = buf(12);
   const nonce8 = buf(8);
   const nonce16 = buf(16);
@@ -42,6 +43,8 @@ async function main() {
     await mark('xchacha20poly1305', () => xchacha20poly1305(key, nonce24).encrypt(buf));
     await mark('aes-256-gcm', () => gcm(key, nonce).encrypt(buf));
     await mark('aes-256-gcm-siv', () => gcmsiv(key, nonce).encrypt(buf));
+    await mark('aes-siv-256', () => siv(key, nonce, nonce16, nonce24).encrypt(buf));
+    await mark('aes-siv-512', () => siv(key64, nonce, nonce16, nonce24).encrypt(buf));
 
     console.log('# Unauthenticated encryption');
     await mark('salsa20', () => salsa20(key, nonce8, buf));
@@ -69,9 +72,9 @@ async function main() {
 
     if (size === '1MB') {
       console.log('# Wrapper over built-in webcrypto');
-      await mark('webcrypto ctr-256', 5000, () => aesw.ctr(key, nonce16).encrypt(buf));
-      await mark('webcrypto cbc-256', 1000, () => aesw.cbc(key, nonce16).encrypt(buf));
-      await mark('webcrypto gcm-256', 5000, () => aesw.gcm(key, nonce).encrypt(buf));
+      await mark('webcrypto ctr-256', () => aesw.ctr(key, nonce16).encrypt(buf), 5000);
+      await mark('webcrypto cbc-256', () => aesw.cbc(key, nonce16).encrypt(buf), 1000);
+      await mark('webcrypto gcm-256', () => aesw.gcm(key, nonce).encrypt(buf), 5000);
     }
     console.log();
   }

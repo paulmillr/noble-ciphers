@@ -23,12 +23,13 @@ import {
   abytes, anumber, clean, complexOverlapBytes, concatBytes,
   copyBytes, createView, equalBytes, getOutput, isAligned32, overlapBytes,
   u32, u64Lengths, u8, wrapCipher,
-  type Cipher, type CipherWithOutput, type PRG
+  type Cipher, type CipherWithOutput, type PRG, type Uint8ArrayBuffer
 } from './utils.ts';
 
 const BLOCK_SIZE = 16;
 const BLOCK_SIZE32 = 4;
 const EMPTY_BLOCK = /* @__PURE__ */ new Uint8Array(BLOCK_SIZE);
+const ONE_BLOCK = /* @__PURE__ */ Uint8Array.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01]);
 const POLY = 0x11b; // 1 + x + x**3 + x**4 + x**8
 
 function validateKeyLength(key: Uint8Array) {
@@ -797,13 +798,6 @@ export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => 
   }
 );
 
-/**
- * AES-GCM-SIV, not AES-SIV.
- * This is legace name, use `gcmsiv` export instead.
- * @deprecated
- */
-export const siv: typeof gcmsiv = gcmsiv;
-
 function isBytes32(a: unknown): a is Uint32Array {
   return (
     a instanceof Uint32Array || (ArrayBuffer.isView(a) && a.constructor.name === 'Uint32Array')
@@ -1082,6 +1076,372 @@ export const rngAesCtrDrbg128: AesCtrDrbg = /* @__PURE__ */ createAesDrbg(128);
  */
 export const rngAesCtrDrbg256: AesCtrDrbg = /* @__PURE__ */ createAesDrbg(256);
 
+//#region CMAC
+
+/**
+ * Left-shift by one bit and conditionally XOR with 0x87:
+ * ```
+ * if MSB(L) is equal to 0
+ * then    K1 := L << 1;
+ * else    K1 := (L << 1) XOR const_Rb;
+ * ```
+ * 
+ * Specs: [RFC 4493, Section 2.3](https://www.rfc-editor.org/rfc/rfc4493.html#section-2.3),
+ *        [RFC 5297 Section 2.3](https://datatracker.ietf.org/doc/html/rfc5297.html#section-2.3)
+ * 
+ * @returns modified `block` (for chaining)
+ */
+function dbl<T extends Uint8Array>(block: T): T {
+  let carry = 0;
+  
+  // Left shift by 1 bit
+  for (let i = BLOCK_SIZE - 1; i >= 0; i--) {
+    const newCarry = (block[i] & 0x80) >>> 7;
+    block[i] = (block[i] << 1) | carry;
+    carry = newCarry;
+  }
+  
+  // XOR with 0x87 if there was a carry from the most significant bit
+  if (carry) {
+    block[BLOCK_SIZE - 1] ^= 0x87;
+  }
+  
+  return block;
+}
+
+/**
+ * `a XOR b`, running in-site on `a`.
+ * @param a left operand and output
+ * @param b right operand
+ * @returns `a` (for chaining)
+ */
+function xorBlock<T extends Uint8Array>(a: T, b: Uint8Array): T {
+  if (a.length !== b.length) throw new Error('xorBlock: blocks must have same length');
+  for (let i = 0; i < a.length; i++) {
+    a[i] = a[i] ^ b[i];
+  }
+  return a;
+}
+
+/**
+ * xorend as defined in [RFC 5297 Section 2.1](https://datatracker.ietf.org/doc/html/rfc5297.html#section-2.1).
+ * 
+ * ```
+ * leftmost(A, len(A)-len(B)) || (rightmost(A, len(B)) xor B)
+ * ```
+ */
+function xorend<T extends Uint8Array>(a: T, b: Uint8Array): T {
+  if (b.length > a.length) {
+    throw new Error('xorend: len(B) must be less than or equal to len(A)');
+  }
+  // keep leftmost part of `a` unchanged
+  // and xor only the rightmost part:
+  const offset = a.length - b.length;
+  for (let i = 0; i < b.length; i++) {
+    a[offset + i] = a[offset + i] ^ b[i];
+  }
+  return a;
+}
+
+/**
+ * AES-CMAC (Cipher-based Message Authentication Code).
+ * Specs: [RFC 4493](https://www.rfc-editor.org/rfc/rfc4493.html).
+ */
+export const cmac = {
+
+  /**
+   * Generate subkeys K1 and K2 from the main key according to [RFC 4493, Section 2.3](https://www.rfc-editor.org/rfc/rfc4493.html#section-2.3)
+   */
+  generateSubkeys(key: Uint8Array): { k1: Uint8Array; k2: Uint8Array } {
+    abytes(key);
+    validateKeyLength(key);
+    
+    const xk = expandKeyLE(key);
+    const L = new Uint8Array(BLOCK_SIZE);
+    
+    // L = AES_encrypt(K, const_Zero)
+    encryptBlock(xk, L);
+    clean(xk);
+    
+    // K1
+    const k1 = dbl(L);
+    const k2 = dbl(new Uint8Array(k1));
+    
+    return { k1, k2 };
+  },
+
+  /**
+   * Compute CMAC tag for a message
+   */
+  create(key: Uint8Array): {
+    update(data: Uint8Array): void;
+    digest(): Uint8ArrayBuffer;
+    destroy(): void;
+  } {
+    abytes(key);
+    validateKeyLength(key);
+    
+    const xk = expandKeyLE(key);
+    const { k1, k2 } = cmac.generateSubkeys(key);
+    let buffer = new Uint8Array(0);
+    let destroyed = false;
+    
+    const toClean: (Uint8Array | Uint32Array)[] = [xk, k1, k2];
+    
+    return {
+      update(data: Uint8Array) {
+        if (destroyed) throw new Error('CMAC instance was destroyed');
+        abytes(data);
+        const newBuffer = new Uint8Array(buffer.length + data.length);
+        newBuffer.set(buffer);
+        newBuffer.set(data, buffer.length);
+        if (buffer.length > 0) toClean.push(buffer);
+        buffer = newBuffer;
+      },
+      
+      // see https://www.rfc-editor.org/rfc/rfc4493.html#section-2.4
+      digest(): Uint8ArrayBuffer {
+        if (destroyed) throw new Error('CMAC instance was destroyed');
+        
+        const msgLen = buffer.length;
+
+        // Step 2:
+        let n = Math.ceil(msgLen / BLOCK_SIZE); // n := ceil(len/const_Bsize); 
+
+        // Step 3:
+        let flag: boolean; // denoting if last block is complete or not
+        if (n === 0) {
+          n = 1;
+          flag = false;
+        } else {
+          flag = (msgLen % BLOCK_SIZE) === 0; // if len mod const_Bsize is 0
+        }
+
+        // Step 4:
+        const lastBlockStart = (n - 1) * BLOCK_SIZE;
+        const lastBlockData = buffer.subarray(lastBlockStart);
+        let m_last: Uint8ArrayBuffer;
+        if (flag) {
+          // M_last := M_n XOR K1;
+          m_last = xorBlock(new Uint8Array(lastBlockData), k1);
+        } else {
+          // M_last := padding(M_n) XOR K2;
+          //
+          // [...] padding(x) is the concatenation of x and a single '1',
+          // followed by the minimum number of '0's, so that the total length is
+          // equal to 128 bits.
+          const padded = new Uint8Array(BLOCK_SIZE);
+          padded.set(lastBlockData);
+          padded[lastBlockData.length] = 0x80; // single '1' bit
+          m_last = xorBlock(padded, k2);
+        }
+
+        // Step 5:
+        let x = new Uint8Array(BLOCK_SIZE); // X := const_Zero;
+
+        // Step 6:
+        for (let i = 0; i < n - 1; i++) {
+          const m_i = buffer.subarray(i * BLOCK_SIZE, (i + 1) * BLOCK_SIZE); // M_i
+          xorBlock(x, m_i); // Y := X XOR M_i;
+          encryptBlock(xk, x); // X := AES-128(K,Y);
+        }
+
+        // Step 7:
+        xorBlock(x, m_last); // Y := M_last XOR X;
+        encryptBlock(xk, x); // T := AES-128(K,Y);
+
+        // cleanup:
+        clean(m_last);
+
+        return x; // T
+      },
+      
+      destroy() {
+        if (destroyed) return;
+        destroyed = true;
+        if (buffer.length > 0) toClean.push(buffer);
+        clean(...toClean);
+      }
+    };
+  },
+
+  /**
+   * One-shot CMAC computation
+   */
+  tag(key: Uint8Array, message: Uint8Array): Uint8ArrayBuffer {
+    const cmacInstance = cmac.create(key);
+    cmacInstance.update(message);
+    const result = cmacInstance.digest();
+    cmacInstance.destroy();
+    return result;
+  },
+
+  /**
+   * Verify CMAC tag
+   */
+  verify(key: Uint8Array, message: Uint8Array, tag: Uint8Array): boolean {
+    abytes(tag, BLOCK_SIZE, 'tag');
+    const computedTag = cmac.tag(key, message);
+    const result = equalBytes(computedTag, tag);
+    clean(computedTag);
+    return result;
+  }
+};
+//#endregion
+
+//#region SIV (Synthetic Initialization Vector)
+
+/**
+ * S2V (Synthetic Initialization Vector) function as described in [RFC 5297 Section 2.4](https://datatracker.ietf.org/doc/html/rfc5297.html#section-2.4).
+ * 
+ * ```
+ * S2V(K, S1, ..., Sn) {
+ *   if n = 0 then
+ *     return V = AES-CMAC(K, <one>)
+ *   fi
+ *   D = AES-CMAC(K, <zero>)
+ *   for i = 1 to n-1 do
+ *     D = dbl(D) xor AES-CMAC(K, Si)
+ *   done
+ *   if len(Sn) >= 128 then
+ *     T = Sn xorend D
+ *   else
+ *     T = dbl(D) xor pad(Sn)
+ *   fi
+ *   return V = AES-CMAC(K, T)
+ * }
+ * ```
+ * 
+ * S2V takes a key and a vector of strings S1, S2, ..., Sn and returns a 128-bit string.
+ * The S2V function is used to generate a synthetic IV for AES-SIV.
+ * 
+ * @param key - AES key (128, 192, or 256 bits)
+ * @param strings - Array of byte arrays to process
+ * @returns 128-bit synthetic IV
+ */
+function s2v(key: Uint8Array, strings: Uint8Array[]): Uint8ArrayBuffer {
+  validateKeyLength(key);
+  if (strings.length > 127) {
+    // see https://datatracker.ietf.org/doc/html/rfc5297.html#section-7
+    throw new Error('s2v: number of input strings must be less than or equal to 127');
+  }
+  
+  if (strings.length === 0) {
+    return cmac.tag(key, ONE_BLOCK);
+  }
+  
+  // D = AES-CMAC(K, <zero>)
+  let d = cmac.tag(key, EMPTY_BLOCK);
+  
+  // for i = 1 to n-1 do
+  //   D = dbl(D) xor AES-CMAC(K, Si)
+  for (let i = 0; i < strings.length - 1; i++) {
+    dbl(d);
+    const cmacResult = cmac.tag(key, strings[i]);
+    xorBlock(d, cmacResult);
+    clean(cmacResult);
+  }
+  
+  const s_n = strings[strings.length - 1];
+  let t: Uint8Array;
+  
+  // if len(Sn) >= 128 then
+  if (s_n.byteLength >= BLOCK_SIZE) {
+    // T = Sn xorend D
+    t = xorend(Uint8Array.from(s_n), d);
+  } else {
+    // pad(Sn):
+    const paddedSn = new Uint8Array(BLOCK_SIZE);
+    paddedSn.set(s_n);
+    paddedSn[s_n.length] = 0x80; // padding: 0x80 followed by zeros
+
+    // T = dbl(D) xor pad(Sn)
+    t = xorBlock(dbl(d), paddedSn);
+    clean(paddedSn);
+  }
+  
+  // V = AES-CMAC(K, T)
+  const result = cmac.tag(key, t);
+  
+  clean(d);
+  clean(t);
+  
+  return result;
+}
+
+/**
+ * **SIV**: Synthetic Initialization Vector (SIV) Authenticated Encryption
+ * Nonce is derived from the plaintext and AAD using the S2V function.
+ * See [RFC 5297](https://datatracker.ietf.org/doc/html/rfc5297.html).
+ */
+export const siv: ((key: Uint8Array, ...AAD: Uint8Array[]) => Cipher) & {
+  blockSize: number;
+  tagLength: number;
+} = /* @__PURE__ */ wrapCipher(
+  { blockSize: 16, tagLength: 16 },
+  function aessiv(key: Uint8Array, ...AAD: Uint8Array[]): Cipher {
+    // From RFC 5297: Section 6.1, 6.2, 6.3:
+    const PLAIN_LIMIT = limit('plaintext', 0, 2 ** 132);
+    const CIPHER_LIMIT = limit('ciphertext', 16, 2 ** 132 + 16);
+    if (AAD.length > 126) {
+      // see https://datatracker.ietf.org/doc/html/rfc5297.html#section-7
+      throw new Error('"AAD" number of elements must be less than or equal to 126');
+    }
+    AAD.forEach(aad => abytes(aad));
+    abytes(key);
+    if (![32, 48, 64].includes(key.length))
+      throw new Error('"aes key" expected Uint8Array of length 32/48/64, got length=' + key.length);
+
+    // The key is split into equal halves, K1 = leftmost(K, len(K)/2) and
+    // K2 = rightmost(K, len(K)/2).  K1 is used for S2V and K2 is used for CTR.
+    const k1 = key.subarray(0, key.length / 2);
+    const k2 = key.subarray(key.length / 2);
+
+    return {
+      // https://datatracker.ietf.org/doc/html/rfc5297.html#section-2.6
+      encrypt(plaintext: Uint8Array) {
+        PLAIN_LIMIT(plaintext.length);
+
+        const v = s2v(k1, [...AAD, plaintext]);
+
+        // clear out the 31st and 63rd (rightmost) bit:
+        const q = Uint8Array.from(v);
+        q[8] &= 0x7f;
+        q[12] &= 0x7f;
+
+        // encrypt:
+        const c = ctr(k2, q).encrypt(plaintext);
+        
+        return concatBytes(v, c);
+      },
+      // https://datatracker.ietf.org/doc/html/rfc5297.html#section-2.7
+      decrypt(ciphertext: Uint8Array) {
+        CIPHER_LIMIT(ciphertext.length);
+        const v = ciphertext.subarray(0, BLOCK_SIZE);
+        const c = ciphertext.subarray(BLOCK_SIZE);
+
+        // clear out the 31st and 63rd (rightmost) bit:
+        const q = Uint8Array.from(v);
+        q[8] &= 0x7f;
+        q[12] &= 0x7f;
+
+        // decrypt:
+        const p = ctr(k2, q).decrypt(c);
+
+        // verify tag:
+        const t = s2v(k1, [...AAD, p]);
+        
+        if (equalBytes(t, v)) {
+          return p;
+        } else {
+          throw new Error('invalid siv tag');
+        }
+      },
+    };
+  }
+);
+//#endregion
+
 /** Unsafe low-level internal methods. May change at any time. */
 export const unsafe: {
   expandKeyLE: typeof expandKeyLE;
@@ -1092,6 +1452,10 @@ export const unsafe: {
   decryptBlock: typeof decryptBlock;
   ctrCounter: typeof ctrCounter;
   ctr32: typeof ctr32;
+  dbl: typeof dbl;
+  xorBlock: typeof xorBlock;
+  xorend: typeof xorend;
+  s2v: typeof s2v;
 } = {
   expandKeyLE,
   expandKeyDecLE,
@@ -1101,4 +1465,8 @@ export const unsafe: {
   decryptBlock,
   ctrCounter,
   ctr32,
+  dbl,
+  xorBlock,
+  xorend,
+  s2v,
 };
