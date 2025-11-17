@@ -84,6 +84,12 @@ describe('AES-SIV', () => {
   });
 
   describe('Parameter validation', () => {
+    should('reject wrong key types', () => {
+      const key = 'not bytes';
+      const aadArray = [new Uint8Array(16)];
+      throws(() => siv(key, ...aadArray));
+    });
+
     should('reject invalid key lengths', () => {
       throws(() => siv(new Uint8Array(15), new Uint8Array(16)));
       throws(() => siv(new Uint8Array(17), new Uint8Array(16)));
@@ -93,6 +99,12 @@ describe('AES-SIV', () => {
     should('reject too many AADs', () => {
       const key = hexToBytes('fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff');
       const aadArray = new Array(127).fill(hexToBytes('00010203'));
+      throws(() => siv(key, ...aadArray));
+    });
+
+    should('reject wrong aad types', () => {
+      const key = hexToBytes('fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff');
+      const aadArray = ['not bytes'];
       throws(() => siv(key, ...aadArray));
     });
   });

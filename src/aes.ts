@@ -17,6 +17,7 @@
  * and [original proposal](https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf)
  * @module
  */
+import { assert } from 'console';
 import { ghash, polyval } from './_polyval.ts';
 // prettier-ignore
 import {
@@ -29,6 +30,8 @@ import {
 const BLOCK_SIZE = 16;
 const BLOCK_SIZE32 = 4;
 const EMPTY_BLOCK = /* @__PURE__ */ new Uint8Array(BLOCK_SIZE);
+const ONE_BLOCK = Uint8Array.of(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01);
+assert(ONE_BLOCK.length === BLOCK_SIZE);
 const POLY = 0x11b; // 1 + x + x**3 + x**4 + x**8
 
 function validateKeyLength(key: Uint8Array) {
@@ -1207,6 +1210,7 @@ export const cmac = {
           padded.set(lastBlockData);
           padded[lastBlockData.length] = 0x80; // single '1' bit
           m_last = xorBlock(padded, k2);
+          clean(padded);
         }
 
         // Step 5:
@@ -1280,7 +1284,7 @@ function xorend(a: Uint8Array, b: Uint8Array): Uint8ArrayBuffer {
   const leftmost = a.subarray(0, a.length - b.length);
   const rightmost = a.subarray(-b.length);
   // T = Sn xorend D
-  return concatBytes(leftmost, xorBlock(rightmost, b)).slice();
+  return concatBytes(leftmost, xorBlock(rightmost, b)) as Uint8ArrayBuffer;
 }
 
 /**
@@ -1319,9 +1323,7 @@ function s2v(key: Uint8Array, strings: Uint8Array[]): Uint8ArrayBuffer {
   }
   
   if (strings.length === 0) {
-    const one = new Uint8Array(BLOCK_SIZE);
-    one[BLOCK_SIZE - 1] = 0x01;
-    return cmac.tag(key, one);
+    return cmac.tag(key, ONE_BLOCK);
   }
   
   // D = AES-CMAC(K, <zero>)
@@ -1380,6 +1382,7 @@ export const siv: ((key: Uint8Array, ...AAD: Uint8Array[]) => Cipher) & {
       // see https://datatracker.ietf.org/doc/html/rfc5297.html#section-7
       throw new Error('"AAD" number of elements must be less than or equal to 126');
     }
+    AAD.forEach(aad => abytes(aad));
     abytes(key);
     if (![32, 48, 64].includes(key.length))
       throw new Error('"aes key" expected Uint8Array of length 32/48/64, got length=' + key.length);
