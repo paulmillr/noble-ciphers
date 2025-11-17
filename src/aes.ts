@@ -17,7 +17,6 @@
  * and [original proposal](https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf)
  * @module
  */
-import { assert } from 'console';
 import { ghash, polyval } from './_polyval.ts';
 // prettier-ignore
 import {
@@ -30,8 +29,7 @@ import {
 const BLOCK_SIZE = 16;
 const BLOCK_SIZE32 = 4;
 const EMPTY_BLOCK = /* @__PURE__ */ new Uint8Array(BLOCK_SIZE);
-const ONE_BLOCK = Uint8Array.of(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01);
-assert(ONE_BLOCK.length === BLOCK_SIZE);
+const ONE_BLOCK = /* @__PURE__ */ Uint8Array.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01]);
 const POLY = 0x11b; // 1 + x + x**3 + x**4 + x**8
 
 function validateKeyLength(key: Uint8Array) {
