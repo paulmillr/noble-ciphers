@@ -1090,33 +1090,59 @@ export const rngAesCtrDrbg256: AesCtrDrbg = /* @__PURE__ */ createAesDrbg(256);
  * 
  * Specs: [RFC 4493, Section 2.3](https://www.rfc-editor.org/rfc/rfc4493.html#section-2.3),
  *        [RFC 5297 Section 2.3](https://datatracker.ietf.org/doc/html/rfc5297.html#section-2.3)
+ * 
+ * @returns modified `block` (for chaining)
  */
-function dbl(block: Uint8Array): Uint8ArrayBuffer {
-  const result = new Uint8Array(BLOCK_SIZE);
+function dbl<T extends Uint8Array>(block: T): T {
   let carry = 0;
   
   // Left shift by 1 bit
   for (let i = BLOCK_SIZE - 1; i >= 0; i--) {
     const newCarry = (block[i] & 0x80) >>> 7;
-    result[i] = (block[i] << 1) | carry;
+    block[i] = (block[i] << 1) | carry;
     carry = newCarry;
   }
   
   // XOR with 0x87 if there was a carry from the most significant bit
   if (carry) {
-    result[BLOCK_SIZE - 1] ^= 0x87;
+    block[BLOCK_SIZE - 1] ^= 0x87;
   }
   
-  return result;
+  return block;
 }
 
-function xorBlock(a: Uint8Array, b: Uint8Array): Uint8ArrayBuffer {
+/**
+ * `a XOR b`, running in-site on `a`.
+ * @param a left operand and output
+ * @param b right operand
+ * @returns `a` (for chaining)
+ */
+function xorBlock<T extends Uint8Array>(a: T, b: Uint8Array): T {
   if (a.length !== b.length) throw new Error('xorBlock: blocks must have same length');
-  const result = new Uint8Array(a.length);
   for (let i = 0; i < a.length; i++) {
-    result[i] = a[i] ^ b[i];
+    a[i] = a[i] ^ b[i];
   }
-  return result;
+  return a;
+}
+
+/**
+ * xorend as defined in [RFC 5297 Section 2.1](https://datatracker.ietf.org/doc/html/rfc5297.html#section-2.1).
+ * 
+ * ```
+ * leftmost(A, len(A)-len(B)) || (rightmost(A, len(B)) xor B)
+ * ```
+ */
+function xorend<T extends Uint8Array>(a: T, b: Uint8Array): T {
+  if (b.length > a.length) {
+    throw new Error('xorend: len(B) must be less than or equal to len(A)');
+  }
+  // keep leftmost part of `a` unchanged
+  // and xor only the rightmost part:
+  const offset = a.length - b.length;
+  for (let i = 0; i < b.length; i++) {
+    a[offset + i] = a[offset + i] ^ b[i];
+  }
+  return a;
 }
 
 /**
@@ -1137,12 +1163,12 @@ export const cmac = {
     
     // L = AES_encrypt(K, const_Zero)
     encryptBlock(xk, L);
+    clean(xk);
     
     // K1
     const k1 = dbl(L);
-    const k2 = dbl(k1);
+    const k2 = dbl(new Uint8Array(k1));
     
-    clean(xk, L);
     return { k1, k2 };
   },
 
@@ -1196,10 +1222,10 @@ export const cmac = {
         // Step 4:
         const lastBlockStart = (n - 1) * BLOCK_SIZE;
         const lastBlockData = buffer.subarray(lastBlockStart);
-        let m_last: Uint8Array;
+        let m_last: Uint8ArrayBuffer;
         if (flag) {
           // M_last := M_n XOR K1;
-          m_last = xorBlock(lastBlockData, k1);
+          m_last = xorBlock(new Uint8Array(lastBlockData), k1);
         } else {
           // M_last := padding(M_n) XOR K2;
           //
@@ -1210,28 +1236,26 @@ export const cmac = {
           padded.set(lastBlockData);
           padded[lastBlockData.length] = 0x80; // single '1' bit
           m_last = xorBlock(padded, k2);
-          clean(padded);
         }
 
         // Step 5:
         let x = new Uint8Array(BLOCK_SIZE); // X := const_Zero;
-        let y = new Uint8Array(BLOCK_SIZE);
 
         // Step 6:
         for (let i = 0; i < n - 1; i++) {
           const m_i = buffer.subarray(i * BLOCK_SIZE, (i + 1) * BLOCK_SIZE); // M_i
-          y = xorBlock(x, m_i); // Y := X XOR M_i;
-          x = encryptBlock(xk, y).slice(); // X := AES-128(K,Y);
+          xorBlock(x, m_i); // Y := X XOR M_i;
+          encryptBlock(xk, x); // X := AES-128(K,Y);
         }
 
         // Step 7:
-        y = xorBlock(m_last, x); // Y := M_last XOR X;
-        const t = encryptBlock(xk, y).slice(); // T := AES-128(K,Y);
+        xorBlock(x, m_last); // Y := M_last XOR X;
+        encryptBlock(xk, x); // T := AES-128(K,Y);
 
         // cleanup:
-        clean(m_last, y);
+        clean(m_last);
 
-        return t;
+        return x; // T
       },
       
       destroy() {
@@ -1268,24 +1292,6 @@ export const cmac = {
 //#endregion
 
 //#region SIV (Synthetic Initialization Vector)
-
-/**
- * xorend as defined in [RFC 5297 Section 2.1](https://datatracker.ietf.org/doc/html/rfc5297.html#section-2.1).
- * 
- * ```
- * leftmost(A, len(A)-len(B)) || (rightmost(A, len(B)) xor B)
- * ```
- */
-function xorend(a: Uint8Array, b: Uint8Array): Uint8ArrayBuffer {
-  if (b.length > a.length) {
-    throw new Error('xorend: len(B) must be less than or equal to len(A)');
-  }
-  // leftmost(A, len(A)-len(B)) || rightmost(A, len(B)):
-  const leftmost = a.subarray(0, a.length - b.length);
-  const rightmost = a.subarray(-b.length);
-  // T = Sn xorend D
-  return concatBytes(leftmost, xorBlock(rightmost, b)) as Uint8ArrayBuffer;
-}
 
 /**
  * S2V (Synthetic Initialization Vector) function as described in [RFC 5297 Section 2.4](https://datatracker.ietf.org/doc/html/rfc5297.html#section-2.4).
@@ -1332,9 +1338,9 @@ function s2v(key: Uint8Array, strings: Uint8Array[]): Uint8ArrayBuffer {
   // for i = 1 to n-1 do
   //   D = dbl(D) xor AES-CMAC(K, Si)
   for (let i = 0; i < strings.length - 1; i++) {
-    d = dbl(d);
+    dbl(d);
     const cmacResult = cmac.tag(key, strings[i]);
-    d = xorBlock(d, cmacResult);
+    xorBlock(d, cmacResult);
     clean(cmacResult);
   }
   
@@ -1344,7 +1350,7 @@ function s2v(key: Uint8Array, strings: Uint8Array[]): Uint8ArrayBuffer {
   // if len(Sn) >= 128 then
   if (s_n.byteLength >= BLOCK_SIZE) {
     // T = Sn xorend D
-    t = xorend(s_n, d);
+    t = xorend(Uint8Array.from(s_n), d);
   } else {
     // pad(Sn):
     const paddedSn = new Uint8Array(BLOCK_SIZE);
@@ -1353,6 +1359,7 @@ function s2v(key: Uint8Array, strings: Uint8Array[]): Uint8ArrayBuffer {
 
     // T = dbl(D) xor pad(Sn)
     t = xorBlock(dbl(d), paddedSn);
+    clean(paddedSn);
   }
   
   // V = AES-CMAC(K, T)
