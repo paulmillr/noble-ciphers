@@ -41,8 +41,8 @@ async function main() {
     await mark('xsalsa20poly1305', () => xsalsa20poly1305(key, nonce24).encrypt(buf));
     await mark('chacha20poly1305', () => chacha20poly1305(key, nonce).encrypt(buf));
     await mark('xchacha20poly1305', () => xchacha20poly1305(key, nonce24).encrypt(buf));
-    await mark('aes-256-gcm', () => gcm(key, nonce).encrypt(buf));
-    await mark('aes-256-gcm-siv', () => gcmsiv(key, nonce).encrypt(buf));
+    await mark('aes-gcm-256', () => gcm(key, nonce).encrypt(buf));
+    await mark('aes-gcm-siv-256', () => gcmsiv(key, nonce).encrypt(buf));
     await mark('aes-siv-256', () => siv(key, nonce, nonce16, nonce24).encrypt(buf));
     await mark('aes-siv-512', () => siv(key64, nonce, nonce16, nonce24).encrypt(buf));
 
@@ -72,9 +72,9 @@ async function main() {
 
     if (size === '1MB') {
       console.log('# Wrapper over built-in webcrypto');
-      await mark('webcrypto ctr-256', () => aesw.ctr(key, nonce16).encrypt(buf), 5000);
-      await mark('webcrypto cbc-256', () => aesw.cbc(key, nonce16).encrypt(buf), 1000);
-      await mark('webcrypto gcm-256', () => aesw.gcm(key, nonce).encrypt(buf), 5000);
+      await mark('webcrypto ctr-256', () => aesw.ctr(key, nonce16).encrypt(buf));
+      await mark('webcrypto cbc-256', () => aesw.cbc(key, nonce16).encrypt(buf));
+      await mark('webcrypto gcm-256', () => aesw.gcm(key, nonce).encrypt(buf));
     }
     console.log();
   }
