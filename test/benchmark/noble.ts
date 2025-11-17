@@ -69,9 +69,9 @@ async function main() {
 
     if (size === '1MB') {
       console.log('# Wrapper over built-in webcrypto');
-      await mark('webcrypto ctr-256', 5000, () => aesw.ctr(key, nonce16).encrypt(buf));
-      await mark('webcrypto cbc-256', 1000, () => aesw.cbc(key, nonce16).encrypt(buf));
-      await mark('webcrypto gcm-256', 5000, () => aesw.gcm(key, nonce).encrypt(buf));
+      await mark('webcrypto ctr-256', () => aesw.ctr(key, nonce16).encrypt(buf), 5000);
+      await mark('webcrypto cbc-256', () => aesw.cbc(key, nonce16).encrypt(buf), 1000);
+      await mark('webcrypto gcm-256', () => aesw.gcm(key, nonce).encrypt(buf), 5000);
     }
     console.log();
   }
