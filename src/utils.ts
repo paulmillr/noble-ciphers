@@ -49,7 +49,7 @@ export function aoutput(out: any, instance: any): void {
 }
 
 export type IHash = {
-  (data: string | Uint8Array): Uint8Array;
+  (data: string | Uint8Array): Uint8ArrayBuffer;
   blockLen: number;
   outputLen: number;
   create: any;
@@ -57,16 +57,16 @@ export type IHash = {
 
 /** Generic type encompassing 8/16/32-byte arrays - but not 64-byte. */
 // prettier-ignore
-export type TypedArray = Int8Array | Uint8ClampedArray | Uint8Array |
-  Uint16Array | Int16Array | Uint32Array | Int32Array;
+export type TypedArray = ReturnType<typeof Int8Array.of> | ReturnType<typeof Uint8ClampedArray.of> | ReturnType<typeof Uint8Array.of> |
+  ReturnType<typeof Uint16Array.of> | ReturnType<typeof Int16Array.of> | ReturnType<typeof Uint32Array.of> | ReturnType<typeof Int32Array.of>;
 
 /** Cast u8 / u16 / u32 to u8. */
-export function u8(arr: TypedArray): Uint8Array {
+export function u8(arr: TypedArray): Uint8ArrayBuffer {
   return new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
 }
 
 /** Cast u8 / u16 / u32 to u32. */
-export function u32(arr: TypedArray): Uint32Array {
+export function u32(arr: TypedArray): Uint32ArrayBuffer {
   return new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
 }
 
@@ -125,7 +125,7 @@ function asciiToBase16(ch: number): number | undefined {
  * Convert hex string to byte array. Uses built-in function, when available.
  * @example hexToBytes('cafe0123') // Uint8Array.from([0xca, 0xfe, 0x01, 0x23])
  */
-export function hexToBytes(hex: string): Uint8Array {
+export function hexToBytes(hex: string): Uint8ArrayBuffer {
   if (typeof hex !== 'string') throw new Error('hex string expected, got ' + typeof hex);
   // @ts-ignore
   if (hasHexBuiltin) return Uint8Array.fromHex(hex);
@@ -158,7 +158,7 @@ export function bytesToNumberBE(bytes: Uint8Array): bigint {
 }
 
 // Used in micro, ff1
-export function numberToBytesBE(n: number | bigint, len: number): Uint8Array {
+export function numberToBytesBE(n: number | bigint, len: number): Uint8ArrayBuffer {
   return hexToBytes(n.toString(16).padStart(len * 2, '0'));
 }
 
@@ -170,7 +170,7 @@ declare const TextDecoder: any;
  * Converts string to bytes using UTF8 encoding.
  * @example utf8ToBytes('abc') // new Uint8Array([97, 98, 99])
  */
-export function utf8ToBytes(str: string): Uint8Array {
+export function utf8ToBytes(str: string): Uint8ArrayBuffer {
   if (typeof str !== 'string') throw new Error('string expected');
   return new Uint8Array(new TextEncoder().encode(str)); // https://bugzil.la/1681809
 }
@@ -209,7 +209,7 @@ export function complexOverlapBytes(input: Uint8Array, output: Uint8Array): void
 /**
  * Copies several Uint8Arrays into one.
  */
-export function concatBytes(...arrays: Uint8Array[]): Uint8Array {
+export function concatBytes(...arrays: Uint8Array[]): Uint8ArrayBuffer {
   let sum = 0;
   for (let i = 0; i < arrays.length; i++) {
     const a = arrays[i];
@@ -250,8 +250,8 @@ export interface IHash2 {
   outputLen: number; // Bytes in output
   update(buf: string | Uint8Array): this;
   // Writes digest into buf
-  digestInto(buf: Uint8Array): void;
-  digest(): Uint8Array;
+  digestInto(buf: Uint8ArrayBuffer): void;
+  digest(): Uint8ArrayBuffer;
   /**
    * Resets internal state. Makes Hash instance unusable.
    * Reset is impossible for keyed hashes if key is consumed into state. If digest is not consumed
@@ -265,20 +265,20 @@ export interface IHash2 {
 
 /** Sync cipher: takes byte array and returns byte array. */
 export type Cipher = {
-  encrypt(plaintext: Uint8Array): Uint8Array;
-  decrypt(ciphertext: Uint8Array): Uint8Array;
+  encrypt(plaintext: Uint8Array): Uint8ArrayBuffer;
+  decrypt(ciphertext: Uint8Array): Uint8ArrayBuffer;
 };
 
 /** Async cipher e.g. from built-in WebCrypto. */
 export type AsyncCipher = {
-  encrypt(plaintext: Uint8Array): Promise<Uint8Array>;
-  decrypt(ciphertext: Uint8Array): Promise<Uint8Array>;
+  encrypt(plaintext: Uint8Array): Promise<Uint8ArrayBuffer>;
+  decrypt(ciphertext: Uint8Array): Promise<Uint8ArrayBuffer>;
 };
 
 /** Cipher with `output` argument which can optimize by doing 1 less allocation. */
 export type CipherWithOutput = Cipher & {
-  encrypt(plaintext: Uint8Array, output?: Uint8Array): Uint8Array;
-  decrypt(ciphertext: Uint8Array, output?: Uint8Array): Uint8Array;
+  encrypt(plaintext: Uint8ArrayBuffer, output?: Uint8ArrayBuffer): Uint8ArrayBuffer;
+  decrypt(ciphertext: Uint8ArrayBuffer, output?: Uint8ArrayBuffer): Uint8ArrayBuffer;
 };
 
 /**
@@ -294,14 +294,14 @@ export type CipherParams = {
 /** ARX cipher, like salsa or chacha. */
 export type ARXCipher = ((
   key: Uint8Array,
-  nonce: Uint8Array,
+  nonce: Uint8ArrayBuffer,
   AAD?: Uint8Array
 ) => CipherWithOutput) & {
   blockSize: number;
   nonceLength: number;
   tagLength: number;
 };
-export type CipherCons<T extends any[]> = (key: Uint8Array, ...args: T) => Cipher;
+export type CipherCons<T extends any[]> = (key: Uint8ArrayBuffer, ...args: T) => Cipher;
 /**
  * Wraps a cipher: validates args, ensures encrypt() can only be called once.
  * @__NO_SIDE_EFFECTS__
@@ -310,7 +310,7 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
   params: P,
   constructor: C
 ): C & P => {
-  function wrappedCipher(key: Uint8Array, ...args: any[]): CipherWithOutput {
+  function wrappedCipher(key: Uint8ArrayBuffer, ...args: any[]): CipherWithOutput {
     // Validate key
     abytes(key, undefined, 'key');
 
@@ -337,14 +337,14 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
     // Create wrapped cipher with validation and single-use encryption
     let called = false;
     const wrCipher = {
-      encrypt(data: Uint8Array, output?: Uint8Array) {
+      encrypt(data: Uint8ArrayBuffer, output?: Uint8ArrayBuffer) {
         if (called) throw new Error('cannot encrypt() twice with same key + nonce');
         called = true;
         abytes(data);
         checkOutput(cipher.encrypt.length, output);
         return (cipher as CipherWithOutput).encrypt(data, output);
       },
-      decrypt(data: Uint8Array, output?: Uint8Array) {
+      decrypt(data: Uint8ArrayBuffer, output?: Uint8ArrayBuffer) {
         abytes(data);
         if (tagl && data.length < tagl)
           throw new Error('"ciphertext" expected length bigger than tagLength=' + tagl);
@@ -363,11 +363,11 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
 /** Represents salsa / chacha stream. */
 export type XorStream = (
   key: Uint8Array,
-  nonce: Uint8Array,
-  data: Uint8Array,
-  output?: Uint8Array,
+  nonce: Uint8ArrayBuffer,
+  data: Uint8ArrayBuffer,
+  output?: Uint8ArrayBuffer,
   counter?: number
-) => Uint8Array;
+) => Uint8ArrayBuffer;
 
 /**
  * By default, returns u8a of length.
@@ -375,9 +375,9 @@ export type XorStream = (
  */
 export function getOutput(
   expectedLength: number,
-  out?: Uint8Array,
+  out?: Uint8ArrayBuffer,
   onlyAligned = true
-): Uint8Array {
+): Uint8ArrayBuffer {
   if (out === undefined) return new Uint8Array(expectedLength);
   if (out.length !== expectedLength)
     throw new Error(
@@ -387,7 +387,7 @@ export function getOutput(
   return out;
 }
 
-export function u64Lengths(dataLength: number, aadLength: number, isLE: boolean): Uint8Array {
+export function u64Lengths(dataLength: number, aadLength: number, isLE: boolean): Uint8ArrayBuffer {
   abool(isLE);
   const num = new Uint8Array(16);
   const view = createView(num);
@@ -402,12 +402,12 @@ export function isAligned32(bytes: Uint8Array): boolean {
 }
 
 // copy bytes to new u8a (aligned). Because Buffer.slice is broken.
-export function copyBytes(bytes: Uint8Array): Uint8Array {
+export function copyBytes(bytes: Uint8Array): Uint8ArrayBuffer {
   return Uint8Array.from(bytes);
 }
 
 /** Cryptographically secure PRNG. Uses internal OS-level `crypto.getRandomValues`. */
-export function randomBytes(bytesLength = 32): Uint8Array {
+export function randomBytes(bytesLength = 32): Uint8ArrayBuffer {
   const cr = typeof globalThis === 'object' ? (globalThis as any).crypto : null;
   if (typeof cr?.getRandomValues !== 'function')
     throw new Error('crypto.getRandomValues must be defined');
@@ -422,7 +422,7 @@ export function randomBytes(bytesLength = 32): Uint8Array {
  */
 export interface PRG {
   addEntropy(seed: Uint8Array): void;
-  randomBytes(length: number): Uint8Array;
+  randomBytes(length: number): Uint8ArrayBuffer;
   clean(): void;
 }
 
@@ -495,3 +495,4 @@ export function managedNonce<T extends CipherWithNonce>(
 
 // workaround for TS 5.9 language mess:
 export type Uint8ArrayBuffer = ReturnType<typeof Uint8Array.of>;
+export type Uint32ArrayBuffer = ReturnType<typeof Uint32Array.of>;

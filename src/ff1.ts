@@ -4,7 +4,7 @@
  * @module
  */
 import { unsafe } from './aes.ts';
-import { type Cipher, abytes, anumber, bytesToNumberBE, clean, numberToBytesBE } from './utils.ts';
+import { type Cipher, abytes, anumber, bytesToNumberBE, clean, numberToBytesBE, type Uint8ArrayBuffer } from './utils.ts';
 
 // NOTE: no point in inlining encrypt instead of encryptBlock, since BigInt stuff will be slow
 const { expandKeyLE, encryptBlock } = unsafe;
@@ -28,7 +28,7 @@ function NUMradix(radix: number, data: number[]): bigint {
   return res;
 }
 
-function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: number[]) {
+function getRound(radix: number, key: Uint8ArrayBuffer, tweak: Uint8Array, x: number[]) {
   if (radix > 2 ** 16 - 1) throw new Error('invalid radix ' + radix);
   // radix**minlen ≥ 100
   const minLen = Math.ceil(Math.log(100) / Math.log(radix));
@@ -97,7 +97,7 @@ const EMPTY_BUF = /* @__PURE__ */ Uint8Array.of();
 /** FPE-FF1 format-preserving encryption */
 export function FF1(
   radix: number,
-  key: Uint8Array,
+  key: Uint8ArrayBuffer,
   tweak: Uint8Array = EMPTY_BUF
 ): { encrypt(x: number[]): number[]; decrypt(x: number[]): number[] } {
   anumber(radix);
@@ -141,7 +141,7 @@ const binLE = {
     }
     return x;
   },
-  decode(b: number[]): Uint8Array {
+  decode(b: number[]): Uint8ArrayBuffer {
     if (!Array.isArray(b) || b.length % 8) throw new Error('Invalid binary string');
     const res = new Uint8Array(b.length / 8);
     for (let i = 0, j = 0; i < res.length; i++) {
@@ -153,7 +153,7 @@ const binLE = {
 };
 
 /** Binary version of FPE-FF1 format-preserving encryption. */
-export function BinaryFF1(key: Uint8Array, tweak: Uint8Array = EMPTY_BUF): Cipher {
+export function BinaryFF1(key: Uint8ArrayBuffer, tweak: Uint8Array = EMPTY_BUF): Cipher {
   const ff1 = FF1(2, key, tweak);
   return {
     encrypt: (x: Uint8Array) => binLE.decode(ff1.encrypt(binLE.encode(x))),

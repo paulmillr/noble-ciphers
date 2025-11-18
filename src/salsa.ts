@@ -25,6 +25,7 @@ import {
   getOutput,
   wrapCipher,
   type XorStream,
+  type Uint8ArrayBuffer,
 } from './utils.ts';
 
 /**
@@ -200,9 +201,9 @@ export const xsalsa20: XorStream = /* @__PURE__ */ createCipher(salsaCore, {
  */
 export const xsalsa20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
-  (key: Uint8Array, nonce: Uint8Array): CipherWithOutput => {
+  (key: Uint8Array, nonce: Uint8ArrayBuffer): CipherWithOutput => {
     return {
-      encrypt(plaintext: Uint8Array, output?: Uint8Array) {
+      encrypt(plaintext: Uint8ArrayBuffer, output?: Uint8ArrayBuffer) {
         // xsalsa20poly1305 optimizes by calculating auth key during the same call as encryption.
         // Unfortunately, makes it hard to separate tag calculation & encryption itself,
         // because 32 bytes is half-block of 64-byte salsa.
@@ -217,7 +218,7 @@ export const xsalsa20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
         clean(output.subarray(0, 16), tag); // clean-up authKey remnants & copy of tag
         return output.subarray(16); // return output[16..]
       },
-      decrypt(ciphertext: Uint8Array, output?: Uint8Array) {
+      decrypt(ciphertext: Uint8ArrayBuffer, output?: Uint8ArrayBuffer) {
         // tmp part     passed tag    ciphertext
         // [0..32]      [32..48]      [48..]
         abytes(ciphertext);
@@ -245,10 +246,10 @@ export const xsalsa20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
  */
 export function secretbox(
   key: Uint8Array,
-  nonce: Uint8Array
+  nonce: Uint8ArrayBuffer
 ): {
-  seal: (plaintext: Uint8Array, output?: Uint8Array) => Uint8Array;
-  open: (ciphertext: Uint8Array, output?: Uint8Array) => Uint8Array;
+  seal: (plaintext: Uint8Array, output?: Uint8Array) => Uint8ArrayBuffer;
+  open: (ciphertext: Uint8Array, output?: Uint8Array) => Uint8ArrayBuffer;
 } {
   const xs = xsalsa20poly1305(key, nonce);
   return { seal: xs.encrypt, open: xs.decrypt };

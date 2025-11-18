@@ -21,7 +21,8 @@
 import {
   abytes, aexists, aoutput, bytesToHex,
   clean, concatBytes, copyBytes, hexToNumber, numberToBytesBE,
-  type IHash2
+  type IHash2,
+  type Uint8ArrayBuffer
 } from './utils.ts';
 
 function u8to16(a: Uint8Array, i: number) {
@@ -33,7 +34,7 @@ function bytesToNumberLE(bytes: Uint8Array): bigint {
 }
 
 /** Small version of `poly1305` without loop unrolling. Unused, provided for auditability. */
-function poly1305_small(msg: Uint8Array, key: Uint8Array): Uint8Array {
+function poly1305_small(msg: Uint8Array, key: Uint8Array): Uint8ArrayBuffer {
   abytes(msg);
   abytes(key, 32, 'key');
   const POW_2_130_5 = BigInt(2) ** BigInt(130) - BigInt(5); // 2^130-5
@@ -59,7 +60,7 @@ function poly1305_computeTag_small(
   lengths: Uint8Array,
   ciphertext: Uint8Array,
   AAD?: Uint8Array
-): Uint8Array {
+): Uint8ArrayBuffer {
   const res = [];
   const updatePadded2 = (msg: Uint8Array) => {
     res.push(msg);
@@ -309,7 +310,7 @@ export class Poly1305 implements IHash2 {
   destroy(): void {
     clean(this.h, this.r, this.buffer, this.pad);
   }
-  digestInto(out: Uint8Array): Uint8Array {
+  digestInto(out: Uint8ArrayBuffer): Uint8ArrayBuffer {
     aexists(this);
     aoutput(out, this);
     this.finished = true;
@@ -328,7 +329,7 @@ export class Poly1305 implements IHash2 {
     }
     return out;
   }
-  digest(): Uint8Array {
+  digest(): Uint8ArrayBuffer {
     const { buffer, outputLen } = this;
     this.digestInto(buffer);
     const res = buffer.slice(0, outputLen);
@@ -341,12 +342,12 @@ export type CHash = ReturnType<typeof wrapConstructorWithKey>;
 export function wrapConstructorWithKey<H extends IHash2>(
   hashCons: (key: Uint8Array) => H
 ): {
-  (msg: Uint8Array, key: Uint8Array): Uint8Array;
+  (msg: Uint8Array, key: Uint8Array): Uint8ArrayBuffer;
   outputLen: number;
   blockLen: number;
   create(key: Uint8Array): H;
 } {
-  const hashC = (msg: Uint8Array, key: Uint8Array): Uint8Array =>
+  const hashC = (msg: Uint8Array, key: Uint8Array): Uint8ArrayBuffer =>
     hashCons(key).update(msg).digest();
   const tmp = hashCons(new Uint8Array(32)); // tmp array, used just once below
   hashC.outputLen = tmp.outputLen;

@@ -23,7 +23,7 @@ import {
   abytes, anumber, clean, complexOverlapBytes, concatBytes,
   copyBytes, createView, equalBytes, getOutput, isAligned32, overlapBytes,
   u32, u64Lengths, u8, wrapCipher,
-  type Cipher, type CipherWithOutput, type PRG, type Uint8ArrayBuffer
+  type Cipher, type CipherWithOutput, type PRG, type TypedArray, type Uint32ArrayBuffer, type Uint8ArrayBuffer
 } from './utils.ts';
 
 const BLOCK_SIZE = 16;
@@ -134,7 +134,7 @@ const xPowers = /* @__PURE__ */ (() => {
 })();
 
 /** Key expansion used in CTR. */
-function expandKeyLE(key: Uint8Array): Uint32Array {
+function expandKeyLE(key: Uint8ArrayBuffer): Uint32ArrayBuffer {
   abytes(key);
   const len = key.length;
   validateKeyLength(key);
@@ -157,7 +157,7 @@ function expandKeyLE(key: Uint8Array): Uint32Array {
   return xk;
 }
 
-function expandKeyDecLE(key: Uint8Array): Uint32Array {
+function expandKeyDecLE(key: Uint8ArrayBuffer): Uint32ArrayBuffer {
   const encKey = expandKeyLE(key);
   const xk = encKey.slice();
   const Nk = encKey.length;
@@ -260,10 +260,10 @@ function decrypt(
 // TODO: investigate merging with ctr32
 function ctrCounter(
   xk: Uint32Array,
-  nonce: Uint8Array,
-  src: Uint8Array,
-  dst?: Uint8Array
-): Uint8Array {
+  nonce: Uint8ArrayBuffer,
+  src: Uint8ArrayBuffer,
+  dst?: Uint8ArrayBuffer
+): Uint8ArrayBuffer {
   abytes(nonce, BLOCK_SIZE, 'nonce');
   abytes(src);
   const srcLen = src.length;
@@ -302,10 +302,10 @@ function ctrCounter(
 function ctr32(
   xk: Uint32Array,
   isLE: boolean,
-  nonce: Uint8Array,
-  src: Uint8Array,
-  dst?: Uint8Array
-): Uint8Array {
+  nonce: Uint8ArrayBuffer,
+  src: Uint8ArrayBuffer,
+  dst?: Uint8ArrayBuffer
+): Uint8ArrayBuffer {
   abytes(nonce, BLOCK_SIZE, 'nonce');
   abytes(src);
   dst = getOutput(src.length, dst);
@@ -344,13 +344,13 @@ function ctr32(
  * **CTR** (Counter Mode): Turns a block cipher into a stream cipher using a counter and IV (nonce).
  * Efficient and parallelizable. Requires a unique nonce per encryption. Unauthenticated: needs MAC.
  */
-export const ctr: ((key: Uint8Array, nonce: Uint8Array) => CipherWithOutput) & {
+export const ctr: ((key: Uint8ArrayBuffer, nonce: Uint8Array) => CipherWithOutput) & {
   blockSize: number;
   nonceLength: number;
 } = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 16 },
-  function aesctr(key: Uint8Array, nonce: Uint8Array): CipherWithOutput {
-    function processCtr(buf: Uint8Array, dst?: Uint8Array) {
+  function aesctr(key: Uint8ArrayBuffer, nonce: Uint8Array): CipherWithOutput {
+    function processCtr(buf: Uint8ArrayBuffer, dst?: Uint8ArrayBuffer) {
       abytes(buf);
       if (dst !== undefined) {
         abytes(dst);
@@ -365,8 +365,8 @@ export const ctr: ((key: Uint8Array, nonce: Uint8Array) => CipherWithOutput) & {
       return out;
     }
     return {
-      encrypt: (plaintext: Uint8Array, dst?: Uint8Array) => processCtr(plaintext, dst),
-      decrypt: (ciphertext: Uint8Array, dst?: Uint8Array) => processCtr(ciphertext, dst),
+      encrypt: (plaintext: Uint8ArrayBuffer, dst?: Uint8ArrayBuffer) => processCtr(plaintext, dst),
+      decrypt: (ciphertext: Uint8ArrayBuffer, dst?: Uint8ArrayBuffer) => processCtr(ciphertext, dst),
     };
   }
 );
@@ -380,7 +380,7 @@ function validateBlockDecrypt(data: Uint8Array) {
   }
 }
 
-function validateBlockEncrypt(plaintext: Uint8Array, pcks5: boolean, dst?: Uint8Array) {
+function validateBlockEncrypt(plaintext: Uint8ArrayBuffer, pcks5: boolean, dst?: Uint8ArrayBuffer) {
   abytes(plaintext);
   let outLen = plaintext.length;
   const remaining = outLen % BLOCK_SIZE;
@@ -399,7 +399,7 @@ function validateBlockEncrypt(plaintext: Uint8Array, pcks5: boolean, dst?: Uint8
   return { b, o, out: dst };
 }
 
-function validatePCKS(data: Uint8Array, pcks5: boolean) {
+function validatePCKS(data: Uint8ArrayBuffer, pcks5: boolean): Uint8ArrayBuffer {
   if (!pcks5) return data;
   const len = data.length;
   if (!len) throw new Error('aes/pcks5: empty ciphertext not allowed');
@@ -428,14 +428,14 @@ export type BlockOpts = { disablePadding?: boolean };
  * identical ciphertexts. Not secure due to pattern leakage.
  * See [AES Penguin](https://words.filippo.io/the-ecb-penguin/).
  */
-export const ecb: ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
+export const ecb: ((key: Uint8ArrayBuffer, opts?: BlockOpts) => CipherWithOutput) & {
   blockSize: number;
 } = /* @__PURE__ */ wrapCipher(
   { blockSize: 16 },
-  function aesecb(key: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
+  function aesecb(key: Uint8ArrayBuffer, opts: BlockOpts = {}): CipherWithOutput {
     const pcks5 = !opts.disablePadding;
     return {
-      encrypt(plaintext: Uint8Array, dst?: Uint8Array) {
+      encrypt(plaintext: Uint8ArrayBuffer, dst?: Uint8ArrayBuffer) {
         const { b, o, out: _out } = validateBlockEncrypt(plaintext, pcks5, dst);
         const xk = expandKeyLE(key);
         let i = 0;
@@ -451,11 +451,11 @@ export const ecb: ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
         clean(xk);
         return _out;
       },
-      decrypt(ciphertext: Uint8Array, dst?: Uint8Array) {
+      decrypt(ciphertext: Uint8ArrayBuffer, dst?: Uint8ArrayBuffer) {
         validateBlockDecrypt(ciphertext);
         const xk = expandKeyDecLE(key);
         dst = getOutput(ciphertext.length, dst);
-        const toClean: (Uint8Array | Uint32Array)[] = [xk];
+        const toClean: TypedArray[] = [xk];
         if (!isAligned32(ciphertext)) toClean.push((ciphertext = copyBytes(ciphertext)));
         complexOverlapBytes(ciphertext, dst);
         const b = u32(ciphertext);
@@ -476,19 +476,19 @@ export const ecb: ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
  * previous block of ciphertext before encryption.
  * Hard to use: requires proper padding and an IV. Unauthenticated: needs MAC.
  */
-export const cbc: ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
+export const cbc: ((key: Uint8ArrayBuffer, iv: Uint8ArrayBuffer, opts?: BlockOpts) => CipherWithOutput) & {
   blockSize: number;
   nonceLength: number;
 } = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 16 },
-  function aescbc(key: Uint8Array, iv: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
+  function aescbc(key: Uint8ArrayBuffer, iv: Uint8ArrayBuffer, opts: BlockOpts = {}): CipherWithOutput {
     const pcks5 = !opts.disablePadding;
     return {
-      encrypt(plaintext: Uint8Array, dst?: Uint8Array) {
+      encrypt(plaintext: Uint8ArrayBuffer, dst?: Uint8ArrayBuffer) {
         const xk = expandKeyLE(key);
         const { b, o, out: _out } = validateBlockEncrypt(plaintext, pcks5, dst);
         let _iv = iv;
-        const toClean: (Uint8Array | Uint32Array)[] = [xk];
+        const toClean: TypedArray[] = [xk];
         if (!isAligned32(_iv)) toClean.push((_iv = copyBytes(_iv)));
         const n32 = u32(_iv);
         // prettier-ignore
@@ -508,11 +508,11 @@ export const cbc: ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => Cipher
         clean(...toClean);
         return _out;
       },
-      decrypt(ciphertext: Uint8Array, dst?: Uint8Array) {
+      decrypt(ciphertext: Uint8ArrayBuffer, dst?: Uint8ArrayBuffer) {
         validateBlockDecrypt(ciphertext);
         const xk = expandKeyDecLE(key);
         let _iv = iv;
-        const toClean: (Uint8Array | Uint32Array)[] = [xk];
+        const toClean: TypedArray[] = [xk];
         if (!isAligned32(_iv)) toClean.push((_iv = copyBytes(_iv)));
         const n32 = u32(_iv);
         dst = getOutput(ciphertext.length, dst);
@@ -540,20 +540,20 @@ export const cbc: ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => Cipher
  * CFB: Cipher Feedback Mode. The input for the block cipher is the previous cipher output.
  * Unauthenticated: needs MAC.
  */
-export const cfb: ((key: Uint8Array, iv: Uint8Array) => CipherWithOutput) & {
+export const cfb: ((key: Uint8ArrayBuffer, iv: Uint8ArrayBuffer) => CipherWithOutput) & {
   blockSize: number;
   nonceLength: number;
 } = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 16 },
-  function aescfb(key: Uint8Array, iv: Uint8Array): CipherWithOutput {
-    function processCfb(src: Uint8Array, isEncrypt: boolean, dst?: Uint8Array) {
+  function aescfb(key: Uint8ArrayBuffer, iv: Uint8ArrayBuffer): CipherWithOutput {
+    function processCfb(src: Uint8ArrayBuffer, isEncrypt: boolean, dst?: Uint8ArrayBuffer) {
       abytes(src);
       const srcLen = src.length;
       dst = getOutput(srcLen, dst);
       if (overlapBytes(src, dst)) throw new Error('overlapping src and dst not supported.');
       const xk = expandKeyLE(key);
       let _iv = iv;
-      const toClean: (Uint8Array | Uint32Array)[] = [xk];
+      const toClean: TypedArray[] = [xk];
       if (!isAligned32(_iv)) toClean.push((_iv = copyBytes(_iv)));
       if (!isAligned32(src)) toClean.push((src = copyBytes(src)));
       const src32 = u32(src);
@@ -582,8 +582,8 @@ export const cfb: ((key: Uint8Array, iv: Uint8Array) => CipherWithOutput) & {
       return dst;
     }
     return {
-      encrypt: (plaintext: Uint8Array, dst?: Uint8Array) => processCfb(plaintext, true, dst),
-      decrypt: (ciphertext: Uint8Array, dst?: Uint8Array) => processCfb(ciphertext, false, dst),
+      encrypt: (plaintext: Uint8ArrayBuffer, dst?: Uint8ArrayBuffer) => processCfb(plaintext, true, dst),
+      decrypt: (ciphertext: Uint8ArrayBuffer, dst?: Uint8ArrayBuffer) => processCfb(ciphertext, false, dst),
     };
   }
 );
@@ -614,14 +614,14 @@ function computeTag(
  * b) key wear-out under random nonces is even smaller: `2**23` (8M) messages for `2**-50` chance.
  * c) MAC can be forged: see Poly1305 documentation.
  */
-export const gcm: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
+export const gcm: ((key: Uint8ArrayBuffer, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
   blockSize: number;
   nonceLength: number;
   tagLength: number;
   varSizeNonce: true;
 } = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 12, tagLength: 16, varSizeNonce: true },
-  function aesgcm(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
+  function aesgcm(key: Uint8ArrayBuffer, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
     // NIST 800-38d doesn't enforce minimum nonce length.
     // We enforce 8 bytes for compat with openssl.
     // 12 bytes are recommended. More than 12 bytes would be converted into 12.
@@ -653,10 +653,10 @@ export const gcm: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cip
       return { xk, authKey, counter, tagMask };
     }
     return {
-      encrypt(plaintext: Uint8Array) {
+      encrypt(plaintext: Uint8ArrayBuffer) {
         const { xk, authKey, counter, tagMask } = deriveKeys();
         const out = new Uint8Array(plaintext.length + tagLength);
-        const toClean: (Uint8Array | Uint32Array)[] = [xk, authKey, counter, tagMask];
+        const toClean: TypedArray[] = [xk, authKey, counter, tagMask];
         if (!isAligned32(plaintext)) toClean.push((plaintext = copyBytes(plaintext)));
         ctr32(xk, false, counter, plaintext, out.subarray(0, plaintext.length));
         const tag = _computeTag(authKey, tagMask, out.subarray(0, out.length - tagLength));
@@ -665,9 +665,9 @@ export const gcm: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cip
         clean(...toClean);
         return out;
       },
-      decrypt(ciphertext: Uint8Array) {
+      decrypt(ciphertext: Uint8ArrayBuffer) {
         const { xk, authKey, counter, tagMask } = deriveKeys();
-        const toClean: (Uint8Array | Uint32Array)[] = [xk, authKey, tagMask, counter];
+        const toClean: TypedArray[] = [xk, authKey, tagMask, counter];
         if (!isAligned32(ciphertext)) toClean.push((ciphertext = copyBytes(ciphertext)));
         const data = ciphertext.subarray(0, -tagLength);
         const passedTag = ciphertext.subarray(-tagLength);
@@ -695,14 +695,14 @@ const limit = (name: string, min: number, max: number) => (value: number) => {
  * Also suffers from GCM issues: key wear-out limits & MAC forging.
  * See [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452).
  */
-export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
+export const gcmsiv: ((key: Uint8ArrayBuffer, nonce: Uint8ArrayBuffer, AAD?: Uint8Array) => Cipher) & {
   blockSize: number;
   nonceLength: number;
   tagLength: number;
   varSizeNonce: true;
 } = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 12, tagLength: 16, varSizeNonce: true },
-  function aessiv(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
+  function aessiv(key: Uint8ArrayBuffer, nonce: Uint8ArrayBuffer, AAD?: Uint8Array): Cipher {
     const tagLength = 16;
     // From RFC 8452: Section 6
     const AAD_LIMIT = limit('AAD', 0, 2 ** 36);
@@ -717,7 +717,7 @@ export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => 
       const xk = expandKeyLE(key);
       const encKey = new Uint8Array(key.length);
       const authKey = new Uint8Array(16);
-      const toClean: (Uint8Array | Uint32Array)[] = [xk, encKey];
+      const toClean: TypedArray[] = [xk, encKey];
       let _nonce = nonce;
       if (!isAligned32(_nonce)) toClean.push((_nonce = copyBytes(_nonce)));
       const n32 = u32(_nonce);
@@ -755,7 +755,7 @@ export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => 
       return tag;
     }
     // actual decrypt/encrypt of message.
-    function processSiv(encKey: Uint32Array, tag: Uint8Array, input: Uint8Array) {
+    function processSiv(encKey: Uint32Array, tag: Uint8Array, input: Uint8ArrayBuffer) {
       let block = copyBytes(tag);
       block[15] |= 0x80; // Force highest bit
       const res = ctr32(encKey, true, block, input);
@@ -764,11 +764,11 @@ export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => 
       return res;
     }
     return {
-      encrypt(plaintext: Uint8Array) {
+      encrypt(plaintext: Uint8ArrayBuffer) {
         PLAIN_LIMIT(plaintext.length);
         const { encKey, authKey } = deriveKeys();
         const tag = _computeTag(encKey, authKey, plaintext);
-        const toClean: (Uint8Array | Uint32Array)[] = [encKey, authKey, tag];
+        const toClean: TypedArray[] = [encKey, authKey, tag];
         if (!isAligned32(plaintext)) toClean.push((plaintext = copyBytes(plaintext)));
         const out = new Uint8Array(plaintext.length + tagLength);
         out.set(tag, plaintext.length);
@@ -777,11 +777,11 @@ export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => 
         clean(...toClean);
         return out;
       },
-      decrypt(ciphertext: Uint8Array) {
+      decrypt(ciphertext: Uint8ArrayBuffer) {
         CIPHER_LIMIT(ciphertext.length);
         const tag = ciphertext.subarray(-tagLength);
         const { encKey, authKey } = deriveKeys();
-        const toClean: (Uint8Array | Uint32Array)[] = [encKey, authKey];
+        const toClean: TypedArray[] = [encKey, authKey];
         if (!isAligned32(ciphertext)) toClean.push((ciphertext = copyBytes(ciphertext)));
         const plaintext = processSiv(encKey, tag, ciphertext.subarray(0, -tagLength));
         const expectedTag = _computeTag(encKey, authKey, plaintext);
@@ -804,7 +804,7 @@ function isBytes32(a: unknown): a is Uint32Array {
   );
 }
 
-function encryptBlock(xk: Uint32Array, block: Uint8Array): Uint8Array {
+function encryptBlock(xk: Uint32Array, block: Uint8ArrayBuffer): Uint8ArrayBuffer {
   abytes(block, 16, 'block');
   if (!isBytes32(xk)) throw new Error('_encryptBlock accepts result of expandKeyLE');
   const b32 = u32(block);
@@ -813,7 +813,7 @@ function encryptBlock(xk: Uint32Array, block: Uint8Array): Uint8Array {
   return block;
 }
 
-function decryptBlock(xk: Uint32Array, block: Uint8Array): Uint8Array {
+function decryptBlock(xk: Uint32Array, block: Uint8ArrayBuffer): Uint8ArrayBuffer {
   abytes(block, 16, 'block');
   if (!isBytes32(xk)) throw new Error('_decryptBlock accepts result of expandKeyLE');
   const b32 = u32(block);
@@ -845,7 +845,7 @@ const AESW = {
   ```
   Decrypt is the same, but reversed.
   */
-  encrypt(kek: Uint8Array, out: Uint8Array) {
+  encrypt(kek: Uint8ArrayBuffer, out: Uint8ArrayBuffer) {
     // Size is limited to 4GB, otherwise ctr will overflow and we'll need to switch to bigints.
     // If you need it larger, open an issue.
     if (out.length >= 2 ** 32) throw new Error('plaintext should be less than 4gb');
@@ -866,7 +866,7 @@ const AESW = {
     }
     xk.fill(0);
   },
-  decrypt(kek: Uint8Array, out: Uint8Array) {
+  decrypt(kek: Uint8ArrayBuffer, out: Uint8ArrayBuffer) {
     if (out.length - 8 >= 2 ** 32) throw new Error('ciphertext should be less than 4gb');
     const xk = expandKeyDecLE(kek);
     const chunks = out.length / 8 - 1; // first chunk is IV
@@ -897,11 +897,11 @@ const AESKW_IV = /* @__PURE__ */ new Uint8Array(8).fill(0xa6); // A6A6A6A6A6A6A6
  * [RFC 3394](https://www.rfc-editor.org/rfc/rfc3394/),
  * [NIST.SP.800-38F](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38F.pdf).
  */
-export const aeskw: ((kek: Uint8Array) => Cipher) & {
+export const aeskw: ((kek: Uint8ArrayBuffer) => Cipher) & {
   blockSize: number;
 } = /* @__PURE__ */ wrapCipher(
   { blockSize: 8 },
-  (kek: Uint8Array): Cipher => ({
+  (kek: Uint8ArrayBuffer): Cipher => ({
     encrypt(plaintext: Uint8Array) {
       if (!plaintext.length || plaintext.length % 8 !== 0)
         throw new Error('invalid plaintext length');
@@ -971,11 +971,11 @@ const AESKWP_IV = 0xa65959a6; // single u32le value
  * Second u32 of IV is used as counter for length.
  * [RFC 5649](https://www.rfc-editor.org/rfc/rfc5649)
  */
-export const aeskwp: ((kek: Uint8Array) => Cipher) & {
+export const aeskwp: ((kek: Uint8ArrayBuffer) => Cipher) & {
   blockSize: number;
 } = /* @__PURE__ */ wrapCipher(
   { blockSize: 8 },
-  (kek: Uint8Array): Cipher => ({
+  (kek: Uint8ArrayBuffer): Cipher => ({
     encrypt(plaintext: Uint8Array) {
       if (!plaintext.length) throw new Error('invalid plaintext length');
       const padded = Math.ceil(plaintext.length / 8) * 8;
@@ -1007,9 +1007,9 @@ export const aeskwp: ((kek: Uint8Array) => Cipher) & {
 
 class _AesCtrDRBG implements PRG {
   readonly blockLen: number;
-  private key: Uint8Array;
-  private nonce: Uint8Array;
-  private state: Uint8Array;
+  private key: Uint8ArrayBuffer;
+  private nonce: Uint8ArrayBuffer;
+  private state: Uint8ArrayBuffer;
   private reseedCnt: number;
   constructor(keyLen: number, seed: Uint8Array, personalization?: Uint8Array) {
     this.blockLen = ctr.blockSize;
@@ -1043,7 +1043,7 @@ class _AesCtrDRBG implements PRG {
     _seed.fill(0);
     this.reseedCnt = 1;
   }
-  randomBytes(len: number, info?: Uint8Array): Uint8Array {
+  randomBytes(len: number, info?: Uint8Array): Uint8ArrayBuffer {
     anumber(len);
     if (this.reseedCnt++ >= 2 ** 48) throw new Error('entropy exhausted');
     if (info) this.update(info);
@@ -1152,7 +1152,7 @@ export const cmac = {
   /**
    * Generate subkeys K1 and K2 from the main key according to [RFC 4493, Section 2.3](https://www.rfc-editor.org/rfc/rfc4493.html#section-2.3)
    */
-  generateSubkeys(key: Uint8Array): { k1: Uint8Array; k2: Uint8Array } {
+  generateSubkeys(key: Uint8ArrayBuffer): { k1: Uint8ArrayBuffer; k2: Uint8ArrayBuffer } {
     abytes(key);
     validateKeyLength(key);
     
@@ -1173,7 +1173,7 @@ export const cmac = {
   /**
    * Compute CMAC tag for a message
    */
-  create(key: Uint8Array): {
+  create(key: Uint8ArrayBuffer): {
     update(data: Uint8Array): void;
     digest(): Uint8ArrayBuffer;
     destroy(): void;
@@ -1186,7 +1186,7 @@ export const cmac = {
     let buffer = new Uint8Array(0);
     let destroyed = false;
     
-    const toClean: (Uint8Array | Uint32Array)[] = [xk, k1, k2];
+    const toClean: TypedArray[] = [xk, k1, k2];
     
     return {
       update(data: Uint8Array) {
@@ -1268,7 +1268,7 @@ export const cmac = {
   /**
    * One-shot CMAC computation
    */
-  tag(key: Uint8Array, message: Uint8Array): Uint8ArrayBuffer {
+  tag(key: Uint8ArrayBuffer, message: Uint8Array): Uint8ArrayBuffer {
     const cmacInstance = cmac.create(key);
     cmacInstance.update(message);
     const result = cmacInstance.digest();
@@ -1279,7 +1279,7 @@ export const cmac = {
   /**
    * Verify CMAC tag
    */
-  verify(key: Uint8Array, message: Uint8Array, tag: Uint8Array): boolean {
+  verify(key: Uint8ArrayBuffer, message: Uint8Array, tag: Uint8Array): boolean {
     abytes(tag, BLOCK_SIZE, 'tag');
     const computedTag = cmac.tag(key, message);
     const result = equalBytes(computedTag, tag);
@@ -1319,7 +1319,7 @@ export const cmac = {
  * @param strings - Array of byte arrays to process
  * @returns 128-bit synthetic IV
  */
-function s2v(key: Uint8Array, strings: Uint8Array[]): Uint8ArrayBuffer {
+function s2v(key: Uint8ArrayBuffer, strings: Uint8Array[]): Uint8ArrayBuffer {
   validateKeyLength(key);
   if (strings.length > 127) {
     // see https://datatracker.ietf.org/doc/html/rfc5297.html#section-7
@@ -1343,7 +1343,7 @@ function s2v(key: Uint8Array, strings: Uint8Array[]): Uint8ArrayBuffer {
   }
   
   const s_n = strings[strings.length - 1];
-  let t: Uint8Array;
+  let t: Uint8ArrayBuffer;
   
   // if len(Sn) >= 128 then
   if (s_n.byteLength >= BLOCK_SIZE) {
@@ -1363,8 +1363,7 @@ function s2v(key: Uint8Array, strings: Uint8Array[]): Uint8ArrayBuffer {
   // V = AES-CMAC(K, T)
   const result = cmac.tag(key, t);
   
-  clean(d);
-  clean(t);
+  clean(d, t);
   
   return result;
 }
@@ -1374,12 +1373,12 @@ function s2v(key: Uint8Array, strings: Uint8Array[]): Uint8ArrayBuffer {
  * Nonce is derived from the plaintext and AAD using the S2V function.
  * See [RFC 5297](https://datatracker.ietf.org/doc/html/rfc5297.html).
  */
-export const siv: ((key: Uint8Array, ...AAD: Uint8Array[]) => Cipher) & {
+export const siv: ((key: Uint8ArrayBuffer, ...AAD: Uint8Array[]) => Cipher) & {
   blockSize: number;
   tagLength: number;
 } = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, tagLength: 16 },
-  function aessiv(key: Uint8Array, ...AAD: Uint8Array[]): Cipher {
+  function aessiv(key: Uint8ArrayBuffer, ...AAD: Uint8Array[]): Cipher {
     // From RFC 5297: Section 6.1, 6.2, 6.3:
     const PLAIN_LIMIT = limit('plaintext', 0, 2 ** 132);
     const CIPHER_LIMIT = limit('ciphertext', 16, 2 ** 132 + 16);
