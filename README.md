@@ -140,10 +140,10 @@ const data_ = chacha.decrypt(ciphertext);
 #### AES: gcm, siv, ctr, cfb, cbc, ecb, aeskw
 
 ```js
-import { gcm, gcmsiv, ctr, cfb, cbc, ecb } from '@noble/ciphers/aes.js';
+import { gcm, gcmsiv, aessiv, ctr, cfb, cbc, ecb } from '@noble/ciphers/aes.js';
 import { randomBytes } from '@noble/ciphers/utils.js';
 const plaintext = new Uint8Array(32).fill(16);
-for (let cipher of [gcm, gcmsiv]) {
+for (let cipher of [gcm, gcmsiv, aessiv]) {
   const key = randomBytes(32); // 24 for AES-192, 16 for AES-128
   const nonce = randomBytes(12);
   const ciphertext_ = cipher(key, nonce).encrypt(plaintext);
