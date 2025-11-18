@@ -2,7 +2,7 @@
  * Audited & minimal JS implementation of Salsa20, ChaCha and AES. Check out individual modules.
  * @example
 ```js
-import { gcm, siv } from '@noble/ciphers/aes.js';
+import { gcm, aessiv } from '@noble/ciphers/aes.js';
 import { xsalsa20poly1305 } from '@noble/ciphers/salsa.js';
 import { secretbox } from '@noble/ciphers/salsa.js'; // == xsalsa20poly1305
 import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha.js';
