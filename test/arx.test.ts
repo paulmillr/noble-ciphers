@@ -3,13 +3,13 @@ import { base64 } from '@scure/base';
 import { deepStrictEqual as eql, throws } from 'node:assert';
 import { poly1305 } from '../src/_poly1305.ts';
 import {
-    chacha12,
-    chacha20,
-    chacha20orig,
-    chacha20poly1305,
-    hchacha,
-    xchacha20,
-    xchacha20poly1305,
+  chacha12,
+  chacha20,
+  chacha20orig,
+  chacha20poly1305,
+  hchacha,
+  xchacha20,
+  xchacha20poly1305,
 } from '../src/chacha.ts';
 import { hsalsa, salsa20, secretbox, xsalsa20, xsalsa20poly1305 } from '../src/salsa.ts';
 import * as utils from '../src/utils.ts';

@@ -1,5 +1,5 @@
 import mark from '@paulmillr/jsbt/bench.js';
-import { cbc, ctr, ecb, gcm, gcmsiv, rngAesCtrDrbg128, siv } from '../../src/aes.ts';
+import { aessiv, cbc, ctr, ecb, gcm, gcmsiv, rngAesCtrDrbg128 } from '../../src/aes.ts';
 import {
   chacha12,
   chacha20,
@@ -43,8 +43,8 @@ async function main() {
     await mark('xchacha20poly1305', () => xchacha20poly1305(key, nonce24).encrypt(buf));
     await mark('aes-gcm-256', () => gcm(key, nonce).encrypt(buf));
     await mark('aes-gcm-siv-256', () => gcmsiv(key, nonce).encrypt(buf));
-    await mark('aes-siv-256', () => siv(key, nonce, nonce16, nonce24).encrypt(buf));
-    await mark('aes-siv-512', () => siv(key64, nonce, nonce16, nonce24).encrypt(buf));
+    await mark('aes-siv-256', () => aessiv(key, nonce, nonce16, nonce24).encrypt(buf));
+    await mark('aes-siv-512', () => aessiv(key64, nonce, nonce16, nonce24).encrypt(buf));
 
     console.log('# Unauthenticated encryption');
     await mark('salsa20', () => salsa20(key, nonce8, buf));

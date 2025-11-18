@@ -1,12 +1,11 @@
 import { describe, should } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual, throws } from 'node:assert';
-import { hexToBytes, bytesToHex } from '../src/utils.ts';
-import { unsafe, siv } from '../src/aes.ts';
+import { aessiv as siv, unsafe } from '../src/aes.ts';
+import { bytesToHex, hexToBytes } from '../src/utils.ts';
 import { json } from './utils.ts';
 
 // Test vectors from [RFC 5297](https://datatracker.ietf.org/doc/html/rfc5297.html#appendix-A)
 describe('S2V', () => {
-
   describe('RFC 5297 test vectors', () => {
     should('Example A.1', () => {
       const key = hexToBytes('fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0');
@@ -19,10 +18,14 @@ describe('S2V', () => {
 
     should('Example A.2', () => {
       const key = hexToBytes('7f7e7d7c7b7a79787776757473727170');
-      const ad1 = hexToBytes('00112233445566778899aabbccddeeffdeaddadadeaddadaffeeddccbbaa99887766554433221100');
+      const ad1 = hexToBytes(
+        '00112233445566778899aabbccddeeffdeaddadadeaddadaffeeddccbbaa99887766554433221100'
+      );
       const ad2 = hexToBytes('102030405060708090a0');
       const nonce = hexToBytes('09f911029d74e35bd84156c5635688c0');
-      const plaintext = hexToBytes('7468697320697320736f6d6520706c61696e7465787420746f20656e6372797074207573696e67205349562d414553');
+      const plaintext = hexToBytes(
+        '7468697320697320736f6d6520706c61696e7465787420746f20656e6372797074207573696e67205349562d414553'
+      );
       const result = unsafe.s2v(key, [ad1, ad2, nonce, plaintext]);
       const expected = '7bdb6e3b432667eb06f4d14bff2fbd0f';
       deepStrictEqual(bytesToHex(result), expected);
@@ -60,7 +63,6 @@ describe('S2V', () => {
 });
 
 describe('AES-SIV', () => {
-
   describe('RFC 5297 test vectors', () => {
     should('Example A.1', () => {
       const key = hexToBytes('fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff');
@@ -73,12 +75,17 @@ describe('AES-SIV', () => {
 
     should('Example A.2', () => {
       const key = hexToBytes('7f7e7d7c7b7a79787776757473727170404142434445464748494a4b4c4d4e4f');
-      const ad1 = hexToBytes('00112233445566778899aabbccddeeffdeaddadadeaddadaffeeddccbbaa99887766554433221100');
+      const ad1 = hexToBytes(
+        '00112233445566778899aabbccddeeffdeaddadadeaddadaffeeddccbbaa99887766554433221100'
+      );
       const ad2 = hexToBytes('102030405060708090a0');
       const nonce = hexToBytes('09f911029d74e35bd84156c5635688c0');
-      const plaintext = hexToBytes('7468697320697320736f6d6520706c61696e7465787420746f20656e6372797074207573696e67205349562d414553');
+      const plaintext = hexToBytes(
+        '7468697320697320736f6d6520706c61696e7465787420746f20656e6372797074207573696e67205349562d414553'
+      );
       const result = siv(key, ad1, ad2, nonce).encrypt(plaintext);
-      const expected = '7bdb6e3b432667eb06f4d14bff2fbd0fcb900f2fddbe404326601965c889bf17dba77ceb094fa663b7a3f748ba8af829ea64ad544a272e9c485b62a3fd5c0d';
+      const expected =
+        '7bdb6e3b432667eb06f4d14bff2fbd0fcb900f2fddbe404326601965c889bf17dba77ceb094fa663b7a3f748ba8af829ea64ad544a272e9c485b62a3fd5c0d';
       deepStrictEqual(bytesToHex(result), expected);
     });
   });
@@ -128,5 +135,4 @@ describe('AES-SIV', () => {
       });
     }
   });
-
 });
