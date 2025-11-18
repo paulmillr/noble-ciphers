@@ -21,6 +21,7 @@ import {
   createView,
   u32,
   type IHash2,
+  type Uint8ArrayBuffer,
 } from './utils.ts';
 
 const BLOCK_SIZE = 16;
@@ -54,7 +55,7 @@ const swapLE = (n: number) =>
  * `mulX_POLYVAL(ByteReverse(H))` from spec
  * @param k mutated in place
  */
-export function _toGHASHKey(k: Uint8Array): Uint8Array {
+export function _toGHASHKey(k: Uint8ArrayBuffer): Uint8ArrayBuffer {
   k.reverse();
   const hiBit = k[15] & 1;
   // k >>= 1
@@ -88,7 +89,7 @@ export class GHASH implements IHash2 {
   private W: number;
   private windowSize: number;
   // We select bits per window adaptively based on expectedLength
-  constructor(key: Uint8Array, expectedLength?: number) {
+  constructor(key: Uint8ArrayBuffer, expectedLength?: number) {
     abytes(key, 16, 'key');
     key = copyBytes(key);
     const kView = createView(key);
@@ -153,15 +154,15 @@ export class GHASH implements IHash2 {
   update(data: Uint8Array): this {
     aexists(this);
     abytes(data);
-    data = copyBytes(data);
-    const b32 = u32(data);
-    const blocks = Math.floor(data.length / BLOCK_SIZE);
-    const left = data.length % BLOCK_SIZE;
+    const d = copyBytes(data);
+    const b32 = u32(d);
+    const blocks = Math.floor(d.length / BLOCK_SIZE);
+    const left = d.length % BLOCK_SIZE;
     for (let i = 0; i < blocks; i++) {
       this._updateBlock(b32[i * 4 + 0], b32[i * 4 + 1], b32[i * 4 + 2], b32[i * 4 + 3]);
     }
     if (left) {
-      ZEROS16.set(data.subarray(blocks * BLOCK_SIZE));
+      ZEROS16.set(d.subarray(blocks * BLOCK_SIZE));
       this._updateBlock(ZEROS32[0], ZEROS32[1], ZEROS32[2], ZEROS32[3]);
       clean(ZEROS32); // clean tmp buffer
     }
@@ -174,7 +175,7 @@ export class GHASH implements IHash2 {
       ((elm.s0 = 0), (elm.s1 = 0), (elm.s2 = 0), (elm.s3 = 0));
     }
   }
-  digestInto(out: Uint8Array): Uint8Array {
+  digestInto(out: Uint8ArrayBuffer): Uint8ArrayBuffer {
     aexists(this);
     aoutput(out, this);
     this.finished = true;
@@ -186,7 +187,7 @@ export class GHASH implements IHash2 {
     o32[3] = s3;
     return out;
   }
-  digest(): Uint8Array {
+  digest(): Uint8ArrayBuffer {
     const res = new Uint8Array(BLOCK_SIZE);
     this.digestInto(res);
     this.destroy();
@@ -204,10 +205,10 @@ export class Polyval extends GHASH {
   update(data: Uint8Array): this {
     aexists(this);
     abytes(data);
-    data = copyBytes(data);
-    const b32 = u32(data);
-    const left = data.length % BLOCK_SIZE;
-    const blocks = Math.floor(data.length / BLOCK_SIZE);
+    const d = copyBytes(data);
+    const b32 = u32(d);
+    const left = d.length % BLOCK_SIZE;
+    const blocks = Math.floor(d.length / BLOCK_SIZE);
     for (let i = 0; i < blocks; i++) {
       this._updateBlock(
         swapLE(b32[i * 4 + 3]),
@@ -217,7 +218,7 @@ export class Polyval extends GHASH {
       );
     }
     if (left) {
-      ZEROS16.set(data.subarray(blocks * BLOCK_SIZE));
+      ZEROS16.set(d.subarray(blocks * BLOCK_SIZE));
       this._updateBlock(
         swapLE(ZEROS32[3]),
         swapLE(ZEROS32[2]),
@@ -228,7 +229,7 @@ export class Polyval extends GHASH {
     }
     return this;
   }
-  digestInto(out: Uint8Array): Uint8Array {
+  digestInto(out: Uint8ArrayBuffer): Uint8ArrayBuffer {
     aexists(this);
     aoutput(out, this);
     this.finished = true;
@@ -245,19 +246,19 @@ export class Polyval extends GHASH {
 
 export type CHashPV = ReturnType<typeof wrapConstructorWithKey>;
 function wrapConstructorWithKey<H extends IHash2>(
-  hashCons: (key: Uint8Array, expectedLength?: number) => H
+  hashCons: (key: Uint8ArrayBuffer, expectedLength?: number) => H
 ): {
-  (msg: Uint8Array, key: Uint8Array): Uint8Array;
+  (msg: Uint8Array, key: Uint8ArrayBuffer): Uint8ArrayBuffer;
   outputLen: number;
   blockLen: number;
   create(key: Uint8Array, expectedLength?: number): H;
 } {
-  const hashC = (msg: Uint8Array, key: Uint8Array): Uint8Array =>
+  const hashC = (msg: Uint8Array, key: Uint8ArrayBuffer): Uint8ArrayBuffer =>
     hashCons(key, msg.length).update(msg).digest();
   const tmp = hashCons(new Uint8Array(16), 0);
   hashC.outputLen = tmp.outputLen;
   hashC.blockLen = tmp.blockLen;
-  hashC.create = (key: Uint8Array, expectedLength?: number) => hashCons(key, expectedLength);
+  hashC.create = (key: Uint8ArrayBuffer, expectedLength?: number) => hashCons(key, expectedLength);
   return hashC;
 }
 

@@ -26,6 +26,7 @@ import {
   getOutput,
   u64Lengths,
   wrapCipher,
+  type Uint8ArrayBuffer,
 } from './utils.ts';
 
 /**
@@ -274,10 +275,10 @@ const ZEROS32 = /* @__PURE__ */ new Uint8Array(32);
 function computeTag(
   fn: XorStream,
   key: Uint8Array,
-  nonce: Uint8Array,
+  nonce: Uint8ArrayBuffer,
   ciphertext: Uint8Array,
   AAD?: Uint8Array
-): Uint8Array {
+): Uint8ArrayBuffer {
   if (AAD !== undefined) abytes(AAD, undefined, 'AAD');
   const authKey = fn(key, nonce, ZEROS32);
   const lengths = u64Lengths(ciphertext.length, AAD ? AAD.length : 0, true);
@@ -302,10 +303,10 @@ function computeTag(
  */
 export const _poly1305_aead =
   (xorStream: XorStream) =>
-  (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): CipherWithOutput => {
+  (key: Uint8Array, nonce: Uint8ArrayBuffer, AAD?: Uint8Array): CipherWithOutput => {
     const tagLength = 16;
     return {
-      encrypt(plaintext: Uint8Array, output?: Uint8Array) {
+      encrypt(plaintext: Uint8ArrayBuffer, output?: Uint8ArrayBuffer) {
         const plength = plaintext.length;
         output = getOutput(plength + tagLength, output, false);
         output.set(plaintext);
@@ -317,7 +318,7 @@ export const _poly1305_aead =
         clean(tag);
         return output;
       },
-      decrypt(ciphertext: Uint8Array, output?: Uint8Array) {
+      decrypt(ciphertext: Uint8ArrayBuffer, output?: Uint8ArrayBuffer) {
         output = getOutput(ciphertext.length - tagLength, output, false);
         const data = ciphertext.subarray(0, -tagLength);
         const passedTag = ciphertext.subarray(-tagLength);

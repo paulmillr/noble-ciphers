@@ -47,6 +47,8 @@ import {
   copyBytes,
   randomBytes,
   u32,
+  type Uint8ArrayBuffer,
+  type TypedArray,
 } from './utils.ts';
 
 // Replaces `TextEncoder`, which is not available in all environments
@@ -111,8 +113,8 @@ function runCipher(
   sigma: Uint32Array,
   key: Uint32Array,
   nonce: Uint32Array,
-  data: Uint8Array,
-  output: Uint8Array,
+  data: Uint8ArrayBuffer,
+  output: Uint8ArrayBuffer,
   counter: number,
   rounds: number
 ): void {
@@ -159,11 +161,11 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
   abool(allowShortKeys);
   return (
     key: Uint8Array,
-    nonce: Uint8Array,
-    data: Uint8Array,
-    output?: Uint8Array,
+    nonce: Uint8ArrayBuffer,
+    data: Uint8ArrayBuffer,
+    output?: Uint8ArrayBuffer,
     counter = 0
-  ): Uint8Array => {
+  ): Uint8ArrayBuffer => {
     abytes(key, undefined, 'key');
     abytes(nonce, undefined, 'nonce');
     abytes(data, undefined, 'data');
@@ -174,13 +176,13 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
     if (counter < 0 || counter >= MAX_COUNTER) throw new Error('arx: counter overflow');
     if (output.length < len)
       throw new Error(`arx: output (${output.length}) is shorter than data (${len})`);
-    const toClean = [];
+    const toClean: TypedArray[] = [];
 
     // Key & sigma
     // key=16 -> sigma16, k=key|key
     // key=32 -> sigma32, k=key
     let l = key.length;
-    let k: Uint8Array;
+    let k: Uint8ArrayBuffer;
     let sigma: Uint32Array;
     if (l === 32) {
       toClean.push((k = copyBytes(key)));
@@ -238,10 +240,10 @@ export class _XorStreamPRG implements PRG {
   readonly blockLen: number;
   readonly keyLen: number;
   readonly nonceLen: number;
-  private state: Uint8Array;
-  private buf: Uint8Array;
-  private key: Uint8Array;
-  private nonce: Uint8Array;
+  private state: Uint8ArrayBuffer;
+  private buf: Uint8ArrayBuffer;
+  private key: Uint8ArrayBuffer;
+  private nonce: Uint8ArrayBuffer;
   private pos: number;
   private ctr: number;
   private cipher: XorStream;
@@ -275,7 +277,7 @@ export class _XorStreamPRG implements PRG {
     this.state.set(this.randomBytes(this.state.length));
     this.reseed(seed);
   }
-  randomBytes(len: number): Uint8Array {
+  randomBytes(len: number): Uint8ArrayBuffer {
     anumber(len);
     if (len === 0) return new Uint8Array(0);
     const out = new Uint8Array(len);
