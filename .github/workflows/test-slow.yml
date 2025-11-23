@@ -1,24 +1,11 @@
-name: Run slow JS tests
+name: Run slow TS tests
 on:
   schedule:
     - cron: '0 6 * * 1,4' # 06:00 bi-weekly (mon, thu)
   workflow_dispatch:
-env:
-  MSHOULD_FAST: 1
 jobs:
-  big:
-    name: Test large inputs
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
-        with:
-          persist-credentials: false
-          submodules: true
-      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6
-        with:
-          registry-url: "https://registry.npmjs.org"
-          cache: npm
-          node-version: 24
-      - run: npm install
-      - run: npm run build --if-present
-      - run: npm run test:big
+  slow:
+    name: jsbt v0.4.5 large input tests
+    uses: paulmillr/jsbt/.github/workflows/test-ts-slow.yml@857e7538fb14d48feaaa1dda889d8d4d10b9289d
+    with:
+      npm-task: test:slow

@@ -28,7 +28,7 @@
     "test:bun": "bun test/index.ts",
     "test:deno": "deno --allow-env --allow-read test/index.ts",
     "test:node20": "cd test; npx tsc; node compiled/test/index.js",
-    "test:big": "node test/crosstest.test.ts slow"
+    "test:slow": "node test/crosstest.test.ts slow"
   },
   "exports": {
     ".": "./index.js",
