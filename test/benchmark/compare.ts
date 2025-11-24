@@ -527,15 +527,15 @@ export const CIPHERS = {
         128: {
           options: { key: buf(16), aad: buf(0), nonce: buf(12) },
           noble: {
-            encrypt: (buf, opts) => aes.siv(opts.key, opts.nonce, opts.aad).encrypt(buf),
-            decrypt: (buf, opts) => aes.siv(opts.key, opts.nonce, opts.aad).decrypt(buf),
+            encrypt: (buf, opts) => aes.gcmsiv(opts.key, opts.nonce, opts.aad).encrypt(buf),
+            decrypt: (buf, opts) => aes.gcmsiv(opts.key, opts.nonce, opts.aad).decrypt(buf),
           },
         },
         256: {
           options: { key: buf(32), nonce: buf(12), aad: buf(16) },
           noble: {
-            encrypt: (buf, opts) => aes.siv(opts.key, opts.nonce, opts.aad).encrypt(buf),
-            decrypt: (buf, opts) => aes.siv(opts.key, opts.nonce, opts.aad).decrypt(buf),
+            encrypt: (buf, opts) => aes.gcmsiv(opts.key, opts.nonce, opts.aad).encrypt(buf),
+            decrypt: (buf, opts) => aes.gcmsiv(opts.key, opts.nonce, opts.aad).decrypt(buf),
           },
         },
       },
@@ -601,6 +601,21 @@ export async function main() {
         return [buf, args[1]];
       }
       return args;
+    },
+    metrics: {
+      'MiB/s': {
+        rev: true, // Bigger = better (green +%, red -%)
+        width: 7,
+        diff: true,
+        compute: (_obj, stats, perSec, buffer) => {
+          const MiB = 1024 * 1024;
+          const ns = 1e9;
+          const bytesPerOp = 1 * buffer.length;
+          if (stats.mean === 0n) return 0; // Edge: infinite speed
+          const speed = (bytesPerOp * ns) / (Number(stats.mean) * MiB);
+          return +`${speed.toFixed(0)}`;
+        },
+      },
     },
   });
 }
