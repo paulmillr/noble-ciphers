@@ -1,7 +1,7 @@
 import { describe, should } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual, throws } from 'node:assert';
-import { hexToBytes, bytesToHex, equalBytes } from '../src/utils.ts';
 import { cmac } from '../src/aes.ts';
+import { abytes, bytesToHex, equalBytes, hexToBytes } from '../src/utils.ts';
 
 describe('AES-CMAC', () => {
   // Test vectors from https://www.rfc-editor.org/rfc/rfc4493.html#section-4
@@ -120,7 +120,7 @@ describe('AES-CMAC', () => {
   describe('RFC 4493 test vectors', () => {
     for (const vector of rfcTestVectors) {
       should(vector.name, () => {
-        const result = cmac.tag(RFC4493_KEY, vector.message);
+        const result = cmac(RFC4493_KEY, vector.message);
         deepStrictEqual(bytesToHex(result), vector.expected);
       });
     }
@@ -129,7 +129,7 @@ describe('AES-CMAC', () => {
   describe('Subkey generation', () => {
     should('generate correct subkeys', () => {
       // Test vectors for subkey generation (derived from RFC 4493)
-      const subkeys = cmac.generateSubkeys(RFC4493_KEY);
+      const subkeys = cmac.create(RFC4493_KEY);
 
       // Expected values computed according to RFC 4493 algorithm
       const expectedK1 = 'fbeed618357133667c85e08f7236a8de';
@@ -143,7 +143,7 @@ describe('AES-CMAC', () => {
   describe('NIST test vectors', () => {
     for (const vector of nistTestVectors) {
       should(vector.name, () => {
-        const result = cmac.tag(vector.key, vector.message);
+        const result = cmac(vector.key, vector.message);
         deepStrictEqual(bytesToHex(result), vector.expected);
       });
     }
@@ -189,16 +189,23 @@ describe('AES-CMAC', () => {
   });
 
   describe('Verification', () => {
+    function cmac_verify(key: Uint8Array, message: Uint8Array, tag: Uint8Array): boolean {
+      abytes(tag, 16, 'tag');
+      const computedTag = cmac(key, message);
+      const result = equalBytes(computedTag, tag);
+      // clean(computedTag);
+      return result;
+    }
     should('verify correct tags', () => {
       const message = hexToBytes('6bc1bee22e409f96e93d7e117393172a');
       const tag = hexToBytes('070a16b46b4d4144f79bdd9dd04a287c');
-      deepStrictEqual(cmac.verify(RFC4493_KEY, message, tag), true);
+      deepStrictEqual(cmac_verify(RFC4493_KEY, message, tag), true);
     });
 
     should('reject incorrect tags', () => {
       const message = hexToBytes('6bc1bee22e409f96e93d7e117393172a');
       const wrongTag = hexToBytes('070a16b46b4d4144f79bdd9dd04a287d'); // Last byte changed
-      deepStrictEqual(cmac.verify(RFC4493_KEY, message, wrongTag), false);
+      deepStrictEqual(cmac_verify(RFC4493_KEY, message, wrongTag), false);
     });
   });
 
@@ -206,29 +213,29 @@ describe('AES-CMAC', () => {
     should('work with 192-bit keys', () => {
       const key192 = hexToBytes('8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b');
       const message = hexToBytes('6bc1bee22e409f96e93d7e117393172a');
-      const result = cmac.tag(key192, message);
+      const result = cmac(key192, message);
       deepStrictEqual(result.length, 16); // Should always produce 16-byte tag
     });
 
     should('work with 256-bit keys', () => {
       const key256 = hexToBytes('603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4');
       const message = hexToBytes('6bc1bee22e409f96e93d7e117393172a');
-      const result = cmac.tag(key256, message);
+      const result = cmac(key256, message);
       deepStrictEqual(result.length, 16); // Should always produce 16-byte tag
     });
   });
 
   describe('Error handling', () => {
     should('reject invalid key lengths', () => {
-      throws(() => cmac.tag(new Uint8Array(15), new Uint8Array(16)));
-      throws(() => cmac.tag(new Uint8Array(17), new Uint8Array(16)));
-      throws(() => cmac.tag(new Uint8Array(25), new Uint8Array(16)));
+      throws(() => cmac(new Uint8Array(15), new Uint8Array(16)));
+      throws(() => cmac(new Uint8Array(17), new Uint8Array(16)));
+      throws(() => cmac(new Uint8Array(25), new Uint8Array(16)));
     });
 
     should('reject invalid tag lengths in verify', () => {
       const message = hexToBytes('6bc1bee22e409f96e93d7e117393172a');
-      throws(() => cmac.verify(RFC4493_KEY, message, new Uint8Array(15)));
-      throws(() => cmac.verify(RFC4493_KEY, message, new Uint8Array(17)));
+      throws(() => cmac_verify(RFC4493_KEY, message, new Uint8Array(15)));
+      throws(() => cmac_verify(RFC4493_KEY, message, new Uint8Array(17)));
     });
 
     should('prevent use after destroy', () => {
@@ -251,8 +258,8 @@ describe('AES-CMAC', () => {
       const key2 = hexToBytes('2b7e151628aed2a6abf7158809cf4f3d'); // Last byte different
       const message = hexToBytes('6bc1bee22e409f96e93d7e117393172a');
 
-      const tag1 = cmac.tag(key1, message);
-      const tag2 = cmac.tag(key2, message);
+      const tag1 = cmac(key1, message);
+      const tag2 = cmac(key2, message);
 
       deepStrictEqual(tag1.length, tag2.length);
       deepStrictEqual(equalBytes(tag1, tag2), false);
@@ -262,11 +269,13 @@ describe('AES-CMAC', () => {
       const message1 = hexToBytes('6bc1bee22e409f96e93d7e117393172a');
       const message2 = hexToBytes('6bc1bee22e409f96e93d7e117393172b'); // Last byte different
 
-      const tag1 = cmac.tag(RFC4493_KEY, message1);
-      const tag2 = cmac.tag(RFC4493_KEY, message2);
+      const tag1 = cmac(RFC4493_KEY, message1);
+      const tag2 = cmac(RFC4493_KEY, message2);
 
       deepStrictEqual(tag1.length, tag2.length);
       deepStrictEqual(equalBytes(tag1, tag2), false);
     });
   });
 });
+
+should.runWhen(import.meta.url);

@@ -136,3 +136,5 @@ describe('AES-SIV', () => {
     }
   });
 });
+
+should.runWhen(import.meta.url);
