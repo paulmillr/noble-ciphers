@@ -389,6 +389,7 @@ Check out [draft-irtf-cfrg-aead-limits](https://datatracker.ietf.org/doc/draft-i
   - AES-GCM-SIV nonce-misuse-resistant mode is also provided. Our implementation of SIV
     has the same speed as GCM: there is no performance hit.
     The mode is described in [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452).
+  - There is a separate AES-SIV mode, described in [RFC 5297](https://www.rfc-editor.org/rfc/rfc5297)
   - We also have AESKW and AESKWP from
     [RFC 3394](https://www.rfc-editor.org/rfc/rfc3394) & [RFC 5649](https://www.rfc-editor.org/rfc/rfc5649)
   - Format-preserving encryption algorithm (FPE-FF1) specified in
