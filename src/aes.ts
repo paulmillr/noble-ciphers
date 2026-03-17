@@ -382,15 +382,15 @@ function validateBlockDecrypt(data: Uint8Array) {
   }
 }
 
-function validateBlockEncrypt(plaintext: Uint8Array, pcks5: boolean, dst?: Uint8Array) {
+function validateBlockEncrypt(plaintext: Uint8Array, pkcs5: boolean, dst?: Uint8Array) {
   abytes(plaintext);
   let outLen = plaintext.length;
   const remaining = outLen % BLOCK_SIZE;
-  if (!pcks5 && remaining !== 0)
+  if (!pkcs5 && remaining !== 0)
     throw new Error('aec/(cbc-ecb): unpadded plaintext with disabled padding');
   if (!isAligned32(plaintext)) plaintext = copyBytes(plaintext);
   const b = u32(plaintext);
-  if (pcks5) {
+  if (pkcs5) {
     let left = BLOCK_SIZE - remaining;
     if (!left) left = BLOCK_SIZE; // if no bytes left, create empty padding block
     outLen = outLen + left;
@@ -401,16 +401,29 @@ function validateBlockEncrypt(plaintext: Uint8Array, pcks5: boolean, dst?: Uint8
   return { b, o, out: dst };
 }
 
-function validatePCKS(data: Uint8Array, pcks5: boolean) {
-  if (!pcks5) return data;
+function validatePKCS(data: Uint8Array, pkcs5: boolean): Uint8Array {
+  if (!pkcs5) return data;
+
   const len = data.length;
-  if (!len) throw new Error('aes/pcks5: empty ciphertext not allowed');
+  // AES-CBC/ECB ciphertext should be full blocks before unpadding
+  if (len === 0) throw new Error('aes/pkcs7: empty ciphertext not allowed');
   const lastByte = data[len - 1];
-  if (lastByte <= 0 || lastByte > 16) throw new Error('aes/pcks5: wrong padding');
-  const out = data.subarray(0, -lastByte);
-  for (let i = 0; i < lastByte; i++)
-    if (data[len - i - 1] !== lastByte) throw new Error('aes/pcks5: wrong padding');
-  return out;
+  let valid = 1;
+  valid &= ((lastByte - 1) >>> 31) ^ 1; // pad >= 1
+  valid &= ((16 - lastByte) >>> 31) ^ 1; // pad <= 16
+  // Check exactly 16 tail bytes in constant-shape loop
+  // For i < pad: byte must equal pad
+  // For i >= pad: ignore byte
+  for (let i = 0; i < 16; i++) {
+    // const b = data[len - 1 - i];
+    const shouldCheck = (i - lastByte) >>> 31; // 1 if i < pad else 0
+    const eq = (data[len - 1 - i] ^ lastByte) === 0 ? 1 : 0; // 1 if equal
+    valid &= eq | (shouldCheck ^ 1); // pass if equal OR not checked
+  }
+
+  // if (invalidLen) throw new Error('aes/pkcs7: ciphertext length must be multiple of 16');
+  if (!valid) throw new Error('aes/pkcs7: wrong padding');
+  return data.subarray(0, len - lastByte);
 }
 
 function padPCKS(left: Uint8Array) {
@@ -435,17 +448,17 @@ export const ecb: ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
 } = /* @__PURE__ */ wrapCipher(
   { blockSize: 16 },
   function aesecb(key: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
-    const pcks5 = !opts.disablePadding;
+    const pkcs5 = !opts.disablePadding;
     return {
       encrypt(plaintext: Uint8Array, dst?: Uint8Array) {
-        const { b, o, out: _out } = validateBlockEncrypt(plaintext, pcks5, dst);
+        const { b, o, out: _out } = validateBlockEncrypt(plaintext, pkcs5, dst);
         const xk = expandKeyLE(key);
         let i = 0;
         for (; i + 4 <= b.length; ) {
           const { s0, s1, s2, s3 } = encrypt(xk, b[i + 0], b[i + 1], b[i + 2], b[i + 3]);
           ((o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3));
         }
-        if (pcks5) {
+        if (pkcs5) {
           const tmp32 = padPCKS(plaintext.subarray(i * 4));
           const { s0, s1, s2, s3 } = encrypt(xk, tmp32[0], tmp32[1], tmp32[2], tmp32[3]);
           ((o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3));
@@ -467,7 +480,7 @@ export const ecb: ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
           ((o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3));
         }
         clean(...toClean);
-        return validatePCKS(dst, pcks5);
+        return validatePKCS(dst, pkcs5);
       },
     };
   }
@@ -484,11 +497,11 @@ export const cbc: ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => Cipher
 } = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 16 },
   function aescbc(key: Uint8Array, iv: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
-    const pcks5 = !opts.disablePadding;
+    const pkcs5 = !opts.disablePadding;
     return {
       encrypt(plaintext: Uint8Array, dst?: Uint8Array) {
         const xk = expandKeyLE(key);
-        const { b, o, out: _out } = validateBlockEncrypt(plaintext, pcks5, dst);
+        const { b, o, out: _out } = validateBlockEncrypt(plaintext, pkcs5, dst);
         let _iv = iv;
         const toClean: (Uint8Array | Uint32Array)[] = [xk];
         if (!isAligned32(_iv)) toClean.push((_iv = copyBytes(_iv)));
@@ -501,7 +514,7 @@ export const cbc: ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => Cipher
           ({ s0, s1, s2, s3 } = encrypt(xk, s0, s1, s2, s3));
           ((o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3));
         }
-        if (pcks5) {
+        if (pkcs5) {
           const tmp32 = padPCKS(plaintext.subarray(i * 4));
           ((s0 ^= tmp32[0]), (s1 ^= tmp32[1]), (s2 ^= tmp32[2]), (s3 ^= tmp32[3]));
           ({ s0, s1, s2, s3 } = encrypt(xk, s0, s1, s2, s3));
@@ -532,7 +545,7 @@ export const cbc: ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => Cipher
           ((o[i++] = o0 ^ ps0), (o[i++] = o1 ^ ps1), (o[i++] = o2 ^ ps2), (o[i++] = o3 ^ ps3));
         }
         clean(...toClean);
-        return validatePCKS(dst, pcks5);
+        return validatePKCS(dst, pkcs5);
       },
     };
   }
