@@ -2,9 +2,18 @@ import { should } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual as eql } from 'node:assert';
 import { aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv } from '../src/aes.ts';
 import { chacha20poly1305, xchacha20poly1305 } from '../src/chacha.ts';
+import { pathToFileURL } from 'node:url';
 import { xsalsa20poly1305 } from '../src/salsa.ts';
 import { bytesToHex, managedNonce, randomBytes } from '../src/utils.ts';
+const BT = { should };
 
+export function test(
+  variant = 'noble',
+  platform = { aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv, chacha20poly1305, xchacha20poly1305, xsalsa20poly1305 },
+  { should } = BT
+) {
+const { aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv, chacha20poly1305, xchacha20poly1305, xsalsa20poly1305 } =
+  platform;
 const CIPHERS = {
   xsalsa20poly1305: {
     fn: xsalsa20poly1305,
@@ -88,7 +97,7 @@ function getError(fn) {
 }
 const green = (s) => `\x1b[32m${s}\x1b[0m`;
 
-should('Errors', () => {
+should(`Errors (${variant})`, () => {
   const res = {}; // Record<string, [string, string][]>
   const algoNameLength = Object.keys(ALGO)
     .map((i) => i.length)
@@ -163,4 +172,6 @@ should('Errors', () => {
   }
 });
 
+}
+if (import.meta.url === pathToFileURL(process.argv[1]).href) test();
 should.runWhen(import.meta.url);

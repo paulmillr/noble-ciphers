@@ -1,6 +1,7 @@
 import { describe, should } from '@paulmillr/jsbt/test.js';
 import fc from 'fast-check';
 import { deepStrictEqual as eql, throws } from 'node:assert';
+import { pathToFileURL } from 'node:url';
 import * as u from '../src/utils.ts';
 import {
   bytesToHex,
@@ -12,6 +13,7 @@ import {
   u64Lengths,
 } from '../src/utils.ts';
 import { TYPE_TEST, unalign } from './utils.ts';
+const BT = { describe, should };
 
 function hexa() {
   const items = '0123456789abcdef';
@@ -21,6 +23,7 @@ function hexaString(constraints = {}) {
   return fc.string({ ...constraints, unit: hexa() });
 }
 
+export function test({ describe, should } = BT) {
 describe('utils', () => {
   const staticHexVectors = [
     { bytes: Uint8Array.from([]), hex: '' },
@@ -176,5 +179,7 @@ describe('utils etc', () => {
     }
   });
 });
+}
 
+if (import.meta.url === pathToFileURL(process.argv[1]).href) test();
 should.runWhen(import.meta.url);

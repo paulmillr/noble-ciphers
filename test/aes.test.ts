@@ -2,6 +2,7 @@ import { describe, should } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual as eql, throws } from 'node:assert';
 import { createCipheriv, createDecipheriv } from 'node:crypto';
 import { aeskw, aeskwp, cbc, ctr, ecb, gcm, gcmsiv } from '../src/aes.ts';
+import { pathToFileURL } from 'node:url';
 import { bytesToHex, concatBytes, hexToBytes } from '../src/utils.ts';
 import * as web from '../src/webcrypto.ts';
 import { json } from './utils.ts';
@@ -18,10 +19,12 @@ const hex = { decode: hexToBytes, encode: bytesToHex };
 
 const isDeno = 'deno' in process.versions;
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
+const BT = { describe, should };
 
+export function test(variant = 'noble', platform = { aeskw, aeskwp, cbc, ctr, ecb, gcm, gcmsiv, web }, { describe, should } = BT) {
+const { aeskw, aeskwp, cbc, ctr, ecb, gcm, gcmsiv, web } = platform;
 const CIPHERS = { ecb, cbc, ctr, siv: gcmsiv, gcm };
-
-describe('AES', () => {
+describe(`AES (${variant})`, () => {
   should('CTR', () => {
     const nodeAES = (name) => ({
       encrypt: (buf, opts) =>
@@ -253,4 +256,6 @@ describe('AES', () => {
   });
 });
 
+}
+if (import.meta.url === pathToFileURL(process.argv[1]).href) test();
 should.runWhen(import.meta.url);

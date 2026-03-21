@@ -1,9 +1,13 @@
 import { describe, should } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual, throws } from 'node:assert';
 import { cmac } from '../src/aes.ts';
+import { pathToFileURL } from 'node:url';
 import { abytes, bytesToHex, equalBytes, hexToBytes } from '../src/utils.ts';
+const BT = { describe, should };
 
-describe('AES-CMAC', () => {
+export function test(variant = 'noble', platform = { cmac }, { describe, should } = BT) {
+const { cmac } = platform;
+describe(`AES-CMAC (${variant})`, () => {
   // Test vectors from https://www.rfc-editor.org/rfc/rfc4493.html#section-4
   const RFC4493_KEY = hexToBytes('2b7e151628aed2a6abf7158809cf4f3c');
   const rfcTestVectors = [
@@ -130,6 +134,7 @@ describe('AES-CMAC', () => {
     should('generate correct subkeys', () => {
       // Test vectors for subkey generation (derived from RFC 4493)
       const subkeys = cmac.create(RFC4493_KEY);
+      if (!('k1' in subkeys) || !('k2' in subkeys)) return;
 
       // Expected values computed according to RFC 4493 algorithm
       const expectedK1 = 'fbeed618357133667c85e08f7236a8de';
@@ -278,4 +283,6 @@ describe('AES-CMAC', () => {
   });
 });
 
+}
+if (import.meta.url === pathToFileURL(process.argv[1]).href) test();
 should.runWhen(import.meta.url);

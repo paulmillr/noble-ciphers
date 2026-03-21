@@ -3,6 +3,7 @@ import { deepStrictEqual as eql } from 'node:assert';
 import { createCipheriv, createDecipheriv, getCiphers } from 'node:crypto';
 import * as aes from '../src/aes.ts';
 import { chacha20, chacha20poly1305, xchacha20poly1305 } from '../src/chacha.ts';
+import { pathToFileURL } from 'node:url';
 import { xsalsa20poly1305 } from '../src/salsa.ts';
 import { concatBytes } from '../src/utils.ts';
 
@@ -29,6 +30,7 @@ function chunks(array, length) {
 const empty = new Uint8Array(0);
 
 const nodeCiphers = new Set(getCiphers());
+const BT = { describe, should };
 
 const nodeTagCipher = (name) => {
   return {
@@ -80,6 +82,13 @@ const nodeCipher = (name, pcks7 = true) => {
 function buf(n) {
   return new Uint8Array(n).fill(n % 251);
 }
+export function test(
+  variant = 'noble',
+  platform = { ...aes, chacha20, chacha20poly1305, xchacha20poly1305, xsalsa20poly1305 },
+  { describe, should } = BT
+) {
+const { chacha20, chacha20poly1305, xchacha20poly1305, xsalsa20poly1305 } = platform;
+const aes = platform;
 // TODO: re-use in benchmarks?
 // There is more ciphers, also 192 versions
 const CIPHERS = {
@@ -305,7 +314,7 @@ try {
   supports5GB = true;
 } catch (error) {}
 
-describe('Cross-test (node)', () => {
+describe(`Cross-test (node, ${variant})`, () => {
   for (const k in CIPHERS) {
     const v = CIPHERS[k];
     if (isDeno || !v) continue;
@@ -357,4 +366,6 @@ describe('Cross-test (node)', () => {
   }
 });
 
+}
+if (import.meta.url === pathToFileURL(process.argv[1]).href) test();
 should.runWhen(import.meta.url);

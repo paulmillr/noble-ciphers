@@ -2,10 +2,19 @@ import { describe, should } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual as eql, throws } from 'node:assert';
 import { aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv } from '../src/aes.ts';
 import { chacha20poly1305, xchacha20poly1305 } from '../src/chacha.ts';
+import { pathToFileURL } from 'node:url';
 import { xsalsa20poly1305 } from '../src/salsa.ts';
 import { managedNonce, randomBytes } from '../src/utils.ts';
 import { TYPE_TEST, unalign } from './utils.ts';
+const BT = { describe, should };
 
+export function test(
+  variant = 'noble',
+  platform = { aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv, chacha20poly1305, xchacha20poly1305, xsalsa20poly1305 },
+  { describe, should } = BT
+) {
+const { aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv, chacha20poly1305, xchacha20poly1305, xsalsa20poly1305 } =
+  platform;
 const CIPHERS = {
   xsalsa20poly1305: { fn: xsalsa20poly1305, keyLen: 32, withNonce: true },
   chacha20poly1305: { fn: chacha20poly1305, keyLen: 32, withNonce: true, withDST: true },
@@ -54,7 +63,7 @@ const initCipher = (opts) => {
   return { c, key, nonce, copy: { key: key.slice(), nonce: nonce.slice() } };
 };
 
-describe('Basic', () => {
+describe(`Basic (${variant})`, () => {
   for (const k in CIPHERS) {
     const opts = CIPHERS[k];
     should(`${k}: blockSize`, () => {
@@ -432,7 +441,7 @@ describe('Basic', () => {
 
 // In basic.test.js, add after existing tests:
 
-describe('input validation', () => {
+describe(`input validation (${variant})`, () => {
   const INVALID_BYTE_ARRAYS = TYPE_TEST.bytes;
 
   for (const k in CIPHERS) {
@@ -535,4 +544,6 @@ describe('input validation', () => {
   }
 });
 
+}
+if (import.meta.url === pathToFileURL(process.argv[1]).href) test();
 should.runWhen(import.meta.url);

@@ -1,10 +1,14 @@
 import { describe, should } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual as eql } from 'node:assert';
 import { cbc, ctr, gcm } from '../src/aes.ts';
+import { pathToFileURL } from 'node:url';
 import { managedNonce, randomBytes } from '../src/utils.ts';
 import * as web from '../src/webcrypto.ts';
+const BT = { describe, should };
 
-describe('Webcrypto', () => {
+export function test(variant = 'noble', platform = { cbc, ctr, gcm, web }, { describe, should } = BT) {
+const { cbc, ctr, gcm, web } = platform;
+describe(`Webcrypto (${variant})`, () => {
   const ciphers = {
     cbc: { sync: cbc, async: web.cbc },
     ctr: { sync: ctr, async: web.ctr },
@@ -45,5 +49,7 @@ describe('Webcrypto', () => {
     });
   }
 });
+}
 
+if (import.meta.url === pathToFileURL(process.argv[1]).href) test();
 should.runWhen(import.meta.url);

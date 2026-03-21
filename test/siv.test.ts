@@ -1,11 +1,15 @@
 import { describe, should } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual, throws } from 'node:assert';
 import { aessiv as siv, unsafe } from '../src/aes.ts';
+import { pathToFileURL } from 'node:url';
 import { bytesToHex, hexToBytes } from '../src/utils.ts';
 import { json } from './utils.ts';
+const BT = { describe, should };
 
-// Test vectors from [RFC 5297](https://datatracker.ietf.org/doc/html/rfc5297.html#appendix-A)
-describe('S2V', () => {
+export function test(variant = 'noble', platform = { aessiv: siv, unsafe }, { describe, should } = BT) {
+const { aessiv: siv, unsafe } = platform;
+describe(`S2V (${variant})`, () => {
+  if (!unsafe?.s2v) return;
   describe('RFC 5297 test vectors', () => {
     should('Example A.1', () => {
       const key = hexToBytes('fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0');
@@ -62,7 +66,7 @@ describe('S2V', () => {
   });
 });
 
-describe('AES-SIV', () => {
+describe(`AES-SIV (${variant})`, () => {
   describe('RFC 5297 test vectors', () => {
     should('Example A.1', () => {
       const key = hexToBytes('fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff');
@@ -137,4 +141,6 @@ describe('AES-SIV', () => {
   });
 });
 
+}
+if (import.meta.url === pathToFileURL(process.argv[1]).href) test();
 should.runWhen(import.meta.url);
