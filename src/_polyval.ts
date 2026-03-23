@@ -27,7 +27,7 @@ const BLOCK_SIZE = 16;
 // TODO: rewrite
 // temporary padding buffer
 const ZEROS16 = /* @__PURE__ */ new Uint8Array(16);
-const ZEROS32 = u32(ZEROS16);
+const ZEROS32 = /* @__PURE__ */ u32(ZEROS16);
 const POLY = 0xe1; // v = 2*v % POLY
 
 // v = 2*v % POLY
@@ -76,6 +76,22 @@ const estimateWindow = (bytes: number) => {
   return 2;
 };
 
+/**
+ * Incremental GHASH state for AES-GCM.
+ * @param key - 16-byte GHASH key.
+ * @param expectedLength - Expected message length for table sizing.
+ * @example
+ * Feeds one ciphertext block into an incremental GHASH state with a fresh hash key.
+ *
+ * ```ts
+ * import { GHASH } from '@noble/ciphers/_polyval.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(16);
+ * const mac = new GHASH(key);
+ * mac.update(new Uint8Array(16));
+ * mac.digest();
+ * ```
+ */
 export class GHASH implements IHash2 {
   readonly blockLen: number = BLOCK_SIZE;
   readonly outputLen: number = BLOCK_SIZE;
@@ -194,6 +210,22 @@ export class GHASH implements IHash2 {
   }
 }
 
+/**
+ * Incremental POLYVAL state for AES-SIV.
+ * @param key - 16-byte POLYVAL key.
+ * @param expectedLength - Expected message length for table sizing.
+ * @example
+ * Feeds one block into an incremental POLYVAL state with a fresh hash key.
+ *
+ * ```ts
+ * import { Polyval } from '@noble/ciphers/_polyval.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(16);
+ * const mac = new Polyval(key);
+ * mac.update(new Uint8Array(16));
+ * mac.digest();
+ * ```
+ */
 export class Polyval extends GHASH {
   constructor(key: Uint8Array, expectedLength?: number) {
     abytes(key);
@@ -243,6 +275,7 @@ export class Polyval extends GHASH {
   }
 }
 
+/** One-shot GHASH or POLYVAL helper with `.create()`. */
 export type CHashPV = ReturnType<typeof wrapConstructorWithKey>;
 function wrapConstructorWithKey<H extends IHash2>(
   hashCons: (key: Uint8Array, expectedLength?: number) => H
@@ -261,12 +294,40 @@ function wrapConstructorWithKey<H extends IHash2>(
   return hashC;
 }
 
-/** GHash MAC for AES-GCM. */
-export const ghash: CHashPV = wrapConstructorWithKey(
+/**
+ * GHash MAC for AES-GCM.
+ * @param msg - Message bytes to authenticate.
+ * @param key - 16-byte GHASH key.
+ * @returns 16-byte authentication tag.
+ * @example
+ * Authenticates a short message with GHASH and a fresh hash key.
+ *
+ * ```ts
+ * import { ghash } from '@noble/ciphers/_polyval.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(16);
+ * ghash(new Uint8Array(), key);
+ * ```
+ */
+export const ghash: CHashPV = /* @__PURE__ */ wrapConstructorWithKey(
   (key, expectedLength) => new GHASH(key, expectedLength)
 );
 
-/** Polyval MAC for AES-SIV. */
-export const polyval: CHashPV = wrapConstructorWithKey(
+/**
+ * POLYVAL MAC for AES-SIV.
+ * @param msg - Message bytes to authenticate.
+ * @param key - 16-byte POLYVAL key.
+ * @returns 16-byte authentication tag.
+ * @example
+ * Authenticates a short message with POLYVAL and a fresh hash key.
+ *
+ * ```ts
+ * import { polyval } from '@noble/ciphers/_polyval.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(16);
+ * polyval(new Uint8Array(), key);
+ * ```
+ */
+export const polyval: CHashPV = /* @__PURE__ */ wrapConstructorWithKey(
   (key, expectedLength) => new Polyval(key, expectedLength)
 );

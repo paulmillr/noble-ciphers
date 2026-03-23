@@ -345,6 +345,20 @@ function ctr32(
 /**
  * **CTR** (Counter Mode): Turns a block cipher into a stream cipher using a counter and IV (nonce).
  * Efficient and parallelizable. Requires a unique nonce per encryption. Unauthenticated: needs MAC.
+ * @param key - AES key bytes.
+ * @param nonce - 16-byte counter block.
+ * @returns Cipher instance with `encrypt()` and `decrypt()`.
+ * @example
+ * Encrypts a short payload with a fresh AES key and counter block.
+ *
+ * ```ts
+ * import { ctr } from '@noble/ciphers/aes.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(16);
+ * const nonce = randomBytes(16);
+ * const cipher = ctr(key, nonce);
+ * cipher.encrypt(new Uint8Array([1, 2, 3]));
+ * ```
  */
 export const ctr: ((key: Uint8Array, nonce: Uint8Array) => CipherWithOutput) & {
   blockSize: number;
@@ -436,12 +450,28 @@ function padPCKS(left: Uint8Array) {
 }
 
 /** Options for ECB and CBC. */
-export type BlockOpts = { disablePadding?: boolean };
+export type BlockOpts = {
+  /** Whether PKCS#5 padding should be disabled for exact-block inputs. */
+  disablePadding?: boolean;
+};
 
 /**
  * **ECB** (Electronic Codebook): Deterministic encryption; identical plaintext blocks yield
  * identical ciphertexts. Not secure due to pattern leakage.
- * See [AES Penguin](https://words.filippo.io/the-ecb-penguin/).
+ * See {@link https://words.filippo.io/the-ecb-penguin/ | the AES Penguin}.
+ * @param key - AES key bytes.
+ * @param opts - Padding options. See {@link BlockOpts}.
+ * @returns Cipher instance with `encrypt()` and `decrypt()`.
+ * @example
+ * Shows the basic ECB encrypt call shape with a fresh key; avoid ECB in new designs.
+ *
+ * ```ts
+ * import { ecb } from '@noble/ciphers/aes.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(16);
+ * const cipher = ecb(key);
+ * cipher.encrypt(new Uint8Array([1, 2, 3]));
+ * ```
  */
 export const ecb: ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
   blockSize: number;
@@ -490,6 +520,21 @@ export const ecb: ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
  * **CBC** (Cipher Block Chaining): Each plaintext block is XORed with the
  * previous block of ciphertext before encryption.
  * Hard to use: requires proper padding and an IV. Unauthenticated: needs MAC.
+ * @param key - AES key bytes.
+ * @param iv - 16-byte initialization vector.
+ * @param opts - Padding options. See {@link BlockOpts}.
+ * @returns Cipher instance with `encrypt()` and `decrypt()`.
+ * @example
+ * Encrypts a padded message with a fresh key and 16-byte IV.
+ *
+ * ```ts
+ * import { cbc } from '@noble/ciphers/aes.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(16);
+ * const iv = randomBytes(16);
+ * const cipher = cbc(key, iv);
+ * cipher.encrypt(new Uint8Array([1, 2, 3]));
+ * ```
  */
 export const cbc: ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
   blockSize: number;
@@ -554,6 +599,20 @@ export const cbc: ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => Cipher
 /**
  * CFB: Cipher Feedback Mode. The input for the block cipher is the previous cipher output.
  * Unauthenticated: needs MAC.
+ * @param key - AES key bytes.
+ * @param iv - 16-byte initialization vector.
+ * @returns Cipher instance with `encrypt()` and `decrypt()`.
+ * @example
+ * Encrypts a short message with feedback mode and a fresh key/IV pair.
+ *
+ * ```ts
+ * import { cfb } from '@noble/ciphers/aes.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(16);
+ * const iv = randomBytes(16);
+ * const cipher = cfb(key, iv);
+ * cipher.encrypt(new Uint8Array([1, 2, 3]));
+ * ```
  */
 export const cfb: ((key: Uint8Array, iv: Uint8Array) => CipherWithOutput) & {
   blockSize: number;
@@ -628,6 +687,21 @@ function computeTag(
  * a) conservative key wear-out is `2**32` (4B) msgs.
  * b) key wear-out under random nonces is even smaller: `2**23` (8M) messages for `2**-50` chance.
  * c) MAC can be forged: see Poly1305 documentation.
+ * @param key - AES key bytes.
+ * @param nonce - Nonce bytes.
+ * @param AAD - Additional authenticated data.
+ * @returns AEAD cipher instance.
+ * @example
+ * Encrypts and authenticates plaintext with a fresh key and 12-byte nonce.
+ *
+ * ```ts
+ * import { gcm } from '@noble/ciphers/aes.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(16);
+ * const nonce = randomBytes(12);
+ * const cipher = gcm(key, nonce);
+ * cipher.encrypt(new Uint8Array([1, 2, 3]));
+ * ```
  */
 export const gcm: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
   blockSize: number;
@@ -708,7 +782,22 @@ const limit = (name: string, min: number, max: number) => (value: number) => {
  * **SIV** (Synthetic IV): GCM with nonce-misuse resistance.
  * Repeating nonces reveal only the fact plaintexts are identical.
  * Also suffers from GCM issues: key wear-out limits & MAC forging.
- * See [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452).
+ * See {@link https://www.rfc-editor.org/rfc/rfc8452 | RFC 8452}.
+ * @param key - AES key bytes.
+ * @param nonce - 12-byte nonce.
+ * @param AAD - Additional authenticated data.
+ * @returns AEAD cipher instance.
+ * @example
+ * Encrypts and authenticates plaintext with a fresh key and nonce, while tolerating reuse.
+ *
+ * ```ts
+ * import { gcmsiv } from '@noble/ciphers/aes.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(16);
+ * const nonce = randomBytes(12);
+ * const cipher = gcmsiv(key, nonce);
+ * cipher.encrypt(new Uint8Array([1, 2, 3]));
+ * ```
  */
 export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
   blockSize: number;
@@ -909,8 +998,21 @@ const AESKW_IV = /* @__PURE__ */ new Uint8Array(8).fill(0xa6); // A6A6A6A6A6A6A6
  * AES-KW (key-wrap). Injects static IV into plaintext, adds counter, encrypts 6 times.
  * Reduces block size from 16 to 8 bytes.
  * For padded version, use aeskwp.
- * [RFC 3394](https://www.rfc-editor.org/rfc/rfc3394/),
- * [NIST.SP.800-38F](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38F.pdf).
+ * See {@link https://www.rfc-editor.org/rfc/rfc3394/ | RFC 3394} and
+ * {@link https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38F.pdf | NIST SP 800-38F}.
+ * @param kek - AES key-encryption key.
+ * @returns Key-wrap cipher instance.
+ * @example
+ * Wraps a 128-bit content-encryption key with a fresh key-encryption key.
+ *
+ * ```ts
+ * import { aeskw } from '@noble/ciphers/aes.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const kek = randomBytes(16);
+ * const cek = randomBytes(16);
+ * const wrap = aeskw(kek);
+ * wrap.encrypt(cek);
+ * ```
  */
 export const aeskw: ((kek: Uint8Array) => Cipher) & {
   blockSize: number;
@@ -984,7 +1086,19 @@ const AESKWP_IV = 0xa65959a6; // single u32le value
 /**
  * AES-KW, but with padding and allows random keys.
  * Second u32 of IV is used as counter for length.
- * [RFC 5649](https://www.rfc-editor.org/rfc/rfc5649)
+ * See {@link https://www.rfc-editor.org/rfc/rfc5649 | RFC 5649}.
+ * @param kek - AES key-encryption key.
+ * @returns Padded key-wrap cipher instance.
+ * @example
+ * Wraps a short key blob using the padded variant and a fresh key-encryption key.
+ *
+ * ```ts
+ * import { aeskwp } from '@noble/ciphers/aes.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const kek = randomBytes(16);
+ * const wrap = aeskwp(kek);
+ * wrap.encrypt(new Uint8Array([1, 2, 3]));
+ * ```
  */
 export const aeskwp: ((kek: Uint8Array) => Cipher) & {
   blockSize: number;
@@ -1074,6 +1188,12 @@ class _AesCtrDRBG implements PRG {
   }
 }
 
+/**
+ * Factory for AES-CTR DRBG instances.
+ * @param seed - Initial entropy input.
+ * @param personalization - Optional personalization string mixed into the state.
+ * @returns Seeded AES-CTR DRBG instance.
+ */
 export type AesCtrDrbg = (seed: Uint8Array, personalization?: Uint8Array) => _AesCtrDRBG;
 
 const createAesDrbg: (keyLen: number) => AesCtrDrbg = (keyLen) => {
@@ -1083,11 +1203,37 @@ const createAesDrbg: (keyLen: number) => AesCtrDrbg = (keyLen) => {
 /**
  * AES-CTR DRBG 128-bit - CSPRNG (cryptographically secure pseudorandom number generator).
  * It's best to limit usage to non-production, non-critical cases: for example, test-only.
+ * @param seed - Initial entropy input.
+ * @param personalization - Optional personalization string.
+ * @returns Seeded DRBG instance.
+ * @example
+ * Seeds the test-only AES-CTR DRBG from fresh entropy and reads bytes from it.
+ *
+ * ```ts
+ * import { rngAesCtrDrbg128 } from '@noble/ciphers/aes.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const seed = randomBytes(32);
+ * const prg = rngAesCtrDrbg128(seed);
+ * prg.randomBytes(8);
+ * ```
  */
 export const rngAesCtrDrbg128: AesCtrDrbg = /* @__PURE__ */ createAesDrbg(128);
 /**
  * AES-CTR DRBG 256-bit - CSPRNG (cryptographically secure pseudorandom number generator).
  * It's best to limit usage to non-production, non-critical cases: for example, test-only.
+ * @param seed - Initial entropy input.
+ * @param personalization - Optional personalization string.
+ * @returns Seeded DRBG instance.
+ * @example
+ * Seeds the test-only AES-CTR DRBG from fresh entropy and reads bytes from it.
+ *
+ * ```ts
+ * import { rngAesCtrDrbg256 } from '@noble/ciphers/aes.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const seed = randomBytes(48);
+ * const prg = rngAesCtrDrbg256(seed);
+ * prg.randomBytes(8);
+ * ```
  */
 export const rngAesCtrDrbg256: AesCtrDrbg = /* @__PURE__ */ createAesDrbg(256);
 
@@ -1262,7 +1408,20 @@ class _CMAC {
 
 /**
  * AES-CMAC (Cipher-based Message Authentication Code).
- * Specs: [RFC 4493](https://www.rfc-editor.org/rfc/rfc4493.html).
+ * Specs: {@link https://www.rfc-editor.org/rfc/rfc4493.html | RFC 4493}.
+ * @param key - AES key bytes.
+ * @param message - Message bytes to authenticate.
+ * @returns 16-byte authentication tag.
+ * @throws If the AES key length is invalid. {@link Error}
+ * @example
+ * Authenticates a message with AES-CMAC and a fresh key.
+ *
+ * ```ts
+ * import { cmac } from '@noble/ciphers/aes.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(16);
+ * cmac(key, new Uint8Array());
+ * ```
  */
 export const cmac: {
   (key: Uint8Array, message: Uint8Array): Uint8Array;
@@ -1344,7 +1503,22 @@ function s2v(key: Uint8Array, strings: Uint8Array[]): Uint8Array {
   return result;
 }
 
-/** Use `gcmsiv` or `aessiv`. */
+/**
+ * Use `gcmsiv` or `aessiv`.
+ * @returns Never; always throws with the migration hint.
+ * @throws If called; `siv()` is a removed v1 alias. {@link Error}
+ * @example
+ * `siv()` was removed in v2; use `gcmsiv()` for nonce-based SIV instead.
+ *
+ * ```ts
+ * import { gcmsiv } from '@noble/ciphers/aes.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(16);
+ * const nonce = randomBytes(12);
+ * const cipher = gcmsiv(key, nonce);
+ * cipher.encrypt(new Uint8Array([1, 2, 3]));
+ * ```
+ */
 export const siv: () => never = () => {
   throw new Error('"siv" from v1 is now "gcmsiv"');
 };
@@ -1352,7 +1526,20 @@ export const siv: () => never = () => {
 /**
  * **SIV**: Synthetic Initialization Vector (SIV) Authenticated Encryption
  * Nonce is derived from the plaintext and AAD using the S2V function.
- * See [RFC 5297](https://datatracker.ietf.org/doc/html/rfc5297.html).
+ * See {@link https://datatracker.ietf.org/doc/html/rfc5297.html | RFC 5297}.
+ * @param key - 32-byte, 48-byte, or 64-byte key.
+ * @param AAD - Additional authenticated data chunks.
+ * @returns AEAD cipher instance.
+ * @example
+ * Authenticates and encrypts plaintext with a fresh key without requiring unique nonces.
+ *
+ * ```ts
+ * import { aessiv } from '@noble/ciphers/aes.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(32);
+ * const cipher = aessiv(key);
+ * cipher.encrypt(new Uint8Array([1, 2, 3]));
+ * ```
  */
 export const aessiv: ((key: Uint8Array, ...AAD: Uint8Array[]) => Cipher) & {
   blockSize: number;

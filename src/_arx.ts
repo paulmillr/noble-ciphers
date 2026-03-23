@@ -28,11 +28,10 @@ This is complicated:
 - Idea C: helper method such as `setSalsaState(key, nonce, sigma, data)`
 - Caveat: we can't re-use counter array
 
-xchacha [^2] uses the subkey and remaining 8 byte nonce with ChaCha20 as normal
-(prefixed by 4 NUL bytes, since [RFC8439] specifies a 12-byte nonce).
-
-[^1]: https://mailarchive.ietf.org/arch/msg/cfrg/gsOnTJzcbgG6OqD8Sc0GO5aR_tU/
-[^2]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha#appendix-A.2
+xchacha uses the subkey and remaining 8 byte nonce with ChaCha20 as normal
+(prefixed by 4 NUL bytes, since RFC8439 specifies a 12-byte nonce).
+Counter overflow is undefined; see {@link https://mailarchive.ietf.org/arch/msg/cfrg/gsOnTJzcbgG6OqD8Sc0GO5aR_tU/ | the CFRG thread}.
+See {@link https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha#appendix-A.2 | the XChaCha appendix} for the extended-nonce construction.
 
  * @module
  */
@@ -51,17 +50,35 @@ import {
 
 // Replaces `TextEncoder`, which is not available in all environments
 const encodeStr = (str: string) => Uint8Array.from(str.split(''), (c) => c.charCodeAt(0));
-const sigma16 = encodeStr('expand 16-byte k');
-const sigma32 = encodeStr('expand 32-byte k');
-const sigma16_32 = u32(sigma16);
-const sigma32_32 = u32(sigma32);
+const sigma16 = /* @__PURE__ */ encodeStr('expand 16-byte k');
+const sigma32 = /* @__PURE__ */ encodeStr('expand 32-byte k');
+const sigma16_32 = /* @__PURE__ */ u32(sigma16);
+const sigma32_32 = /* @__PURE__ */ u32(sigma32);
 
-/** Rotate left. */
+/**
+ * Rotates a 32-bit word left.
+ * @param a - Input word.
+ * @param b - Rotation count in bits.
+ * @returns Rotated 32-bit word.
+ * @example
+ * Moves the top byte of `0x12345678` into the low byte position.
+ * ```ts
+ * rotl(0x12345678, 8);
+ * ```
+ */
 export function rotl(a: number, b: number): number {
   return (a << b) | (a >>> (32 - b));
 }
 
-/** Ciphers must use u32 for efficiency. */
+/**
+ * ARX core function operating on 32-bit words. Ciphers must use u32 for efficiency.
+ * @param sigma - Sigma constants for the selected cipher layout.
+ * @param key - Expanded key words.
+ * @param nonce - Nonce and counter words prepared for the round function.
+ * @param output - Output block written in place.
+ * @param counter - Block counter value.
+ * @param rounds - Optional round count override.
+ */
 export type CipherCoreFn = (
   sigma: Uint32Array,
   key: Uint32Array,
@@ -71,7 +88,13 @@ export type CipherCoreFn = (
   rounds?: number
 ) => void;
 
-/** Method which extends key + short nonce into larger nonce / diff key. */
+/**
+ * Nonce-extension function used by XChaCha and XSalsa.
+ * @param sigma - Sigma constants for the selected cipher layout.
+ * @param key - Expanded key words.
+ * @param input - Input nonce words used for subkey derivation.
+ * @param output - Output buffer written with the derived nonce words.
+ */
 export type ExtendNonceFn = (
   sigma: Uint32Array,
   key: Uint32Array,
@@ -85,10 +108,15 @@ export type ExtendNonceFn = (
  * * `counterRight`: right: `nonce|counter`; left: `counter|nonce`
  * */
 export type CipherOpts = {
-  allowShortKeys?: boolean; // Original salsa / chacha allow 16-byte keys
+  /** Whether 16-byte keys are accepted for legacy Salsa and ChaCha variants. */
+  allowShortKeys?: boolean;
+  /** Optional nonce-expansion hook used by extended-nonce variants. */
   extendNonceFn?: ExtendNonceFn;
+  /** Counter length in bytes inside the nonce/counter layout. */
   counterLength?: number;
+  /** Whether the layout is `nonce|counter` instead of `counter|nonce`. */
   counterRight?: boolean;
+  /** Number of core rounds to execute. */
   rounds?: number;
 };
 
@@ -103,9 +131,8 @@ const BLOCK_LEN32 = 16;
 
 // new Uint32Array([2**32])   // => Uint32Array(1) [ 0 ]
 // new Uint32Array([2**32-1]) // => Uint32Array(1) [ 4294967295 ]
-const MAX_COUNTER = 2 ** 32 - 1;
-
-const U32_EMPTY = Uint32Array.of();
+const MAX_COUNTER = /* @__PURE__ */ (() => 2 ** 32 - 1)();
+const U32_EMPTY = /* @__PURE__ */ Uint32Array.of();
 function runCipher(
   core: CipherCoreFn,
   sigma: Uint32Array,
@@ -146,7 +173,14 @@ function runCipher(
   }
 }
 
-/** Creates ARX-like (ChaCha, Salsa) cipher stream from core function. */
+/**
+ * Creates an ARX stream cipher from a 32-bit core permutation.
+ * Used internally to build the exported Salsa and ChaCha stream ciphers.
+ * @param core - Core function that fills one keystream block.
+ * @param opts - Cipher layout and nonce-extension options. See {@link CipherOpts}.
+ * @returns Stream cipher function over byte arrays.
+ * @throws If the core callback, key size, counter, or output sizing is invalid. {@link Error}
+ */
 export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
   const { allowShortKeys, extendNonceFn, counterLength, counterRight, rounds } = checkOpts(
     { allowShortKeys: false, counterLength: 8, counterRight: false, rounds: 20 },
@@ -325,8 +359,32 @@ export class _XorStreamPRG implements PRG {
   }
 }
 
+/**
+ * PRG constructor backed by an ARX stream cipher.
+ * @param seed - Optional seed bytes mixed into the initial state.
+ * @returns Seeded PRG instance.
+ */
 export type XorPRG = (seed?: Uint8Array) => _XorStreamPRG;
 
+/**
+ * Creates a PRG constructor from a stream cipher.
+ * @param cipher - Stream cipher used to fill output blocks.
+ * @param blockLen - Keystream block length in bytes.
+ * @param keyLen - Internal key length in bytes.
+ * @param nonceLen - Internal nonce length in bytes.
+ * @returns PRG factory for seeded instances.
+ * @example
+ * Builds a PRG from XChaCha20 and reads bytes from a randomly seeded instance.
+ * ```ts
+ * import { xchacha20 } from '@noble/ciphers/chacha.js';
+ * import { createPRG } from '@noble/ciphers/_arx.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const seed = randomBytes(32);
+ * const init = createPRG(xchacha20, 64, 32, 24);
+ * const prg = init(seed);
+ * prg.randomBytes(8);
+ * ```
+ */
 export const createPRG = (
   cipher: XorStream,
   blockLen: number,

@@ -164,6 +164,20 @@ function chachaCore(
  * hchacha hashes key and nonce into key' and nonce' for xchacha20.
  * Identical to `hchacha_small`.
  * Need to find a way to merge it with `chachaCore` without 25% performance hit.
+ * @param s - Sigma constants as 32-bit words.
+ * @param k - Key words.
+ * @param i - Nonce-prefix words.
+ * @param out - Output buffer for the derived subkey.
+ * @example
+ * Derives the XChaCha subkey from sigma, key, and nonce-prefix words.
+ *
+ * ```ts
+ * const sigma = new Uint32Array(4);
+ * const key = new Uint32Array(8);
+ * const nonce = new Uint32Array(4);
+ * const out = new Uint32Array(8);
+ * hchacha(sigma, key, nonce, out);
+ * ```
  */
 // prettier-ignore
 export function hchacha(
@@ -221,7 +235,25 @@ export function hchacha(
   out[oi++] = x14; out[oi++] = x15;
 }
 
-/** Original, non-RFC chacha20 from DJB. 8-byte nonce, 8-byte counter. */
+/**
+ * Original, non-RFC chacha20 from DJB. 8-byte nonce, 8-byte counter.
+ * @param key - 16-byte or 32-byte key.
+ * @param nonce - 8-byte nonce.
+ * @param data - Input bytes to xor with the keystream.
+ * @param output - Optional destination buffer.
+ * @param counter - Initial block counter.
+ * @returns Encrypted or decrypted bytes.
+ * @example
+ * Encrypts bytes with the original 8-byte-nonce ChaCha variant and a fresh key/nonce.
+ *
+ * ```ts
+ * import { chacha20orig } from '@noble/ciphers/chacha.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(32);
+ * const nonce = randomBytes(8);
+ * chacha20orig(key, nonce, new Uint8Array(4));
+ * ```
+ */
 export const chacha20orig: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 8,
@@ -230,6 +262,22 @@ export const chacha20orig: XorStream = /* @__PURE__ */ createCipher(chachaCore, 
 /**
  * ChaCha stream cipher. Conforms to RFC 8439 (IETF, TLS). 12-byte nonce, 4-byte counter.
  * With smaller nonce, it's not safe to make it random (CSPRNG), due to collision chance.
+ * @param key - 32-byte key.
+ * @param nonce - 12-byte nonce.
+ * @param data - Input bytes to xor with the keystream.
+ * @param output - Optional destination buffer.
+ * @param counter - Initial block counter.
+ * @returns Encrypted or decrypted bytes.
+ * @example
+ * Encrypts bytes with the RFC 8439 ChaCha20 stream cipher and a fresh key/nonce.
+ *
+ * ```ts
+ * import { chacha20 } from '@noble/ciphers/chacha.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(32);
+ * const nonce = randomBytes(12);
+ * chacha20(key, nonce, new Uint8Array(4));
+ * ```
  */
 export const chacha20: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
@@ -239,7 +287,23 @@ export const chacha20: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
 
 /**
  * XChaCha eXtended-nonce ChaCha. With 24-byte nonce, it's safe to make it random (CSPRNG).
- * See [IRTF draft](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha).
+ * See {@link https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha | the IRTF draft}.
+ * @param key - 32-byte key.
+ * @param nonce - 24-byte extended nonce.
+ * @param data - Input bytes to xor with the keystream.
+ * @param output - Optional destination buffer.
+ * @param counter - Initial block counter.
+ * @returns Encrypted or decrypted bytes.
+ * @example
+ * Encrypts bytes with XChaCha20 using a fresh key and random 24-byte nonce.
+ *
+ * ```ts
+ * import { xchacha20 } from '@noble/ciphers/chacha.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(32);
+ * const nonce = randomBytes(24);
+ * xchacha20(key, nonce, new Uint8Array(4));
+ * ```
  */
 export const xchacha20: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
@@ -248,14 +312,50 @@ export const xchacha20: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   allowShortKeys: false,
 });
 
-/** Reduced 8-round chacha, described in original paper. */
+/**
+ * Reduced 8-round chacha, described in original paper.
+ * @param key - 32-byte key.
+ * @param nonce - 12-byte nonce.
+ * @param data - Input bytes to xor with the keystream.
+ * @param output - Optional destination buffer.
+ * @param counter - Initial block counter.
+ * @returns Encrypted or decrypted bytes.
+ * @example
+ * Uses the reduced 8-round variant for non-critical workloads with a fresh key/nonce.
+ *
+ * ```ts
+ * import { chacha8 } from '@noble/ciphers/chacha.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(32);
+ * const nonce = randomBytes(12);
+ * chacha8(key, nonce, new Uint8Array(4));
+ * ```
+ */
 export const chacha8: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 4,
   rounds: 8,
 });
 
-/** Reduced 12-round chacha, described in original paper. */
+/**
+ * Reduced 12-round chacha, described in original paper.
+ * @param key - 32-byte key.
+ * @param nonce - 12-byte nonce.
+ * @param data - Input bytes to xor with the keystream.
+ * @param output - Optional destination buffer.
+ * @param counter - Initial block counter.
+ * @returns Encrypted or decrypted bytes.
+ * @example
+ * Uses the reduced 12-round variant for non-critical workloads with a fresh key/nonce.
+ *
+ * ```ts
+ * import { chacha12 } from '@noble/ciphers/chacha.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(32);
+ * const nonce = randomBytes(12);
+ * chacha12(key, nonce, new Uint8Array(4));
+ * ```
+ */
 export const chacha12: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 4,
@@ -337,31 +437,85 @@ export const _poly1305_aead =
  *
  * Unsafe to use random nonces under the same key, due to collision chance.
  * Prefer XChaCha instead.
+ * @param key - 32-byte key.
+ * @param nonce - 12-byte nonce.
+ * @param AAD - Additional authenticated data.
+ * @returns AEAD cipher instance.
+ * @example
+ * Encrypts and authenticates plaintext with a fresh key and nonce.
+ *
+ * ```ts
+ * import { chacha20poly1305 } from '@noble/ciphers/chacha.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(32);
+ * const nonce = randomBytes(12);
+ * const cipher = chacha20poly1305(key, nonce);
+ * cipher.encrypt(new Uint8Array([1, 2, 3]));
+ * ```
  */
 export const chacha20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 12, tagLength: 16 },
-  _poly1305_aead(chacha20)
+  /* @__PURE__ */ _poly1305_aead(chacha20)
 );
 /**
  * XChaCha20-Poly1305 extended-nonce chacha.
  *
  * Can be safely used with random nonces (CSPRNG).
- * See [IRTF draft](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha).
+ * See {@link https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha | the IRTF draft}.
+ * @param key - 32-byte key.
+ * @param nonce - 24-byte nonce.
+ * @param AAD - Additional authenticated data.
+ * @returns AEAD cipher instance.
+ * @example
+ * Encrypts and authenticates plaintext with a fresh key and random 24-byte nonce.
+ *
+ * ```ts
+ * import { xchacha20poly1305 } from '@noble/ciphers/chacha.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(32);
+ * const nonce = randomBytes(24);
+ * const cipher = xchacha20poly1305(key, nonce);
+ * cipher.encrypt(new Uint8Array([1, 2, 3]));
+ * ```
  */
 export const xchacha20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
-  _poly1305_aead(xchacha20)
+  /* @__PURE__ */ _poly1305_aead(xchacha20)
 );
 
 /**
  * Chacha20 CSPRNG (cryptographically secure pseudorandom number generator).
  * It's best to limit usage to non-production, non-critical cases: for example, test-only.
  * Compatible with libtomcrypt. It does not have a specification, so unclear how secure it is.
+ * @param seed - Seed bytes mixed into internal state.
+ * @returns Seeded PRG instance.
+ * @example
+ * Seeds the test-only ChaCha20 DRBG from fresh entropy.
+ *
+ * ```ts
+ * import { rngChacha20 } from '@noble/ciphers/chacha.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const seed = randomBytes(32);
+ * const prg = rngChacha20(seed);
+ * prg.randomBytes(8);
+ * ```
  */
 export const rngChacha20: XorPRG = /* @__PURE__ */ createPRG(chacha20orig, 64, 32, 8);
 /**
  * Chacha20/8 CSPRNG (cryptographically secure pseudorandom number generator).
  * It's best to limit usage to non-production, non-critical cases: for example, test-only.
  * Faster than `rngChacha20`.
+ * @param seed - Seed bytes mixed into internal state.
+ * @returns Seeded PRG instance.
+ * @example
+ * Seeds the faster test-only ChaCha8 DRBG from fresh entropy.
+ *
+ * ```ts
+ * import { rngChacha8 } from '@noble/ciphers/chacha.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const seed = randomBytes(32);
+ * const prg = rngChacha8(seed);
+ * prg.randomBytes(8);
+ * ```
  */
 export const rngChacha8: XorPRG = /* @__PURE__ */ createPRG(chacha8, 64, 32, 12);

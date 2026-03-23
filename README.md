@@ -178,7 +178,8 @@ Noble implements AES. Sometimes people want to use built-in `crypto.subtle` inst
 > Webcrypto methods are always async.
 
 ```js
-import { gcm, ctr, cbc, randomBytes } from '@noble/ciphers/utils.js';
+import { gcm, ctr, cbc } from '@noble/ciphers/webcrypto.js';
+import { randomBytes } from '@noble/ciphers/utils.js';
 const plaintext = new Uint8Array(32).fill(16);
 const key = randomBytes(32);
 for (const cipher of [gcm]) {
@@ -239,9 +240,11 @@ import { rngChacha8, rngChacha20 } from '@noble/ciphers/chacha.js';
 // 1. Best: WebCrypto
 const rnd1 = randomBytes(32);
 // 2. AES-CTR DRBG
-const rnd2 = rngAesCtrDrbg256(randomBytes(32)).randomBytes(1024);
+const seed2 = randomBytes(48);
+const rnd2 = rngAesCtrDrbg256(seed2).randomBytes(1024);
 // 3. ChaCha8 CSPRNG
-const rnd3 = rngChacha8(randomBytes(32)).randomBytes(1024);
+const seed3 = randomBytes(32);
+const rnd3 = rngChacha8(seed3).randomBytes(1024);
 ```
 
 #### Use password for encryption
@@ -250,6 +253,8 @@ It is not safe to convert password into Uint8Array.
 Instead, KDF stretching function like PBKDF2 / Scrypt / Argon2id
 should be applied to convert password to AES key.
 Make sure to use salt (app-specific secret) in addition to password.
+
+> `npm install @noble/hashes`
 
 ```js
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js';

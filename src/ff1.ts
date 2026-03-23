@@ -94,7 +94,23 @@ function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: number[]
 
 const EMPTY_BUF = /* @__PURE__ */ Uint8Array.of();
 
-/** FPE-FF1 format-preserving encryption */
+/**
+ * FPE-FF1 format-preserving encryption.
+ * @param radix - Alphabet size for each input digit.
+ * @param key - AES key bytes.
+ * @param tweak - Optional tweak bytes.
+ * @returns Encrypt/decrypt helpers over digit arrays.
+ * @example
+ * Encrypts decimal digits without changing their format, using a fresh AES key.
+ *
+ * ```ts
+ * import { FF1 } from '@noble/ciphers/ff1.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(16);
+ * const ff1 = FF1(10, key);
+ * ff1.encrypt([1, 2, 3]);
+ * ```
+ */
 export function FF1(
   radix: number,
   key: Uint8Array,
@@ -152,7 +168,22 @@ const binLE = {
   },
 };
 
-/** Binary version of FPE-FF1 format-preserving encryption. */
+/**
+ * Binary FPE-FF1 wrapper over byte arrays.
+ * @param key - AES key bytes.
+ * @param tweak - Optional tweak bytes.
+ * @returns Encrypt/decrypt helpers over byte arrays.
+ * @example
+ * Encrypts raw bytes through FF1's binary alphabet wrapper with a fresh AES key.
+ *
+ * ```ts
+ * import { BinaryFF1 } from '@noble/ciphers/ff1.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(16);
+ * const ff1 = BinaryFF1(key);
+ * ff1.encrypt(new Uint8Array([1, 2, 3]));
+ * ```
+ */
 export function BinaryFF1(key: Uint8Array, tweak: Uint8Array = EMPTY_BUF): Cipher {
   const ff1 = FF1(2, key, tweak);
   return {

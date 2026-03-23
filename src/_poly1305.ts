@@ -1,20 +1,20 @@
 /**
- * Poly1305 ([PDF](https://cr.yp.to/mac/poly1305-20050329.pdf),
- * [wiki](https://en.wikipedia.org/wiki/Poly1305))
+ * Poly1305 ({@link https://cr.yp.to/mac/poly1305-20050329.pdf | PDF},
+ * {@link https://en.wikipedia.org/wiki/Poly1305 | wiki})
  * is a fast and parallel secret-key message-authentication code suitable for
  * a wide variety of applications. It was standardized in
- * [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439) and is now used in TLS 1.3.
+ * {@link https://www.rfc-editor.org/rfc/rfc8439 | RFC 8439} and is now used in TLS 1.3.
  *
  * Polynomial MACs are not perfect for every situation:
  * they lack Random Key Robustness: the MAC can be forged, and can't be used in PAKE schemes.
- * See [invisible salamanders attack](https://keymaterial.net/2020/09/07/invisible-salamanders-in-aes-gcm-siv/).
+ * See {@link https://keymaterial.net/2020/09/07/invisible-salamanders-in-aes-gcm-siv/ | the invisible salamanders attack writeup}.
  * To combat invisible salamanders, `hash(key)` can be included in ciphertext,
  * however, this would violate ciphertext indistinguishability:
  * an attacker would know which key was used - so `HKDF(key, i)`
  * could be used instead.
  *
- * Check out [original website](https://cr.yp.to/mac.html).
- * Based on Public Domain [poly1305-donna](https://github.com/floodyberry/poly1305-donna).
+ * Check out the {@link https://cr.yp.to/mac.html | original website}.
+ * Based on public-domain {@link https://github.com/floodyberry/poly1305-donna | poly1305-donna}.
  * @module
  */
 // prettier-ignore
@@ -72,7 +72,22 @@ function poly1305_computeTag_small(
   return poly1305_small(concatBytes(...res), authKey);
 }
 
-/** Poly1305 class. Prefer poly1305() function instead. */
+/**
+ * Incremental Poly1305 MAC state.
+ * Prefer `poly1305()` for one-shot use.
+ * @param key - 32-byte Poly1305 one-time key.
+ * @example
+ * Feeds one chunk into an incremental Poly1305 state with a fresh one-time key.
+ *
+ * ```ts
+ * import { Poly1305 } from '@noble/ciphers/_poly1305.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(32);
+ * const mac = new Poly1305(key);
+ * mac.update(new Uint8Array([1, 2, 3]));
+ * mac.digest();
+ * ```
+ */
 export class Poly1305 implements IHash2 {
   readonly blockLen = 16;
   readonly outputLen = 16;
@@ -337,7 +352,24 @@ export class Poly1305 implements IHash2 {
   }
 }
 
+/** One-shot keyed hash helper with `.create()`. */
 export type CHash = ReturnType<typeof wrapConstructorWithKey>;
+
+/**
+ * Wraps a keyed hash constructor into a one-shot helper.
+ * @param hashCons - Keyed hash constructor.
+ * @returns Callable hash helper with `.create()`.
+ * @example
+ * Turns Poly1305's incremental constructor into a one-shot helper with a random key.
+ *
+ * ```ts
+ * import { Poly1305, wrapConstructorWithKey } from '@noble/ciphers/_poly1305.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(32);
+ * const hash = wrapConstructorWithKey((key) => new Poly1305(key));
+ * hash(new Uint8Array([1, 2, 3]), key);
+ * ```
+ */
 export function wrapConstructorWithKey<H extends IHash2>(
   hashCons: (key: Uint8Array) => H
 ): {
@@ -355,6 +387,20 @@ export function wrapConstructorWithKey<H extends IHash2>(
   return hashC;
 }
 
-/** Poly1305 MAC from RFC 8439. */
+/**
+ * Poly1305 MAC from RFC 8439.
+ * @param msg - Message bytes to authenticate.
+ * @param key - 32-byte Poly1305 one-time key.
+ * @returns 16-byte authentication tag.
+ * @example
+ * Authenticates one message with a one-shot Poly1305 call and a fresh key.
+ *
+ * ```ts
+ * import { poly1305 } from '@noble/ciphers/_poly1305.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(32);
+ * poly1305(new Uint8Array(), key);
+ * ```
+ */
 export const poly1305: CHash = /** @__PURE__ */ (() =>
   wrapConstructorWithKey((key) => new Poly1305(key)))();

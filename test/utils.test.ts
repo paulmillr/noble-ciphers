@@ -37,6 +37,9 @@ describe('utils', () => {
     for (let v of TYPE_TEST.hex) {
       throws(() => hexToBytes(v));
     }
+    throws(() => hexToBytes(1 as any), TypeError);
+    throws(() => hexToBytes('a'), RangeError);
+    throws(() => hexToBytes('gg'), RangeError);
   });
   should('bytesToHex', () => {
     for (let v of staticHexVectors) eql(bytesToHex(v.bytes), v.hex);
@@ -117,6 +120,15 @@ describe('utils', () => {
   should('bytesToUtf8', () => {
     eql(bytesToUtf8(new Uint8Array([97, 98, 99])), 'abc');
   });
+  should('hexToNumber', () => {
+    eql(u.hexToNumber(''), 0n);
+    eql(u.hexToNumber('ff'), 255n);
+    throws(() => u.hexToNumber(1 as any), TypeError);
+  });
+  should('utf8ToBytes', () => {
+    eql(u.utf8ToBytes('abc'), new Uint8Array([97, 98, 99]));
+    throws(() => u.utf8ToBytes(1 as any), TypeError);
+  });
   should('getOutput', () => {
     eql(getOutput(32), new Uint8Array(32));
     throws(() => getOutput(32, new Uint8Array(31)));
@@ -138,12 +150,17 @@ describe('utils', () => {
 });
 
 describe('assert', () => {
+  should('abool', () => {
+    eql(u.abool(true), undefined);
+    throws(() => u.abool('1' as any), TypeError);
+    throws(() => u.abool(1 as any), TypeError);
+  });
   should('anumber', () => {
     eql(u.anumber(10), undefined);
-    throws(() => u.anumber(1.2));
-    throws(() => u.anumber('1'));
-    throws(() => u.anumber(true));
-    throws(() => u.anumber(NaN));
+    throws(() => u.anumber(1.2), RangeError);
+    throws(() => u.anumber('1' as any), TypeError);
+    throws(() => u.anumber(true as any), TypeError);
+    throws(() => u.anumber(NaN), RangeError);
   });
   should('abytes', () => {
     eql(u.abytes(new Uint8Array(0)), new Uint8Array(0));
@@ -151,9 +168,9 @@ describe('assert', () => {
     eql(u.abytes(new Uint8Array(10)), new Uint8Array(10));
     u.abytes(new Uint8Array(11), 11, '11');
     u.abytes(new Uint8Array(12), 12, '12');
-    throws(() => u.abytes('test'));
-    throws(() => u.abytes(new Uint8Array(10), 11, '11'));
-    throws(() => u.abytes(new Uint8Array(10), 12, '12'));
+    throws(() => u.abytes('test' as any), TypeError);
+    throws(() => u.abytes(new Uint8Array(10), 11, '11'), RangeError);
+    throws(() => u.abytes(new Uint8Array(10), 12, '12'), RangeError);
   });
   should('aexists', () => {
     eql(u.aexists({}), undefined);
@@ -161,7 +178,7 @@ describe('assert', () => {
   });
   should('aoutput', () => {
     eql(u.aoutput(new Uint8Array(10), { outputLen: 5 }), undefined);
-    throws(() => u.aoutput(new Uint8Array(1), { outputLen: 5 }));
+    throws(() => u.aoutput(new Uint8Array(1), { outputLen: 5 }), RangeError);
   });
 });
 

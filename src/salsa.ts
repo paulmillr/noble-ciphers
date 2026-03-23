@@ -144,6 +144,20 @@ function salsaCore(
  * hsalsa hashes key and nonce into key' and nonce' for salsa20.
  * Identical to `hsalsa_small`.
  * Need to find a way to merge it with `salsaCore` without 25% performance hit.
+ * @param s - Sigma constants as 32-bit words.
+ * @param k - Key words.
+ * @param i - Nonce-prefix words.
+ * @param out - Output buffer for the derived subkey.
+ * @example
+ * Derives the XSalsa20 subkey from sigma, key, and nonce-prefix words.
+ *
+ * ```ts
+ * const sigma = new Uint32Array(4);
+ * const key = new Uint32Array(8);
+ * const nonce = new Uint32Array(4);
+ * const out = new Uint32Array(8);
+ * hsalsa(sigma, key, nonce, out);
+ * ```
  */
 // prettier-ignore
 export function hsalsa(
@@ -179,15 +193,50 @@ export function hsalsa(
 }
 
 /**
- * Salsa20 from original paper. 12-byte nonce.
+ * Salsa20 from original paper. 8-byte nonce.
  * With smaller nonce, it's not safe to make it random (CSPRNG), due to collision chance.
+ * @param key - 16-byte or 32-byte key.
+ * @param nonce - 8-byte nonce.
+ * @param data - Input bytes to xor with the keystream.
+ * @param output - Optional destination buffer.
+ * @param counter - Initial block counter.
+ * @returns Encrypted or decrypted bytes.
+ * @example
+ * Encrypts bytes with the original 8-byte-nonce Salsa20 stream cipher.
+ *
+ * ```ts
+ * import { salsa20 } from '@noble/ciphers/salsa.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(32);
+ * const nonce = randomBytes(8);
+ * salsa20(key, nonce, new Uint8Array([1, 2, 3, 4]));
+ * ```
  */
 export const salsa20: XorStream = /* @__PURE__ */ createCipher(salsaCore, {
   allowShortKeys: true,
   counterRight: true,
 });
 
-/** xsalsa20 eXtended-nonce salsa. With 24-byte nonce, it's safe to make it random (CSPRNG). */
+/**
+ * XSalsa20 extended-nonce salsa.
+ * With 24-byte nonce, it's safe to make it random (CSPRNG).
+ * @param key - 16-byte or 32-byte key.
+ * @param nonce - 24-byte nonce.
+ * @param data - Input bytes to xor with the keystream.
+ * @param output - Optional destination buffer.
+ * @param counter - Initial block counter.
+ * @returns Encrypted or decrypted bytes.
+ * @example
+ * Encrypts bytes with XSalsa20 and a random 24-byte nonce.
+ *
+ * ```ts
+ * import { xsalsa20 } from '@noble/ciphers/salsa.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(32);
+ * const nonce = randomBytes(24);
+ * xsalsa20(key, nonce, new Uint8Array([1, 2, 3, 4]));
+ * ```
+ */
 export const xsalsa20: XorStream = /* @__PURE__ */ createCipher(salsaCore, {
   counterRight: true,
   extendNonceFn: hsalsa,
@@ -197,6 +246,21 @@ export const xsalsa20: XorStream = /* @__PURE__ */ createCipher(salsaCore, {
  * xsalsa20-poly1305 eXtended-nonce (24 bytes) salsa.
  * With 24-byte nonce, it's safe to make it random (CSPRNG).
  * Also known as `secretbox` from libsodium / nacl.
+ * @param key - 32-byte key.
+ * @param nonce - 24-byte nonce.
+ * @param AAD - Additional authenticated data.
+ * @returns AEAD cipher instance.
+ * @example
+ * Encrypts and authenticates plaintext with XSalsa20-Poly1305.
+ *
+ * ```ts
+ * import { xsalsa20poly1305 } from '@noble/ciphers/salsa.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(32);
+ * const nonce = randomBytes(24);
+ * const cipher = xsalsa20poly1305(key, nonce);
+ * cipher.encrypt(new Uint8Array([1, 2, 3]));
+ * ```
  */
 export const xsalsa20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
@@ -240,8 +304,22 @@ export const xsalsa20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
 
 /**
  * Alias to `xsalsa20poly1305`, for compatibility with libsodium / nacl.
- * Check out [noble-sodium](https://github.com/serenity-kit/noble-sodium)
+ * Check out {@link https://github.com/serenity-kit/noble-sodium | noble-sodium}
  * for `crypto_box`.
+ * @param key - 32-byte key.
+ * @param nonce - 24-byte nonce.
+ * @returns Wrapper with `seal()` and `open()` helpers.
+ * @example
+ * Uses the libsodium-style `seal()` and `open()` wrapper.
+ *
+ * ```ts
+ * import { secretbox } from '@noble/ciphers/salsa.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(32);
+ * const nonce = randomBytes(24);
+ * const box = secretbox(key, nonce);
+ * box.seal(new Uint8Array([1, 2, 3]));
+ * ```
  */
 export function secretbox(
   key: Uint8Array,

@@ -10,18 +10,22 @@
     "*.d.ts.map"
   ],
   "devDependencies": {
-    "@paulmillr/jsbt": "0.4.5",
+    "@paulmillr/jsbt": "0.5.0",
     "@scure/base": "2.0.0",
     "@types/node": "24.2.1",
     "fast-check": "4.2.0",
     "prettier": "3.6.2",
-    "typescript": "5.9.2"
+    "typescript": "6.0.1-rc"
   },
   "scripts": {
     "bench": "node test/benchmark/noble.ts",
     "bench:compare": "cd test/benchmark; npm install; node compare.ts",
     "build": "tsc",
     "build:release": "npx --no @paulmillr/jsbt esbuild test/build",
+    "check": "npm run check:readme && npm run check:treeshake && npm run check:jsdoc",
+    "check:readme": "npx --no @paulmillr/jsbt readme package.json",
+    "check:treeshake": "npx --no @paulmillr/jsbt treeshake package.json test/build/out-treeshake",
+    "check:jsdoc": "npx --no @paulmillr/jsbt tsdoc package.json",
     "build:clean": "rm *.{js,js.map,d.ts,d.ts.map} 2> /dev/null",
     "format": "prettier --write 'src/**/*.{js,ts}' 'test/**/*.{js,ts,mjs}'",
     "test": "node --experimental-strip-types --no-warnings test/index.ts",

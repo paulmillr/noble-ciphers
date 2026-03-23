@@ -88,17 +88,66 @@ function generate(algo: BlockMode, nonceLength: number) {
   return res;
 }
 
-/** AES-CBC, native webcrypto version */
+/**
+ * AES-CBC implemented with WebCrypto.
+ * @param key - AES key bytes.
+ * @param iv - 16-byte initialization vector.
+ * @returns Async cipher instance.
+ * @example
+ * Encrypts a block with the browser or Node WebCrypto backend.
+ *
+ * ```ts
+ * import { cbc } from '@noble/ciphers/webcrypto.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(16);
+ * const iv = randomBytes(16);
+ * const cipher = cbc(key, iv);
+ * await cipher.encrypt(new Uint8Array(16));
+ * ```
+ */
 export const cbc: ((key: Uint8Array, iv: Uint8Array) => AsyncCipher) & {
   blockSize: number;
   nonceLength: number;
 } = /* @__PURE__ */ (() => generate(mode.CBC, 16))();
-/** AES-CTR, native webcrypto version */
+/**
+ * AES-CTR implemented with WebCrypto.
+ * @param key - AES key bytes.
+ * @param nonce - 16-byte counter block.
+ * @returns Async cipher instance.
+ * @example
+ * Encrypts a short payload with WebCrypto AES-CTR.
+ *
+ * ```ts
+ * import { ctr } from '@noble/ciphers/webcrypto.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(16);
+ * const nonce = randomBytes(16);
+ * const cipher = ctr(key, nonce);
+ * await cipher.encrypt(new Uint8Array([1, 2, 3]));
+ * ```
+ */
 export const ctr: ((key: Uint8Array, nonce: Uint8Array) => AsyncCipher) & {
   blockSize: number;
   nonceLength: number;
 } = /* @__PURE__ */ (() => generate(mode.CTR, 16))();
-/** AES-GCM, native webcrypto version */
+/**
+ * AES-GCM implemented with WebCrypto.
+ * @param key - AES key bytes.
+ * @param nonce - Nonce bytes.
+ * @param AAD - Additional authenticated data.
+ * @returns Async cipher instance.
+ * @example
+ * Encrypts and authenticates plaintext with WebCrypto AES-GCM.
+ *
+ * ```ts
+ * import { gcm } from '@noble/ciphers/webcrypto.js';
+ * import { randomBytes } from '@noble/ciphers/utils.js';
+ * const key = randomBytes(16);
+ * const nonce = randomBytes(12);
+ * const cipher = gcm(key, nonce);
+ * await cipher.encrypt(new Uint8Array([1, 2, 3]));
+ * ```
+ */
 export const gcm: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => AsyncCipher) & {
   blockSize: number;
   nonceLength: number;
