@@ -1,5 +1,5 @@
 import { describe, should } from '@paulmillr/jsbt/test.js';
-import { deepStrictEqual as eql } from 'node:assert';
+import { deepStrictEqual as eql, throws } from 'node:assert';
 import { cbc, ctr, gcm } from '../src/aes.ts';
 import { pathToFileURL } from 'node:url';
 import { managedNonce, randomBytes } from '../src/utils.ts';
@@ -24,7 +24,7 @@ describe(`Webcrypto (${variant})`, () => {
       eql(c.sync(key, iv).encrypt(msg), await c.async(key, iv).encrypt(msg));
       const ct = c.sync(key, iv).encrypt(msg);
       eql(c.sync(key, iv).decrypt(ct), await c.async(key, iv).decrypt(ct));
-      eql(c.sync.nonceLen, c.async.nonceLen);
+      eql(c.sync.nonceLength, c.async.nonceLength);
       // Managed
       const managed = {
         sync: managedNonce(c.sync),
@@ -48,6 +48,23 @@ describe(`Webcrypto (${variant})`, () => {
       }
     });
   }
+  should('ctr matches sync ctr when low 64-bit counter wraps', async () => {
+    const key = Uint8Array.from([
+      0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+      0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+    ]);
+    const nonce = Uint8Array.from([
+      0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+      0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    ]);
+    const msg = Uint8Array.from(Array.from({ length: 32 }, (_, i) => i));
+    eql(await web.ctr(key, nonce).encrypt(msg), ctr(key, nonce).encrypt(msg));
+  });
+  should('gcm rejects falsy non-byte AAD', () => {
+    const key = randomBytes(32);
+    const nonce = randomBytes(12);
+    for (const bad of [false, 0, '', null]) throws(() => web.gcm(key, nonce, bad as any), TypeError);
+  });
 });
 }
 

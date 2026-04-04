@@ -1,7 +1,7 @@
 import { describe, should } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual as eql, throws } from 'node:assert';
 import { createCipheriv, createDecipheriv } from 'node:crypto';
-import { aeskw, aeskwp, cbc, ctr, ecb, gcm, gcmsiv } from '../src/aes.ts';
+import { __TESTS, aeskw, aeskwp, cbc, ctr, ecb, gcm, gcmsiv, unsafe } from '../src/aes.ts';
 import { pathToFileURL } from 'node:url';
 import { bytesToHex, concatBytes, hexToBytes } from '../src/utils.ts';
 import * as web from '../src/webcrypto.ts';
@@ -21,10 +21,74 @@ const isDeno = 'deno' in process.versions;
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
 const BT = { describe, should };
 
-export function test(variant = 'noble', platform = { aeskw, aeskwp, cbc, ctr, ecb, gcm, gcmsiv, web }, { describe, should } = BT) {
-const { aeskw, aeskwp, cbc, ctr, ecb, gcm, gcmsiv, web } = platform;
+export function test(
+  variant = 'noble',
+  platform = { __TESTS, unsafe, aeskw, aeskwp, cbc, ctr, ecb, gcm, gcmsiv, web },
+  { describe, should } = BT
+) {
+const { __TESTS, unsafe, aeskw, aeskwp, cbc, ctr, ecb, gcm, gcmsiv, web } = platform;
 const CIPHERS = { ecb, cbc, ctr, siv: gcmsiv, gcm };
 describe(`AES (${variant})`, () => {
+  if (__TESTS?.incBytes) should('incBytes accepts the largest safe bitwise carry and rejects the next one', () => {
+    const out = new Uint8Array(16);
+    __TESTS.incBytes(out, false, 0xffffff00);
+    eql(out, hex.decode('000000000000000000000000ffffff00'));
+    const before = out.slice();
+    throws(() => __TESTS.incBytes(out, false, 0xffffff01), /incBytes: wrong carry/);
+    eql(out, before);
+  });
+  if (unsafe?.ctrCounter) should('unsafe ctrCounter leaves partial-block continuation to the caller', () => {
+    const key = hex.decode('2b7e151628aed2a6abf7158809cf4f3c');
+    const nonce = hex.decode('f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff');
+    const initial = bytesToHex(nonce);
+    const xk = unsafe.expandKeyLE(key);
+    const expected = unsafe.ctrCounter(xk, hex.decode(initial), new Uint8Array(17)).subarray(1);
+    unsafe.ctrCounter(xk, nonce, new Uint8Array([0]));
+    const afterPartial = bytesToHex(nonce);
+    const resumed = unsafe.ctrCounter(xk, nonce, new Uint8Array(17)).subarray(1);
+    eql(
+      {
+        afterPartial,
+        resumed: bytesToHex(resumed),
+      },
+      {
+        afterPartial: initial,
+        resumed: bytesToHex(expected),
+      }
+    );
+  });
+  if (unsafe?.ctr32) should('unsafe ctr32 leaves partial-block continuation to the caller', () => {
+    const key = hex.decode('2b7e151628aed2a6abf7158809cf4f3c');
+    const nonce = hex.decode('f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff');
+    const xk = unsafe.expandKeyLE(key);
+    const initial = bytesToHex(nonce);
+    const expected = unsafe.ctr32(xk, false, hex.decode(initial), new Uint8Array(17)).subarray(1);
+    unsafe.ctr32(xk, false, nonce, new Uint8Array([0]));
+    const afterPartial = bytesToHex(nonce);
+    const resumed = unsafe.ctr32(xk, false, nonce, new Uint8Array(17)).subarray(1);
+    const zeroNonce = new Uint8Array(16);
+    const zeroXk = unsafe.expandKeyLE(new Uint8Array(16));
+    const expectedLE = unsafe
+      .ctr32(zeroXk, true, new Uint8Array(16), new Uint8Array(17))
+      .subarray(1);
+    unsafe.ctr32(zeroXk, true, zeroNonce, new Uint8Array([0]));
+    const afterPartialLE = bytesToHex(zeroNonce);
+    const resumedLE = unsafe.ctr32(zeroXk, true, zeroNonce, new Uint8Array(17)).subarray(1);
+    eql(
+      {
+        afterPartial,
+        resumed: bytesToHex(resumed),
+        afterPartialLE,
+        resumedLE: bytesToHex(resumedLE),
+      },
+      {
+        afterPartial: initial,
+        resumed: bytesToHex(expected),
+        afterPartialLE: bytesToHex(new Uint8Array(16)),
+        resumedLE: bytesToHex(expectedLE),
+      }
+    );
+  });
   should('CTR', () => {
     const nodeAES = (name) => ({
       encrypt: (buf, opts) =>

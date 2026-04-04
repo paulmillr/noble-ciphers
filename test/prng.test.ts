@@ -1,7 +1,7 @@
 import { describe, should } from '@paulmillr/jsbt/test.js';
-import { deepStrictEqual as eql } from 'node:assert';
+import { deepStrictEqual as eql, throws } from 'node:assert';
 import { rngAesCtrDrbg128, rngAesCtrDrbg256 } from '../src/aes.ts';
-import { rngChacha20 } from '../src/chacha.ts';
+import { rngChacha20, rngChacha8 } from '../src/chacha.ts';
 import { hexToBytes } from '../src/utils.ts';
 import { json } from './utils.ts';
 
@@ -111,6 +111,29 @@ describe('PRNG', () => {
       }
     }
   });
+  should('AES additional input is bounded by state width', () => {
+    const drbg128 = rngAesCtrDrbg128(new Uint8Array(32));
+    const drbg256 = rngAesCtrDrbg256(new Uint8Array(48));
+    drbg128.randomBytes(16, new Uint8Array(32));
+    drbg128.addEntropy(new Uint8Array(32), new Uint8Array(32));
+    drbg256.randomBytes(16, new Uint8Array(48));
+    drbg256.addEntropy(new Uint8Array(48), new Uint8Array(48));
+    throws(() => drbg128.randomBytes(16, new Uint8Array(33)));
+    throws(() => drbg128.addEntropy(new Uint8Array(32), new Uint8Array(33)));
+    throws(() => drbg256.randomBytes(16, new Uint8Array(49)));
+    throws(() => drbg256.addEntropy(new Uint8Array(48), new Uint8Array(49)));
+  });
+  should('AES permits a generate call when reseed_counter equals 2^48', () => {
+    const drbg = rngAesCtrDrbg128(new Uint8Array(32)) as ReturnType<typeof rngAesCtrDrbg128> & {
+      reseedCnt: number;
+    };
+    drbg.reseedCnt = 2 ** 48;
+    eql(drbg.randomBytes(16).length, 16);
+  });
+  should('AES rejects generate requests above 2^19 bits', () => {
+    const drbg = rngAesCtrDrbg128(new Uint8Array(32));
+    throws(() => drbg.randomBytes(65537));
+  });
   // Compatible with: https://github.com/libtom/libtomcrypt/blob/develop/src/prngs/chacha20.c
   // Features:
   // - entropy injection
@@ -137,6 +160,48 @@ describe('PRNG', () => {
     eql(prng.randomBytes(10), t2, 't2');
     clone.randomBytes(500); // skip(500)
     eql(clone.randomBytes(10), t3, 't3');
+  });
+  should('ChaCha20 preflights oversized reads before consuming keystream', () => {
+    const seed = Uint8Array.from({ length: 40 }, (_, i) => i + 1);
+    const create = () => rngChacha20(seed) as ReturnType<typeof rngChacha20> & { ctr: number };
+    const ok = create();
+    ok.ctr = 0xfffffffe;
+    const first = ok.randomBytes(64);
+    const broken = create();
+    broken.ctr = 0xfffffffe;
+    throws(() => broken.randomBytes(128));
+    eql(broken.ctr, 0xfffffffe);
+    eql(broken.randomBytes(64), first);
+  });
+  should('rejected addEntropy leaves PRG state unchanged', () => {
+    const expectRejectedAddEntropyStable = (
+      create: () => { addEntropy: (...args: any[]) => void; randomBytes: (len: number) => Uint8Array },
+      fail: (prg: { addEntropy: (...args: any[]) => void }) => void
+    ) => {
+      const control = create();
+      const broken = create();
+      broken.randomBytes(17);
+      control.randomBytes(17);
+      fail(broken);
+      eql(broken.randomBytes(64), control.randomBytes(64));
+    };
+    const createChaCha20 = () => rngChacha20(Uint8Array.from({ length: 40 }, (_, i) => i + 1));
+    const createChaCha8 = () => rngChacha8(Uint8Array.from({ length: 44 }, (_, i) => i + 1));
+    const createAes128 = () => rngAesCtrDrbg128(Uint8Array.from({ length: 32 }, (_, i) => i + 1));
+    const createAes256 = () => rngAesCtrDrbg256(Uint8Array.from({ length: 48 }, (_, i) => i + 1));
+
+    expectRejectedAddEntropyStable(createChaCha20, (prg) =>
+      throws(() => prg.addEntropy(new Uint8Array(0)), /entropy required/)
+    );
+    expectRejectedAddEntropyStable(createChaCha8, (prg) =>
+      throws(() => prg.addEntropy(new Uint8Array(0)), /entropy required/)
+    );
+    expectRejectedAddEntropyStable(createAes128, (prg) =>
+      throws(() => prg.addEntropy(new Uint8Array(31)), /expected Uint8Array of length 32/)
+    );
+    expectRejectedAddEntropyStable(createAes256, (prg) =>
+      throws(() => prg.addEntropy(new Uint8Array(48), new Uint8Array(49)), /info length is too big/)
+    );
   });
 });
 

@@ -7,7 +7,7 @@
 /**
  * Checks if something is Uint8Array. Be careful: nodejs Buffer will return true.
  * @param a - Value to inspect.
- * @returns `true` when the value is a Uint8Array view.
+ * @returns `true` when the value is a Uint8Array view, including Node's `Buffer`.
  * @example
  * Guards a value before treating it as raw key material.
  *
@@ -16,7 +16,17 @@
  * ```
  */
 export function isBytes(a: unknown): a is Uint8Array {
-  return a instanceof Uint8Array || (ArrayBuffer.isView(a) && a.constructor.name === 'Uint8Array');
+  // Plain `instanceof Uint8Array` is too strict for some Buffer / proxy /
+  // cross-realm cases. The fallback still requires a real ArrayBuffer view
+  // so plain JSON-deserialized `{ constructor: ... }`
+  // spoofing is rejected, and `BYTES_PER_ELEMENT === 1` keeps the fallback on byte-oriented views.
+  return (
+    a instanceof Uint8Array ||
+    (ArrayBuffer.isView(a) &&
+      a.constructor.name === 'Uint8Array' &&
+      'BYTES_PER_ELEMENT' in a &&
+      a.BYTES_PER_ELEMENT === 1)
+  );
 }
 
 /**
@@ -35,7 +45,7 @@ export function abool(b: boolean): void {
 }
 
 /**
- * Asserts something is a positive integer.
+ * Asserts something is a non-negative safe integer.
  * @param n - Value to validate.
  * @throws On wrong argument types. {@link TypeError}
  * @throws On wrong argument ranges or values. {@link RangeError}
@@ -58,6 +68,7 @@ export function anumber(n: number): void {
  * @param length - Expected byte length.
  * @param title - Optional label used in error messages.
  * @returns The validated byte array.
+ * On Node, `Buffer` is accepted too because it is a Uint8Array view.
  * @throws On wrong argument types. {@link TypeError}
  * @throws On wrong argument lengths. {@link RangeError}
  * @example
@@ -83,9 +94,10 @@ export function abytes(value: Uint8Array, length?: number, title: string = ''): 
 }
 
 /**
- * Asserts a hash instance has not been destroyed or finished.
- * @param instance - Hash-like instance to validate.
+ * Asserts a hash- or MAC-like instance has not been destroyed or finished.
+ * @param instance - Stateful instance to validate.
  * @param checkFinished - Whether to reject finished instances.
+ * When `false`, only `destroyed` is checked.
  * @throws If the hash instance has already been destroyed or finalized. {@link Error}
  * @example
  * Guards against calling `update()` or `digest()` on a finished hash.
@@ -103,8 +115,12 @@ export function aexists(instance: any, checkFinished = true): void {
  * Asserts output is a properly-sized byte array.
  * @param out - Output buffer to validate.
  * @param instance - Hash-like instance providing `outputLen`.
+ * This is the relaxed `digestInto()`-style contract: output must be at least `outputLen`,
+ * unlike one-shot cipher helpers elsewhere in the repo that often require exact lengths.
  * @throws On wrong argument types. {@link TypeError}
+ * @param onlyAligned - Whether `out` must be 4-byte aligned for zero-allocation word views.
  * @throws On wrong output buffer lengths. {@link RangeError}
+ * @throws On wrong output buffer alignment. {@link Error}
  * @example
  * Verifies that a caller-provided output buffer is large enough.
  *
@@ -112,12 +128,13 @@ export function aexists(instance: any, checkFinished = true): void {
  * aoutput(new Uint8Array(16), { outputLen: 16 });
  * ```
  */
-export function aoutput(out: any, instance: any): void {
+export function aoutput(out: any, instance: any, onlyAligned = false): void {
   abytes(out, undefined, 'output');
   const min = instance.outputLen;
   if (out.length < min) {
     throw new RangeError('digestInto() expects output buffer of length at least ' + min);
   }
+  if (onlyAligned && !isAligned32(out)) throw new Error('invalid output, must be aligned');
 }
 
 /** One-shot hash helper with `.create()`. */
@@ -129,6 +146,17 @@ export type IHash = {
   outputLen: number;
   /** Creates a fresh incremental hash instance of the same algorithm. */
   create: any;
+};
+
+/** One-shot MAC helper with `.create()`. */
+export type CMac<H extends IHash2 = IHash2, A extends any[] = []> = {
+  (msg: Uint8Array, key: Uint8Array): Uint8Array;
+  /** Input block size in bytes. */
+  blockLen: number;
+  /** Digest size in bytes. */
+  outputLen: number;
+  /** Creates a fresh incremental MAC instance of the same algorithm. */
+  create(key: Uint8Array, ...args: A): H;
 };
 
 /** Generic type encompassing 8/16/32-bit typed arrays, but not 64-bit. */
@@ -154,7 +182,8 @@ export function u8(arr: TypedArray): Uint8Array {
 /**
  * Casts a typed-array view to Uint32Array.
  * @param arr - Typed-array view to reinterpret.
- * @returns Uint32Array view over the same bytes.
+ * @returns Uint32Array view over the same bytes. Callers are expected to provide a
+ * 4-byte-aligned offset; trailing `1..3` bytes are silently dropped.
  * @example
  * Views a byte buffer as 32-bit words for block processing.
  *
@@ -206,7 +235,32 @@ export function createView(arr: TypedArray): DataView {
 export const isLE: boolean = /* @__PURE__ */ (() =>
   new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44)();
 
-// Built-in hex conversion https://caniuse.com/mdn-javascript_builtins_uint8array_fromhex
+/** Reverses byte order of one 32-bit word. */
+export const byteSwap = (word: number): number =>
+  ((word << 24) & 0xff000000) |
+  ((word << 8) & 0xff0000) |
+  ((word >>> 8) & 0xff00) |
+  ((word >>> 24) & 0xff);
+
+/** Normalizes one 32-bit word to the little-endian representation expected by
+ * cipher cores as an unsigned u32. */
+export const swap8IfBE: (n: number) => number = isLE
+  ? (n: number) => n
+  : (n: number) => byteSwap(n) >>> 0;
+
+/** Byte-swaps every word of a Uint32Array in place. */
+export const byteSwap32 = (arr: Uint32Array): Uint32Array => {
+  for (let i = 0; i < arr.length; i++) arr[i] = byteSwap(arr[i]);
+  return arr;
+};
+
+/** Normalizes a Uint32Array view to the little-endian representation expected by cipher cores. */
+export const swap32IfBE: (u: Uint32Array) => Uint32Array = isLE
+  ? (u: Uint32Array) => u
+  : byteSwap32;
+
+// Built-in hex conversion:
+// {@link https://caniuse.com/mdn-javascript_builtins_uint8array_fromhex | caniuse entry}
 const hasHexBuiltin: boolean = /* @__PURE__ */ (() =>
   // @ts-ignore
   typeof Uint8Array.from([]).toHex === 'function' && typeof Uint8Array.fromHex === 'function')();
@@ -294,7 +348,7 @@ export function hexToBytes(hex: string): Uint8Array {
 /**
  * Converts a big-endian hex string into bigint.
  * @param hex - Hexadecimal string without `0x`.
- * @returns Parsed bigint value.
+ * @returns Parsed bigint value. The empty string is treated as `0n`.
  * @throws On wrong argument types. {@link TypeError}
  * @example
  * Parses a big-endian field element or counter from hex.
@@ -313,7 +367,7 @@ export function hexToNumber(hex: string): bigint {
 /**
  * Converts big-endian bytes into bigint.
  * @param bytes - Big-endian bytes.
- * @returns Parsed bigint value.
+ * @returns Parsed bigint value. Empty input is treated as `0n`.
  * @throws On invalid byte input passed to the internal hex conversion. {@link TypeError}
  * @example
  * Reads a big-endian integer from serialized bytes.
@@ -332,6 +386,9 @@ export function bytesToNumberBE(bytes: Uint8Array): bigint {
  * @param n - Number to encode.
  * @param len - Output length in bytes.
  * @returns Big-endian bytes padded to `len`.
+ * Validation is indirect through `hexToBytes(...)`, so negative values, `len = 0`,
+ * and values that do not fit surface through the downstream hex parser instead of a
+ * dedicated range guard here.
  * @throws On wrong argument types. {@link TypeError}
  * @throws If the requested output length cannot represent the encoded value. {@link RangeError}
  * @example
@@ -342,17 +399,22 @@ export function bytesToNumberBE(bytes: Uint8Array): bigint {
  * ```
  */
 export function numberToBytesBE(n: number | bigint, len: number): Uint8Array {
+  // Reject coercible non-numeric inputs before string/hex conversion changes behavior.
+  if (typeof n === 'number') anumber(n);
+  else if (typeof n !== 'bigint') throw new TypeError(`number or bigint expected, got ${typeof n}`);
+  anumber(len);
   return hexToBytes(n.toString(16).padStart(len * 2, '0'));
 }
 
-// Global symbols, but ts doesn't see them: https://github.com/microsoft/TypeScript/issues/31535
+// Global symbols, but ts doesn't see them:
+// {@link https://github.com/microsoft/TypeScript/issues/31535 | TypeScript issue 31535}
 declare const TextEncoder: any;
 declare const TextDecoder: any;
 
 /**
  * Converts string to bytes using UTF8 encoding.
  * @param str - String to encode.
- * @returns UTF-8 bytes.
+ * @returns UTF-8 bytes in a detached fresh Uint8Array copy.
  * @throws On wrong argument types. {@link TypeError}
  * @example
  * Encodes application text before encryption or MACing.
@@ -363,13 +425,14 @@ declare const TextDecoder: any;
  */
 export function utf8ToBytes(str: string): Uint8Array {
   if (typeof str !== 'string') throw new TypeError('string expected');
-  return new Uint8Array(new TextEncoder().encode(str)); // https://bugzil.la/1681809
+  return new Uint8Array(new TextEncoder().encode(str)); // {@link https://bugzil.la/1681809 | Firefox bug 1681809}
 }
 
 /**
  * Converts bytes to string using UTF8 encoding.
  * @param bytes - UTF-8 bytes.
- * @returns Decoded string.
+ * @returns Decoded string. Input validation is delegated to `TextDecoder`, and malformed
+ * UTF-8 is replacement-decoded instead of rejected.
  * @example
  * Decodes UTF-8 plaintext back into a string.
  *
@@ -395,6 +458,8 @@ export function bytesToUtf8(bytes: Uint8Array): string {
  * ```
  */
 export function overlapBytes(a: Uint8Array, b: Uint8Array): boolean {
+  // Zero-length views cannot overwrite anything, even if their offset sits inside another range.
+  if (!a.byteLength || !b.byteLength) return false;
   return (
     a.buffer === b.buffer && // best we can do, may fail with an obscure Proxy
     a.byteOffset < b.byteOffset + b.byteLength && // a starts before b end
@@ -404,7 +469,8 @@ export function overlapBytes(a: Uint8Array, b: Uint8Array): boolean {
 
 /**
  * If input and output overlap and input starts before output, we will overwrite end of input before
- * we start processing it, so this is not supported for most ciphers (except chacha/salse, which designed with this)
+ * we start processing it, so this is not supported for most ciphers
+ * (except chacha/salsa, which were designed for this)
  * @param input - Input bytes.
  * @param output - Output bytes.
  * @throws If the output view would overwrite unread input bytes. {@link Error}
@@ -457,6 +523,7 @@ type EmptyObj = {};
  * @param defaults - Default option values.
  * @param opts - User-provided overrides.
  * @returns Combined options object.
+ * The merge mutates `defaults` in place and returns the same object.
  * @throws If options are missing or not an object. {@link Error}
  * @example
  * Applies user overrides to the default cipher options.
@@ -475,10 +542,10 @@ export function checkOpts<T1 extends EmptyObj, T2 extends EmptyObj>(
 }
 
 /**
- * Compares two byte arrays in kinda constant time.
+ * Compares two byte arrays in kinda constant time once lengths already match.
  * @param a - First byte array.
  * @param b - Second byte array.
- * @returns `true` when the arrays contain the same bytes.
+ * @returns `true` when the arrays contain the same bytes. Different lengths still return early.
  * @example
  * Compares an expected authentication tag with the received one.
  *
@@ -509,6 +576,7 @@ export interface IHash2 {
   /**
    * Writes the final digest into a caller-provided buffer.
    * @param buf - Destination buffer for the digest bytes.
+   * @returns Nothing. Implementations write into `buf` in place.
    */
   digestInto(buf: Uint8Array): void;
   /**
@@ -522,6 +590,32 @@ export interface IHash2 {
    * by user, they will need to manually call `destroy()` when zeroing is necessary.
    */
   destroy(): void;
+}
+
+/**
+ * Wraps a keyed MAC constructor into a one-shot helper with `.create()`.
+ * @param keyLen - Valid probe-key length used to read static metadata once.
+ * The probe key is only used for `outputLen` / `blockLen`, so callers with several valid key sizes
+ * can pass any representative size as long as those values stay fixed.
+ * @param macCons - Keyed MAC constructor or factory.
+ * @param fromMsg - Optional adapter that derives extra constructor args from the one-shot message.
+ * @returns Callable MAC helper with `.create()`.
+ */
+export function wrapMacConstructor<H extends IHash2, A extends any[] = []>(
+  keyLen: number,
+  macCons: (key: Uint8Array, ...args: A) => H,
+  fromMsg?: (msg: Uint8Array) => A
+): CMac<H, A> {
+  const getArgs = fromMsg || (() => [] as unknown as A);
+  const macC: any = (msg: Uint8Array, key: Uint8Array): Uint8Array =>
+    macCons(key, ...getArgs(msg))
+      .update(msg)
+      .digest();
+  const tmp = macCons(new Uint8Array(keyLen), ...getArgs(new Uint8Array(0)));
+  macC.outputLen = tmp.outputLen;
+  macC.blockLen = tmp.blockLen;
+  macC.create = (key: Uint8Array, ...args: A) => macCons(key, ...args);
+  return macC;
 }
 
 // This will allow to re-use with composable things like packed & base encoders
@@ -617,6 +711,9 @@ export type CipherCons<T extends any[]> = (key: Uint8Array, ...args: T) => Ciphe
 /**
  * Wraps a cipher: validates args, ensures encrypt() can only be called once.
  * Used internally by the exported cipher constructors.
+ * Output-buffer support is inferred from the wrapped `encrypt` / `decrypt`
+ * arity (`fn.length === 2`), and tag-bearing constructors are expected to use
+ * `args[1]` for optional AAD.
  * @__NO_SIDE_EFFECTS__
  * @param params - Static cipher metadata. See {@link CipherParams}.
  * @param constructor - Cipher constructor.
@@ -629,9 +726,6 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
   function wrappedCipher(key: Uint8Array, ...args: any[]): CipherWithOutput {
     // Validate key
     abytes(key, undefined, 'key');
-
-    // Big-Endian hardware is rare. Just in case someone still decides to run ciphers:
-    if (!isLE) throw new Error('Non little-endian hardware is not yet supported');
 
     // Validate nonce if nonceLength is present
     if (params.nonceLength !== undefined) {
@@ -714,6 +808,8 @@ export function getOutput(
   onlyAligned = true
 ): Uint8Array {
   if (out === undefined) return new Uint8Array(expectedLength);
+  // Keep Buffer/cross-realm Uint8Array support here instead of trusting a shape-compatible object.
+  abytes(out, undefined, 'output');
   if (out.length !== expectedLength)
     throw new Error(
       '"output" expected Uint8Array of length ' + expectedLength + ', got: ' + out.length
@@ -726,6 +822,8 @@ export function getOutput(
  * Encodes data and AAD bit lengths into a 16-byte buffer.
  * @param dataLength - Data length in bits.
  * @param aadLength - AAD length in bits.
+ * The serialized block is still `aadLength || dataLength`, matching GCM/Poly1305
+ * conventions even though the helper parameter order is `(dataLength, aadLength)`.
  * @param isLE - Whether to encode lengths as little-endian.
  * @returns 16-byte length block.
  * @throws On wrong argument types passed to the endian validator. {@link TypeError}
@@ -737,6 +835,9 @@ export function getOutput(
  * ```
  */
 export function u64Lengths(dataLength: number, aadLength: number, isLE: boolean): Uint8Array {
+  // Reject coercible non-number lengths like '10' and true before BigInt(...) accepts them.
+  anumber(dataLength);
+  anumber(aadLength);
   abool(isLE);
   const num = new Uint8Array(16);
   const view = createView(num);
@@ -772,6 +873,8 @@ export function isAligned32(bytes: Uint8Array): boolean {
  * ```
  */
 export function copyBytes(bytes: Uint8Array): Uint8Array {
+  // Uint8Array.from() would coerce arbitrary iterables; validate via isBytes()/abytes first.
+  abytes(bytes);
   return Uint8Array.from(bytes);
 }
 
@@ -779,6 +882,8 @@ export function copyBytes(bytes: Uint8Array): Uint8Array {
  * Cryptographically secure PRNG.
  * Uses internal OS-level `crypto.getRandomValues`.
  * @param bytesLength - Number of bytes to produce.
+ * Validation is delegated to `Uint8Array(bytesLength)` and `getRandomValues`, so
+ * non-integers, negative lengths, and oversize requests surface backend/runtime errors.
  * @returns Random byte array.
  * @throws If the runtime does not expose `crypto.getRandomValues`. {@link Error}
  * @example
@@ -789,6 +894,9 @@ export function copyBytes(bytes: Uint8Array): Uint8Array {
  * ```
  */
 export function randomBytes(bytesLength = 32): Uint8Array {
+  // Validate upfront so fractional / coercible lengths do not silently
+  // truncate through Uint8Array().
+  anumber(bytesLength);
   const cr = typeof globalThis === 'object' ? (globalThis as any).crypto : null;
   if (typeof cr?.getRandomValues !== 'function')
     throw new Error('crypto.getRandomValues must be defined');
@@ -849,10 +957,15 @@ export type CipherWithNonce = ((
  * Uses CSPRNG for nonce, nonce injected in ciphertext.
  * For `encrypt`, a `nonceBytes`-length buffer is fetched from CSPRNG and
  * prepended to encrypted ciphertext. For `decrypt`, first `nonceBytes` of ciphertext
- * are treated as nonce.
+ * are treated as nonce. The wrapper always allocates a fresh `nonce || ciphertext`
+ * buffer on encrypt and intentionally does not support caller-provided destination buffers.
+ * Too-short decrypt inputs are split into short/empty nonce views and then delegated
+ * to the wrapped cipher instead of being rejected here first.
  *
  * NOTE: Under the same key, using random nonces (e.g. `managedNonce`) with AES-GCM and ChaCha
- * should be limited to `2**23` (8M) messages to get a collision chance of `2**-50`. Stretching to  * `2**32` (4B) messages, chance would become `2**-33` - still negligible, but creeping up.
+ * should be limited to `2**23` (8M) messages to get a collision chance of
+ * `2**-50`. Stretching to `2**32` (4B) messages would raise that chance to
+ * `2**-33`, still negligible but creeping up.
  * @param fn - Cipher constructor that expects a nonce.
  * @param randomBytes_ - Random-byte source used for nonce generation.
  * @returns Cipher constructor that prepends the nonce to ciphertext.
@@ -876,9 +989,11 @@ export function managedNonce<T extends CipherWithNonce>(
 ): RemoveNonce<T> {
   const { nonceLength } = fn;
   anumber(nonceLength);
-  const addNonce = (nonce: Uint8Array, ciphertext: Uint8Array) => {
+  const addNonce = (nonce: Uint8Array, ciphertext: Uint8Array, plaintext: Uint8Array) => {
     const out = concatBytes(nonce, ciphertext);
-    ciphertext.fill(0);
+    // Wrapped ciphers may alias caller plaintext on encrypt(); never zero
+    // caller-owned buffers here.
+    if (!overlapBytes(plaintext, ciphertext)) ciphertext.fill(0);
     return out;
   };
   // NOTE: we cannot support DST here, it would be mistake:
@@ -886,14 +1001,15 @@ export function managedNonce<T extends CipherWithNonce>(
   // - nonce may unalign dst and break everything
   // - we create new u8a anyway (concatBytes)
   // - previously we passed all args to cipher, but that was mistake!
-  return ((key: Uint8Array, ...args: any[]): any => ({
+  const res = ((key: Uint8Array, ...args: any[]): any => ({
     encrypt(plaintext: Uint8Array) {
       abytes(plaintext);
       const nonce = randomBytes_(nonceLength);
       const encrypted = fn(key, nonce, ...args).encrypt(plaintext);
       // @ts-ignore
-      if (encrypted instanceof Promise) return encrypted.then((ct) => addNonce(nonce, ct));
-      return addNonce(nonce, encrypted);
+      if (encrypted instanceof Promise)
+        return encrypted.then((ct) => addNonce(nonce, ct, plaintext));
+      return addNonce(nonce, encrypted, plaintext);
     },
     decrypt(ciphertext: Uint8Array) {
       abytes(ciphertext);
@@ -901,7 +1017,11 @@ export function managedNonce<T extends CipherWithNonce>(
       const decrypted = ciphertext.subarray(nonceLength);
       return fn(key, nonce, ...args).decrypt(decrypted);
     },
-  })) as RemoveNonce<T>;
+  })) as RemoveNonce<T> & { blockSize?: number; tagLength?: number };
+  // Auto-nonce wrappers still preserve the wrapped payload geometry.
+  if ('blockSize' in fn) res.blockSize = (fn as any).blockSize;
+  if ('tagLength' in fn) res.tagLength = (fn as any).tagLength;
+  return res;
 }
 
 /** `Uint8Array.of()` return type helper for TS 5.9. */

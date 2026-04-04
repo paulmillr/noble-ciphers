@@ -54,13 +54,20 @@ const checkBlockSize = (opts, len) => {
   return false;
 };
 
+const createCipher = (opts, key, nonce, AAD) => {
+  const { fn, withNonce } = opts;
+  const args = [key];
+  if (withNonce) args.push(nonce);
+  if (AAD !== undefined && (withNonce || fn.tagLength)) args.push(AAD);
+  return fn(...args, ...(opts.args || []));
+};
+
 const initCipher = (opts) => {
   const { fn, keyLen, withNonce } = opts;
-  const args = opts.args || [];
   const key = randomBytes(keyLen);
-  const nonce = randomBytes(fn.nonceLength);
-  const c = withNonce ? fn(key, nonce, ...args) : fn(key, ...args);
-  return { c, key, nonce, copy: { key: key.slice(), nonce: nonce.slice() } };
+  const nonce = withNonce ? randomBytes(fn.nonceLength) : undefined;
+  const c = createCipher(opts, key, nonce);
+  return { c, key, nonce, copy: { key: key.slice(), nonce: nonce?.slice() } };
 };
 
 describe(`Basic (${variant})`, () => {
@@ -131,13 +138,13 @@ describe(`Basic (${variant})`, () => {
     });
     for (let i = 0; i < 8; i++) {
       should(`${k} (unalign ${i})`, () => {
-        const { fn, keyLen } = opts;
+        const { fn, keyLen, withNonce } = opts;
         const key = unalign(randomBytes(keyLen), i);
-        const nonce = unalign(randomBytes(fn.nonceLength), i);
+        const nonce = withNonce ? unalign(randomBytes(fn.nonceLength), i) : undefined;
         const AAD = unalign(randomBytes(64), i);
         const msg = unalign(new Uint8Array(2048).fill(255), i);
         if (checkBlockSize(opts, msg.length)) {
-          const cipher = fn(key, nonce, AAD);
+          const cipher = createCipher(opts, key, nonce, AAD);
           const encrypted = unalign(cipher.encrypt(msg), i);
           const decrypted = cipher.decrypt(encrypted);
           eql(decrypted, msg);
@@ -176,13 +183,13 @@ describe(`Basic (${variant})`, () => {
     // });
 
     should(`${k} (re-use)`, () => {
-      const { fn, keyLen } = opts;
+      const { fn, keyLen, withNonce } = opts;
 
       const key = randomBytes(keyLen);
-      const nonce = randomBytes(fn.nonceLength);
+      const nonce = withNonce ? randomBytes(fn.nonceLength) : undefined;
       const AAD = randomBytes(64);
 
-      let cipher = fn(key, nonce, AAD);
+      let cipher = createCipher(opts, key, nonce, AAD);
       // Throws if output provided to function without output support
       if (
         !k.endsWith('managedNonce') &&
@@ -190,7 +197,7 @@ describe(`Basic (${variant})`, () => {
       ) {
         const msg = randomBytes(2 * opts.fn.blockSize);
         throws(() => cipher.encrypt(msg, new Uint8Array(msg.length)));
-        cipher = fn(key, nonce, AAD);
+        cipher = createCipher(opts, key, nonce, AAD);
         const exp = cipher.encrypt(msg);
         throws(() => cipher.decrypt(exp, new Uint8Array(exp.length)));
         return;
@@ -217,9 +224,9 @@ describe(`Basic (${variant})`, () => {
       for (const msgLen of messageLengths) {
         const msg = randomBytes(msgLen);
         const key = randomBytes(keyLen);
-        const nonce = randomBytes(fn.nonceLength);
+        const nonce = withNonce ? randomBytes(fn.nonceLength) : undefined;
         const AAD = randomBytes(64);
-        let cipher = fn(key, nonce, AAD);
+        let cipher = createCipher(opts, key, nonce, AAD);
         const mayThrow = ['cbc', 'ctr', 'ecb'].map((i) => k.includes(i)).includes(true);
         const pkcs5 = ['cbc', 'ecb'].map((i) => k.includes(i)).includes(true);
         for (let fillByte = 0; fillByte < 256; fillByte++) {
@@ -231,11 +238,11 @@ describe(`Basic (${variant})`, () => {
             if (k === 'xsalsa20poly1305') outLen += 16;
             if (pkcs5) outLen += pcksOutput(msg.length);
             // Expected result
-            cipher = fn(key, nonce, AAD);
+            cipher = createCipher(opts, key, nonce, AAD);
             const exp = cipher.encrypt(msg);
             const out = new Uint8Array(outLen);
             // First pass
-            cipher = fn(key, nonce, AAD);
+            cipher = createCipher(opts, key, nonce, AAD);
             const res = cipher.encrypt(msg, out);
             eql(res, exp);
             // check if res is output
@@ -243,13 +250,13 @@ describe(`Basic (${variant})`, () => {
             eql(res.buffer, out.buffer); // make sure that underlying array buffer is same
             // Second pass
             out.fill(fillByte);
-            cipher = fn(key, nonce, AAD);
+            cipher = createCipher(opts, key, nonce, AAD);
             const res2 = cipher.encrypt(msg, out);
             eql(res2, exp);
             eql(res2, out.subarray(res2.byteOffset, res2.byteOffset + res2.length));
             eql(res2.buffer, out.buffer); // make sure that underlying array buffer is same
             // Overlap
-            cipher = fn(key, nonce, AAD);
+            cipher = createCipher(opts, key, nonce, AAD);
             out.fill(fillByte);
             out.set(msg);
             const msg2 = out.subarray(0, msg.length);
@@ -260,7 +267,7 @@ describe(`Basic (${variant})`, () => {
             overlapTest(msg2, out, (msg2, out2, all) => {
               all.fill(fillByte);
               msg2.set(msg);
-              cipher = fn(key, nonce, AAD);
+              cipher = createCipher(opts, key, nonce, AAD);
               let newOut;
               try {
                 newOut = cipher.encrypt(msg2, out2);
@@ -277,7 +284,7 @@ describe(`Basic (${variant})`, () => {
           }
           if (cipher.decrypt.length === 2) {
             // Expected result
-            cipher = fn(key, nonce, AAD);
+            cipher = createCipher(opts, key, nonce, AAD);
             const input = cipher.encrypt(msg);
             // Tmp buffer
             let outLen = msg.length;

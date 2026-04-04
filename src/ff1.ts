@@ -1,20 +1,23 @@
 /**
  * FPE-FF1 (Format-preserving encryption algorithm) specified in
- * [NIST 800-38G](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf).
+ * {@link https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf | NIST 800-38G}.
  * @module
  */
 import { unsafe } from './aes.ts';
 import { type Cipher, abytes, anumber, bytesToNumberBE, clean, numberToBytesBE } from './utils.ts';
 
+// NIST SP 800-38G §4.3 / §5.1 Algorithm 7: FF1's designated CIPH_K here is AES, so this file
+// reuses the reviewed AES key schedule and single-block encryption helpers.
 // NOTE: no point in inlining encrypt instead of encryptBlock, since BigInt stuff will be slow
 const { expandKeyLE, encryptBlock } = unsafe;
 
-// Format-preserving encryption algorithm (FPE-FF1) specified in NIST Special Publication 800-38G.
-// https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf
+// Format-preserving encryption algorithm (FPE-FF1) specified in
+// {@link https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf | NIST Special Publication 800-38G}.
 
 const BLOCK_LEN = 16;
 
-// Calculates a modulo b
+// FF1 step 6vi needs mathematical modulo in [0, b); JS `%` is remainder, so decrypt rounds must
+// map negative intermediate values back into that range.
 function mod(a: number, b: number): number;
 function mod(a: bigint, b: bigint): bigint;
 function mod(a: any, b: any): number | bigint {
@@ -38,6 +41,12 @@ function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: number[]
     throw new Error('Invalid radix: 2 ≤ minlen ≤ maxlen < 2**32');
   if (!Array.isArray(x)) throw new Error('invalid X');
   if (x.length < minLen || x.length > maxLen) throw new Error('X is outside minLen..maxLen bounds');
+  // SP 800-38G defines FF1 over numeral strings in base `radix`; out-of-range digits must fail
+  // before NUMradix(...) or round splitting can reinterpret them as a different numeral string.
+  for (const i of x) {
+    if (!Number.isSafeInteger(i) || i < 0 || i >= radix)
+      throw new Error('invalid X: digit outside radix');
+  }
   const u = Math.floor(x.length / 2);
   const v = x.length - u;
   const b = Math.ceil(Math.ceil(v * Math.log2(radix)) / 8);
@@ -46,6 +55,8 @@ function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: number[]
   // P = [1]1 || [2]1 || [1]1 || [radix]3 || [10]1 || [u mod 256]1 || [n]4 || [t]4.
   const P = Uint8Array.from([1, 2, 1, 0, 0, 0, 10, u, 0, 0, 0, 0, 0, 0, 0, 0]);
   const view = new DataView(P.buffer);
+  // NIST SP 800-38G §5.1 bounds radix <= 2^16, so the 24-bit [radix]3 field is encoded here as
+  // 0x00 || uint16_be(radix).
   view.setUint16(4, radix, false);
   view.setUint32(8, x.length, false);
   view.setUint32(12, tweak.length, false);
@@ -59,7 +70,7 @@ function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: number[]
     // Q = ... || [i]1 || [NUMradix(B)]b.
     PQ[PQ.length - b - 1] = i;
     if (b) PQ.set(numberToBytesBE(NUMradix(radix, B), b), PQ.length - b);
-    // PRF
+    // NIST SP 800-38G Algorithm 6 PRF: Y_j = CIPH_K(Y_(j-1) xor X_j) starting from Y_0 = 0^128.
     let r = new Uint8Array(16);
     for (let j = 0; j < PQ.length / BLOCK_LEN; j++) {
       for (let i = 0; i < BLOCK_LEN; i++) r[i] ^= PQ[j * BLOCK_LEN + i];
@@ -119,6 +130,8 @@ export function FF1(
   anumber(radix);
   abytes(key);
   abytes(tweak);
+  // This borrows caller key/tweak buffers by reference through the bound closure; mutating them
+  // after construction changes later encrypt/decrypt outputs.
   const PQ = getRound.bind(null, radix, key, tweak);
   return {
     encrypt(x: number[]): number[] {
@@ -148,7 +161,8 @@ export function FF1(
     },
   };
 }
-// Binary string which encodes each byte in little-endian byte order
+// Binary wrapper uses little-endian bit order within each byte so bit 0 stays
+// in the first numeral slot for this library-defined byte-array surface.
 const binLE = {
   encode(bytes: Uint8Array): number[] {
     const x = [];

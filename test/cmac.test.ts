@@ -124,7 +124,7 @@ describe(`AES-CMAC (${variant})`, () => {
   describe('RFC 4493 test vectors', () => {
     for (const vector of rfcTestVectors) {
       should(vector.name, () => {
-        const result = cmac(RFC4493_KEY, vector.message);
+        const result = cmac(vector.message, RFC4493_KEY);
         deepStrictEqual(bytesToHex(result), vector.expected);
       });
     }
@@ -148,13 +148,69 @@ describe(`AES-CMAC (${variant})`, () => {
   describe('NIST test vectors', () => {
     for (const vector of nistTestVectors) {
       should(vector.name, () => {
-        const result = cmac(vector.key, vector.message);
+        const result = cmac(vector.message, vector.key);
         deepStrictEqual(bytesToHex(result), vector.expected);
       });
     }
   });
 
   describe('Streaming interface', () => {
+    should('expose standard incremental MAC metadata and digestInto', () => {
+      const mac = cmac.create(RFC4493_KEY);
+      deepStrictEqual(mac.blockLen, 16);
+      deepStrictEqual(mac.outputLen, 16);
+      const out = new Uint8Array(16);
+      mac.digestInto(out);
+      deepStrictEqual(bytesToHex(out), 'bb1d6929e95937287fa37d129b756746');
+      mac.destroy();
+    });
+
+    should('digestInto accepts output buffers larger than outputLen', () => {
+      const out = new Uint8Array(32).fill(0x5a);
+      const expect = new Uint8Array(32).fill(0x5a);
+      expect.set(cmac(new Uint8Array(), RFC4493_KEY), 0);
+
+      const mac = cmac.create(RFC4493_KEY);
+      try {
+        mac.digestInto(out);
+        deepStrictEqual(out, expect);
+      } finally {
+        mac.destroy();
+      }
+    });
+
+    should('digestInto either rejects misaligned outputs explicitly or writes into them directly', () => {
+      const mac = cmac.create(RFC4493_KEY);
+      const out = new Uint8Array(21).subarray(1).fill(0x5a);
+      const before = out.slice();
+      const expect = new Uint8Array(20).fill(0x5a);
+      expect.set(cmac(new Uint8Array(), RFC4493_KEY), 0);
+      try {
+        mac.digestInto(out);
+        deepStrictEqual(out, expect);
+      } catch (error) {
+        deepStrictEqual(error, new Error('invalid output, must be aligned'));
+        deepStrictEqual(out, before);
+      } finally {
+        mac.destroy();
+      }
+    });
+
+    should('keep only one pending block across updates', () => {
+      const mac = cmac.create(RFC4493_KEY) as ReturnType<typeof cmac.create> & {
+        buffer?: Uint8Array;
+        pos?: number;
+      };
+      mac.update(new Uint8Array(40));
+      // Some wrappers reuse the same public streaming contract without exposing noble's private
+      // pending-buffer internals. When available, keep pinning the one-block buffering invariant.
+      if (mac.buffer !== undefined) deepStrictEqual(mac.buffer.length, 16);
+      if (mac.pos !== undefined) deepStrictEqual(mac.pos, 8);
+      const result = mac.digest();
+      deepStrictEqual(result.length, 16);
+      mac.destroy();
+    });
+
     should('work with update/digest pattern', () => {
       const mac = cmac.create(RFC4493_KEY);
       mac.update(hexToBytes('6bc1bee22e409f96e93d7e117393172a'));
@@ -196,7 +252,7 @@ describe(`AES-CMAC (${variant})`, () => {
   describe('Verification', () => {
     function cmac_verify(key: Uint8Array, message: Uint8Array, tag: Uint8Array): boolean {
       abytes(tag, 16, 'tag');
-      const computedTag = cmac(key, message);
+      const computedTag = cmac(message, key);
       const result = equalBytes(computedTag, tag);
       // clean(computedTag);
       return result;
@@ -218,23 +274,23 @@ describe(`AES-CMAC (${variant})`, () => {
     should('work with 192-bit keys', () => {
       const key192 = hexToBytes('8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b');
       const message = hexToBytes('6bc1bee22e409f96e93d7e117393172a');
-      const result = cmac(key192, message);
+      const result = cmac(message, key192);
       deepStrictEqual(result.length, 16); // Should always produce 16-byte tag
     });
 
     should('work with 256-bit keys', () => {
       const key256 = hexToBytes('603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4');
       const message = hexToBytes('6bc1bee22e409f96e93d7e117393172a');
-      const result = cmac(key256, message);
+      const result = cmac(message, key256);
       deepStrictEqual(result.length, 16); // Should always produce 16-byte tag
     });
   });
 
   describe('Error handling', () => {
     should('reject invalid key lengths', () => {
-      throws(() => cmac(new Uint8Array(15), new Uint8Array(16)));
-      throws(() => cmac(new Uint8Array(17), new Uint8Array(16)));
-      throws(() => cmac(new Uint8Array(25), new Uint8Array(16)));
+      throws(() => cmac(new Uint8Array(16), new Uint8Array(15)));
+      throws(() => cmac(new Uint8Array(16), new Uint8Array(17)));
+      throws(() => cmac(new Uint8Array(16), new Uint8Array(25)));
     });
 
     should('reject invalid tag lengths in verify', () => {
@@ -263,8 +319,8 @@ describe(`AES-CMAC (${variant})`, () => {
       const key2 = hexToBytes('2b7e151628aed2a6abf7158809cf4f3d'); // Last byte different
       const message = hexToBytes('6bc1bee22e409f96e93d7e117393172a');
 
-      const tag1 = cmac(key1, message);
-      const tag2 = cmac(key2, message);
+      const tag1 = cmac(message, key1);
+      const tag2 = cmac(message, key2);
 
       deepStrictEqual(tag1.length, tag2.length);
       deepStrictEqual(equalBytes(tag1, tag2), false);
@@ -274,8 +330,8 @@ describe(`AES-CMAC (${variant})`, () => {
       const message1 = hexToBytes('6bc1bee22e409f96e93d7e117393172a');
       const message2 = hexToBytes('6bc1bee22e409f96e93d7e117393172b'); // Last byte different
 
-      const tag1 = cmac(RFC4493_KEY, message1);
-      const tag2 = cmac(RFC4493_KEY, message2);
+      const tag1 = cmac(message1, RFC4493_KEY);
+      const tag2 = cmac(message2, RFC4493_KEY);
 
       deepStrictEqual(tag1.length, tag2.length);
       deepStrictEqual(equalBytes(tag1, tag2), false);

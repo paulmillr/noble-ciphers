@@ -4,14 +4,17 @@
  * which are hard to implement in a constant-time manner.
  * Salsa20 is usually faster than AES, a big deal on slow, budget mobile phones.
  *
- * - [XSalsa20](https://cr.yp.to/snuffle/xsalsa-20110204.pdf), extended-nonce
- *   variant was released in 2008. It switched nonces from 96-bit to 192-bit,
+ * - {@link https://cr.yp.to/snuffle/xsalsa-20110204.pdf | XSalsa20},
+ *   extended-nonce
+ *   variant was released in 2008. It extends Salsa20's 64-bit nonce to 192 bits,
  *   and became safe to be picked at random.
  * - Nacl / Libsodium popularized term "secretbox", - which is just xsalsa20poly1305.
  *   We provide the alias and corresponding seal / open methods.
- *   "crypto_box" and "sealedbox" are available in package [noble-sodium](https://github.com/serenity-kit/noble-sodium).
- * - Check out [PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf)
- *   and [website](https://cr.yp.to/snuffle.html).
+ *   "crypto_box" and "sealedbox" are available in package
+ *   {@link https://github.com/serenity-kit/noble-sodium | noble-sodium}.
+ * - Check out
+ *   {@link https://cr.yp.to/snuffle/salsafamily-20071225.pdf | PDF}
+ *   and {@link https://cr.yp.to/snuffle.html | website}.
  * @module
  */
 import { createCipher, rotl } from './_arx.ts';
@@ -23,6 +26,8 @@ import {
   clean,
   equalBytes,
   getOutput,
+  swap8IfBE,
+  swap32IfBE,
   wrapCipher,
   type XorStream,
 } from './utils.ts';
@@ -38,7 +43,7 @@ import {
  * * small x 132 ops/sec @ 7ms/op
  */
 
-/** quarter-round */
+/** RFC 7914 §3 Salsa20/8 core quarter-round on words a, b, c, d. */
 function salsaQR(x: Uint32Array, a: number, b: number, c: number, d: number) {
   x[b] ^= rotl((x[a] + x[d]) | 0, 7);
   x[c] ^= rotl((x[b] + x[a]) | 0, 9);
@@ -46,6 +51,7 @@ function salsaQR(x: Uint32Array, a: number, b: number, c: number, d: number) {
   x[a] ^= rotl((x[d] + x[c]) | 0, 18);
 }
 
+/** RFC 7914 §3 double-round schedule: four column rounds, then four row rounds. */
 function salsaRound(x: Uint32Array, rounds = 20) {
   for (let r = 0; r < rounds; r += 2) {
     salsaQR(x, 0, 4, 8, 12);
@@ -59,6 +65,8 @@ function salsaRound(x: Uint32Array, rounds = 20) {
   }
 }
 
+// Shared scratch for the unused auditability helper below; it would be
+// non-reentrant under overlapping/nested calls, but current code doesn't invoke it.
 const stmp = /* @__PURE__ */ new Uint32Array(16);
 
 /** Small version of salsa without loop unrolling. Unused, provided for auditability. */
@@ -79,7 +87,7 @@ function salsa(
   // const x = y.slice();
   salsaRound(x, rounds);
 
-  // hsalsa extracts 8 specific bytes, salsa adds orig to result
+  // hsalsa extracts 8 specific words for the 32-byte subkey; salsa adds the original state.
   if (isHSalsa) {
     const xindexes = [0, 5, 10, 15, 6, 7, 8, 9];
     for (let i = 0; i < 8; i++) out[i] = x[xindexes[i]];
@@ -95,12 +103,13 @@ const salsaCore_small: typeof salsaCore = (s, k, n, out, cnt, rounds) =>
 // @ts-ignore
 const hsalsa_small: typeof hsalsa = salsa;
 
-/** Identical to `salsaCore_small` */
+/** Identical to `salsaCore_small`. Uses only the low 32 bits of Salsa20's 64-bit counter state. */
 // prettier-ignore
 function salsaCore(
   s: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32Array, cnt: number, rounds = 20
 ): void {
-  // Based on https://cr.yp.to/salsa20.html
+  // Public wrappers expose only the low 32 bits of Salsa20's 64-bit counter; y09 stays zero.
+  // Based on {@link https://cr.yp.to/salsa20.html | the Salsa20 reference page}.
   let y00 = s[0], y01 = k[0], y02 = k[1], y03 = k[2], // "expa" Key     Key     Key
       y04 = k[3], y05 = s[1], y06 = n[0], y07 = n[1], // Key    "nd 3"  Nonce   Nonce
       y08 = cnt,  y09 = 0,    y10 = s[2], y11 = k[4], // Pos.   Pos.    "2-by"	Key
@@ -141,7 +150,7 @@ function salsaCore(
 }
 
 /**
- * hsalsa hashes key and nonce into key' and nonce' for salsa20.
+ * hsalsa hashes key and nonce-prefix words into the 32-byte subkey used by XSalsa20.
  * Identical to `hsalsa_small`.
  * Need to find a way to merge it with `salsaCore` without 25% performance hit.
  * @param s - Sigma constants as 32-bit words.
@@ -163,10 +172,10 @@ function salsaCore(
 export function hsalsa(
   s: Uint32Array, k: Uint32Array, i: Uint32Array, out: Uint32Array
 ): void {
-  let x00 = s[0], x01 = k[0], x02 = k[1], x03 = k[2],
-      x04 = k[3], x05 = s[1], x06 = i[0], x07 = i[1],
-      x08 = i[2], x09 = i[3], x10 = s[2], x11 = k[4],
-      x12 = k[5], x13 = k[6], x14 = k[7], x15 = s[3];
+  let x00 = swap8IfBE(s[0]), x01 = swap8IfBE(k[0]), x02 = swap8IfBE(k[1]), x03 = swap8IfBE(k[2]),
+      x04 = swap8IfBE(k[3]), x05 = swap8IfBE(s[1]), x06 = swap8IfBE(i[0]), x07 = swap8IfBE(i[1]),
+      x08 = swap8IfBE(i[2]), x09 = swap8IfBE(i[3]), x10 = swap8IfBE(s[2]), x11 = swap8IfBE(k[4]),
+      x12 = swap8IfBE(k[5]), x13 = swap8IfBE(k[6]), x14 = swap8IfBE(k[7]), x15 = swap8IfBE(s[3]);
   for (let r = 0; r < 20; r += 2) {
     x04 ^= rotl(x00 + x12 | 0, 7);  x08 ^= rotl(x04 + x00 | 0, 9);
     x12 ^= rotl(x08 + x04 | 0, 13); x00 ^= rotl(x12 + x08 | 0, 18);
@@ -186,10 +195,12 @@ export function hsalsa(
     x14 ^= rotl(x13 + x12 | 0, 13); x15 ^= rotl(x14 + x13 | 0, 18);
   }
   let oi = 0;
+  // XSalsa20 takes words 0,5,10,15 and 6,7,8,9 as the 32-byte subkey material.
   out[oi++] = x00; out[oi++] = x05;
   out[oi++] = x10; out[oi++] = x15;
   out[oi++] = x06; out[oi++] = x07;
   out[oi++] = x08; out[oi++] = x09;
+  swap32IfBE(out);
 }
 
 /**
@@ -200,6 +211,9 @@ export function hsalsa(
  * @param data - Input bytes to xor with the keystream.
  * @param output - Optional destination buffer.
  * @param counter - Initial block counter.
+ * Only the low 32 bits of Salsa20's 64-bit counter state are exposed here;
+ * the high word stays zero and the implementation still caps the public
+ * value to 32 bits.
  * @returns Encrypted or decrypted bytes.
  * @example
  * Encrypts bytes with the original 8-byte-nonce Salsa20 stream cipher.
@@ -220,7 +234,8 @@ export const salsa20: XorStream = /* @__PURE__ */ createCipher(salsaCore, {
 /**
  * XSalsa20 extended-nonce salsa.
  * With 24-byte nonce, it's safe to make it random (CSPRNG).
- * @param key - 16-byte or 32-byte key.
+ * @param key - 32-byte key.
+ * This XSalsa20 wrapper does not enable Salsa20's 16-byte legacy key mode.
  * @param nonce - 24-byte nonce.
  * @param data - Input bytes to xor with the keystream.
  * @param output - Optional destination buffer.
@@ -246,9 +261,11 @@ export const xsalsa20: XorStream = /* @__PURE__ */ createCipher(salsaCore, {
  * xsalsa20-poly1305 eXtended-nonce (24 bytes) salsa.
  * With 24-byte nonce, it's safe to make it random (CSPRNG).
  * Also known as `secretbox` from libsodium / nacl.
+ * No AAD input is supported here. Caller-provided `output` buffers for
+ * `encrypt()` / `decrypt()` must be `input.length + 32` bytes because the
+ * implementation uses a 32-byte leading scratch area before returning `+16`.
  * @param key - 32-byte key.
  * @param nonce - 24-byte nonce.
- * @param AAD - Additional authenticated data.
  * @returns AEAD cipher instance.
  * @example
  * Encrypts and authenticates plaintext with XSalsa20-Poly1305.
@@ -265,6 +282,8 @@ export const xsalsa20: XorStream = /* @__PURE__ */ createCipher(salsaCore, {
 export const xsalsa20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
   (key: Uint8Array, nonce: Uint8Array): CipherWithOutput => {
+    // This borrows caller key/nonce buffers by reference; mutating them after construction changes
+    // later encrypt/decrypt outputs.
     return {
       encrypt(plaintext: Uint8Array, output?: Uint8Array) {
         // xsalsa20poly1305 optimizes by calculating auth key during the same call as encryption.
@@ -284,6 +303,8 @@ export const xsalsa20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
       decrypt(ciphertext: Uint8Array, output?: Uint8Array) {
         // tmp part     passed tag    ciphertext
         // [0..32]      [32..48]      [48..]
+        // Authenticate the ciphertext before decrypting it; on tag failure the scratch/output
+        // buffer may already contain copied ciphertext and derived auth-key material.
         abytes(ciphertext);
         output = getOutput(ciphertext.length + 32, output, false);
         const tmp = output.subarray(0, 32); // output[0..32] is used to calc authKey

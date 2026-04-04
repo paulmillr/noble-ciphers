@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 jobs:
   slow:
-    name: jsbt v0.4.5 large input tests
-    uses: paulmillr/jsbt/.github/workflows/test-ts-slow.yml@857e7538fb14d48feaaa1dda889d8d4d10b9289d
+    name: 'jsbt v0.5.0 large input tests'
+    uses: paulmillr/jsbt/.github/workflows/test-ts-slow.yml@8a0e8bacab177cbe72ee412345d42331cfc0a261
     with:
       npm-task: test:slow

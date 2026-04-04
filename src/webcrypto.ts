@@ -14,6 +14,8 @@ function getWebcryptoSubtle(): any {
 /**
  * Internal webcrypto utils. Can be overridden of crypto.subtle is not present,
  * for example in React Native.
+ * Raw keys are re-imported on every call; this wrapper intentionally does not
+ * cache `CryptoKey` objects between operations.
  */
 export const utils: {
   encrypt: (key: Uint8Array, ...all: any[]) => Promise<Uint8Array>;
@@ -52,8 +54,10 @@ type BlockMode = (typeof mode)[keyof typeof mode];
 
 function getCryptParams(algo: BlockMode, nonce: Uint8Array, AAD?: Uint8Array) {
   if (algo === mode.CBC) return { name: mode.CBC, iv: nonce };
-  if (algo === mode.CTR) return { name: mode.CTR, counter: nonce, length: 64 };
+  // WebCrypto allows 1..128 counter bits; use the full block to match sync ctr() / Node CTR wrap.
+  if (algo === mode.CTR) return { name: mode.CTR, counter: nonce, length: 128 };
   if (algo === mode.GCM) {
+    // Rely on the backend default tag length (128 bits) instead of setting it explicitly.
     if (AAD) return { name: mode.GCM, iv: nonce, additionalData: AAD };
     else return { name: mode.GCM, iv: nonce };
   }
@@ -66,6 +70,12 @@ function generate(algo: BlockMode, nonceLength: number) {
   const res = (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): AsyncCipher => {
     abytes(key);
     abytes(nonce);
+    // Reject falsy non-byte AAD locally; otherwise false/0/''/null silently become "no AAD".
+    if (AAD !== undefined) abytes(AAD, undefined, 'AAD');
+    // Exact nonce-length enforcement and WebCrypto-specific AAD normalization are
+    // delegated to the backend; locally we only require byte-array inputs here.
+    // Keep caller key/nonce/AAD by reference; mutating them after
+    // construction changes later operations.
     const keyParams = { name: algo, length: key.length * 8 };
     const cryptParams = getCryptParams(algo, nonce, AAD);
     let consumed = false;
@@ -90,6 +100,8 @@ function generate(algo: BlockMode, nonceLength: number) {
 
 /**
  * AES-CBC implemented with WebCrypto.
+ * Uses WebCrypto's built-in PKCS padding behavior; exact IV-length checks are
+ * delegated to the backend instead of local `abytes(..., 16)` validation.
  * @param key - AES key bytes.
  * @param iv - 16-byte initialization vector.
  * @returns Async cipher instance.
@@ -111,8 +123,10 @@ export const cbc: ((key: Uint8Array, iv: Uint8Array) => AsyncCipher) & {
 } = /* @__PURE__ */ (() => generate(mode.CBC, 16))();
 /**
  * AES-CTR implemented with WebCrypto.
+ * Uses WebCrypto's full 128-bit counter-length setting so the whole
+ * 16-byte counter block is incremented, matching sync `aes.ts:ctr`.
  * @param key - AES key bytes.
- * @param nonce - 16-byte counter block.
+ * @param nonce - 16-byte counter block incremented as a full big-endian AES counter block.
  * @returns Async cipher instance.
  * @example
  * Encrypts a short payload with WebCrypto AES-CTR.
@@ -132,6 +146,8 @@ export const ctr: ((key: Uint8Array, nonce: Uint8Array) => AsyncCipher) & {
 } = /* @__PURE__ */ (() => generate(mode.CTR, 16))();
 /**
  * AES-GCM implemented with WebCrypto.
+ * AAD type normalization and nonce-shape enforcement beyond raw bytes are left
+ * to the backend WebCrypto implementation.
  * @param key - AES key bytes.
  * @param nonce - Nonce bytes.
  * @param AAD - Additional authenticated data.
@@ -170,5 +186,7 @@ export const gcm: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Asy
 // const wcbc2 = managedNonce(managedNonce(cbc));
 // const wctr = managedNonce(ctr);
 // import { gcm as gcmSync } from '../aes.ts';
-// const x1 = managedNonce(gcmSync); // const x1: (key: Uint8Array, AAD?: Uint8Array | undefined) => Cipher
-// const x2 = managedNonce(gcm); // const x2: (key: Uint8Array, AAD?: Uint8Array | undefined) => AsyncCipher
+// const x1 = managedNonce(gcmSync);
+// // const x1: (key: Uint8Array, AAD?: Uint8Array | undefined) => Cipher
+// const x2 = managedNonce(gcm);
+// // const x2: (key: Uint8Array, AAD?: Uint8Array | undefined) => AsyncCipher

@@ -116,6 +116,10 @@ describe('utils', () => {
     eql(overlapBytes(main2, leftOverlap), true);
     eql(overlapBytes(main2, rightOverlap), true);
     eql(overlapBytes(main2, inside), true);
+
+    const emptyInside = new Uint8Array(buffer, 6, 0);
+    eql(overlapBytes(main2, emptyInside), false);
+    eql(overlapBytes(emptyInside, main2), false);
   });
   should('bytesToUtf8', () => {
     eql(bytesToUtf8(new Uint8Array([97, 98, 99])), 'abc');
@@ -124,6 +128,12 @@ describe('utils', () => {
     eql(u.hexToNumber(''), 0n);
     eql(u.hexToNumber('ff'), 255n);
     throws(() => u.hexToNumber(1 as any), TypeError);
+  });
+  should('numberToBytesBE', () => {
+    eql(u.numberToBytesBE(1, 2), Uint8Array.of(0, 1));
+    throws(() => u.numberToBytesBE('1' as any, 2), TypeError);
+    throws(() => u.numberToBytesBE(true as any, 2), TypeError);
+    throws(() => u.numberToBytesBE(1, '2' as any), TypeError);
   });
   should('utf8ToBytes', () => {
     eql(u.utf8ToBytes('abc'), new Uint8Array([97, 98, 99]));
@@ -136,6 +146,11 @@ describe('utils', () => {
     const t = new Uint8Array(33).subarray(1);
     throws(() => getOutput(32, t));
     eql(getOutput(32, t, false), new Uint8Array(32));
+    if (typeof Buffer !== 'undefined') {
+      const out = Buffer.alloc(32);
+      eql(getOutput(32, out as any, false), out);
+    }
+    throws(() => getOutput(32, { length: 32, byteOffset: 0 } as any, false), TypeError);
   });
   should('u64Lengths', () => {
     eql(
@@ -146,6 +161,8 @@ describe('utils', () => {
       bytesToHex(u64Lengths(new Uint8Array(10).length, new Uint8Array(7).length, true)),
       '07000000000000000a00000000000000'
     );
+    throws(() => u64Lengths('10' as any, 0, true), TypeError);
+    throws(() => u64Lengths(10, '7' as any, true), TypeError);
   });
 });
 
@@ -183,6 +200,75 @@ describe('assert', () => {
 });
 
 describe('utils etc', () => {
+  should('wrapMacConstructor', () => {
+    class Hash16 {
+      blockLen = 7;
+      outputLen = 3;
+      finished = false;
+      destroyed = false;
+
+      constructor(key: Uint8Array) {
+        if (key.length !== 16) throw new Error(`expected 16-byte key, got ${key.length}`);
+      }
+      update(_msg: Uint8Array): this {
+        return this;
+      }
+      digestInto(out: Uint8Array): void {
+        out.set([1, 2, 3]);
+      }
+      digest(): Uint8Array {
+        return Uint8Array.from([1, 2, 3]);
+      }
+      destroy(): void {
+        this.destroyed = true;
+      }
+    }
+
+    const hash = u.wrapMacConstructor(16, (key) => new Hash16(key));
+    eql(hash.outputLen, 3);
+    eql(hash.blockLen, 7);
+    eql(Array.from(hash(new Uint8Array([9]), new Uint8Array(16))), [1, 2, 3]);
+  });
+  should('complexOverlapBytes', () => {
+    const buffer = new Uint8Array(10);
+    const input = buffer.subarray(0, 4);
+    const output = buffer.subarray(2, 2);
+    u.complexOverlapBytes(input, output);
+  });
+  should('copyBytes', () => {
+    const out = u.copyBytes(Uint8Array.of(1, 2, 3));
+    eql(out, Uint8Array.of(1, 2, 3));
+    if (typeof Buffer !== 'undefined') {
+      const src = Buffer.from([1, 2, 3]);
+      const copy = u.copyBytes(src as any);
+      eql(copy, Uint8Array.of(1, 2, 3));
+      copy[0] = 9;
+      eql(src, Buffer.from([1, 2, 3]));
+    }
+    throws(() => u.copyBytes('ab' as any), TypeError);
+  });
+  should('randomBytes', () => {
+    eql(u.randomBytes(0).length, 0);
+    throws(() => u.randomBytes(1.5 as any), RangeError);
+    throws(() => u.randomBytes('2' as any), TypeError);
+    throws(() => u.randomBytes(true as any), TypeError);
+  });
+  should('managedNonce does not wipe plaintext when wrapped encrypt aliases it', () => {
+    const fn = ((_: Uint8Array, __: Uint8Array) => ({
+      encrypt(plaintext: Uint8Array) {
+        return plaintext;
+      },
+      decrypt(ciphertext: Uint8Array) {
+        return ciphertext;
+      },
+    })) as any;
+    fn.nonceLength = 2;
+    const wrapped = u.managedNonce(fn, () => Uint8Array.of(9, 8));
+    const key = Uint8Array.of(1, 2, 3, 4);
+    const plaintext = Uint8Array.of(1, 2, 3);
+    eql(wrapped(key).encrypt(plaintext), Uint8Array.of(9, 8, 1, 2, 3));
+    eql(plaintext, Uint8Array.of(1, 2, 3));
+  });
   should('unalign', () => {
     const arr = new Uint8Array([1, 2, 3]);
     for (let i = 0; i < 16; i++) {

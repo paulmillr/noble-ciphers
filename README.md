@@ -11,7 +11,7 @@ Audited & minimal JS implementation of Salsa20, ChaCha and AES.
 - 🥈 Two AES implementations: pure JS or friendly WebCrypto wrapper
 - 🪶 11KB (gzipped) for everything, 3KB for ChaCha-only build
 
-Check out [Upgrading](#upgrading) for information about upgrading from previous versions.
+Use [awasm-noble](https://github.com/paulmillr/awasm-noble) if you need an even faster (WASM) alternative. Check out [Upgrading](#upgrading) for information about upgrading from previous versions.
 Take a glance at [GitHub Discussions](https://github.com/paulmillr/noble-ciphers/discussions) for questions and support.
 
 ### This library belongs to _noble_ cryptography
@@ -434,9 +434,12 @@ and each new round either depends on previous block's key, or on some counter.
 
 ## Security
 
-The library has been independently audited:
+The library has been audited:
 
-- at version 1.0.0, in Sep 2024, by [cure53](https://cure53.de)
+- at version 2.2.0, in Apr 2026, by ourselves (self-audited)
+  - Scope: everything
+  - [Changes since audit](https://github.com/paulmillr/noble-ciphers/compare/2.2.0..main)
+- at version 1.0.0, in Sep 2024, independently, by [cure53](https://cure53.de)
   - PDFs: [website](https://cure53.de/audit-report_noble-crypto-libs.pdf), [in-repo](./audit/2024-09-cure53-audit-nbl4.pdf)
   - [Changes since audit](https://github.com/paulmillr/noble-ciphers/compare/1.0.0..main)
   - Scope: everything
@@ -501,12 +504,8 @@ Australian ASD prohibits AES128 [after 2030](https://www.cyber.gov.au/resources-
 npm run bench
 ```
 
-To summarize, noble is the fastest JS implementation of Salsa, ChaCha and AES.
-You can gain additional speed-up and
-avoid memory allocations by passing `output`
-uint8array into encrypt / decrypt methods.
-
-Benchmarks measured on Apple M4:
+Benchmarks measured on Apple M4.
+If you need truly exemplar performance, switch to [awasm-noble](https://github.com/paulmillr/awasm-noble).
 
 ```
 64B

@@ -3,6 +3,7 @@ import { base64 } from '@scure/base';
 import { deepStrictEqual as eql, throws } from 'node:assert';
 import { poly1305 } from '../src/_poly1305.ts';
 import {
+  __TESTS,
   chacha8,
   chacha12,
   chacha20,
@@ -135,6 +136,19 @@ describe(`chacha (${variant})`, () => {
       eql(hex.encode(res), v.stream);
     }
   });
+  should('chachaCore_small matches chachaCore on the RFC 8439 block-function input', () => {
+    const sigma = new Uint32Array([0x61707865, 0x3320646e, 0x79622d32, 0x6b206574]);
+    const key = new Uint32Array([
+      0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c, 0x13121110, 0x17161514, 0x1b1a1918,
+      0x1f1e1d1c,
+    ]);
+    const nonce = new Uint32Array([0x09000000, 0x4a000000, 0x00000000]);
+    const small = new Uint32Array(16);
+    const fast = new Uint32Array(16);
+    __TESTS.chachaCore_small(sigma, key, nonce, small, 1, 20);
+    __TESTS.chachaCore(sigma, key, nonce, fast, 1, 20);
+    eql(small, fast);
+  });
   should('short key', () => {
     const res = chacha20orig(
       new Uint8Array(16).fill(1),
@@ -223,6 +237,73 @@ describe(`chacha (${variant})`, () => {
       );
     }
   });
+  should('raw stream ciphers reject oversized output buffers', () => {
+    const data = new Uint8Array(4);
+    const cases = [
+      { fn: chacha8, key: new Uint8Array(32), nonce: new Uint8Array(12) },
+      { fn: chacha12, key: new Uint8Array(32), nonce: new Uint8Array(12) },
+      { fn: chacha20, key: new Uint8Array(32), nonce: new Uint8Array(12) },
+      { fn: chacha20orig, key: new Uint8Array(32), nonce: new Uint8Array(8) },
+      { fn: xchacha20, key: new Uint8Array(32), nonce: new Uint8Array(24) },
+      { fn: salsa20, key: new Uint8Array(32), nonce: new Uint8Array(8) },
+      { fn: xsalsa20, key: new Uint8Array(32), nonce: new Uint8Array(24) },
+    ];
+    for (const { fn, key, nonce } of cases) {
+      throws(() => fn(key, nonce, data, new Uint8Array(8)), /"output" expected Uint8Array of length 4/);
+    }
+  });
+});
+
+describe(`counter oracles (${variant})`, () => {
+  const seq = (start: number, len: number) => Uint8Array.from({ length: len }, (_, i) => start + i);
+  const pat = (len: number) => Uint8Array.from({ length: len }, (_, i) => 0x30 + (i % 32));
+  const counter = (name: string, fn: () => Uint8Array, exp: string) =>
+    should(name, () => throws(() => eql(fn(), hex.decode(exp)), /arx: counter overflow/));
+
+  // Pin the exact boundary bytes from the local production oracles so explicit-counter behavior
+  // stays visible in review: noble currently rejects `0xffffffff` on every shared ARX surface.
+  // AEAD/default paths are intentionally omitted here: they don't accept a public counter, and
+  // even a 32-bit boundary would take about 2^32 * 64 bytes = 256 GiB to hit through normal use.
+  counter(
+    'chacha20: RFC/IETF last valid 32-bit counter block',
+    () => chacha20(seq(0, 32), seq(0xa0, 12), pat(64), undefined, 0xffffffff),
+    'af60ebc8a7cc0777591b15f06fd4877b7873967879542b17f7dffc072dc4933103a0ba277db1935b2d6794b51b9f6dd86e289f4a3ae2903e7fc81030b6f29916'
+  );
+  counter(
+    'chacha20: RFC/IETF stream crosses 0xffffffff -> 0x100000000',
+    () => chacha20(seq(0, 32), seq(0xa0, 12), pat(128), undefined, 0xfffffffe),
+    '1d248024960d8b8a80d367a10cca865c190cd21346304cbe0adb6c01d01ca3eb0b1a213566648be45cb026cc319325c7e5484edc8492075a366745e8d9810959af60ebc8a7cc0777591b15f06fd4877b7873967879542b17f7dffc072dc4933103a0ba277db1935b2d6794b51b9f6dd86e289f4a3ae2903e7fc81030b6f29916'
+  );
+  counter(
+    'chacha20: OpenSSL/Node 16-byte-IV low word 0xffffffff',
+    () => chacha20(seq(0, 32), seq(0xa0, 12), new Uint8Array(64), undefined, 0xffffffff),
+    'f664a96a4e604407db9f6c8a9f828c197bcbcc5effc416807451249a6efe4f6d9b9ba5fe0e5cad96023b16d2b7dffd2b6a95b7cb3fa76bf82148471c0fa3c5a0'
+  );
+  counter(
+    'chacha20: OpenSSL/Node 16-byte-IV carries into word 1',
+    () => chacha20(seq(0, 32), seq(0xa0, 12), new Uint8Array(128), undefined, 0xfffffffe),
+    '02ee48cc38408bdfc666d8b2e2847783942d00e039d28aafcba27f8b002c71145a7f02874679b626d1f78a02aaae5d8369af4b8efa6f297f41b6923a77c06d35f664a96a4e604407db9f6c8a9f828c197bcbcc5effc416807451249a6efe4f6d9b9ba5fe0e5cad96023b16d2b7dffd2b6a95b7cb3fa76bf82148471c0fa3c5a0'
+  );
+  counter(
+    'chacha20orig: libsodium raw stream carries into the high 32 bits',
+    () => chacha20orig(seq(0x00, 32), seq(0xa0, 8), new Uint8Array(192), undefined, 0xffffffff),
+    'aa07a6552d0b049adaacee7d2487a4bde0b35396ee1003f75310c36691ac2a8abd997a5e63b9e7954f21323435e6eeffc36bd58b8695944fac3eb03fad55a13b8902e65d02ea2c1db273c4f6542aef8a8eeeccca7bbed8564375ed48ff3146002c94541c193de0f59f3ede7795dbfd2c8051cb271836ca71247e41a34a0c5f51901b8cf636e3fd52f36e599354a2e64311e5f387fdec0ec17058ef95d07910c1ee03735043dc71c06382add9ee6edfaf1df4f22a633efa6012ebc6d9bff49538'
+  );
+  counter(
+    'salsa20: libsodium raw stream carries into the high 32 bits',
+    () => salsa20(seq(0x20, 32), seq(0xb0, 8), new Uint8Array(192), undefined, 0xffffffff),
+    '9e3a95ac113554cde3781eb81f197cf58650ac236882a4cbd3d704a31348672e75feb24a776aff7a94f4032f4959138f098d86e066aa3332e8657d6f06edfd82e6336ab673497dcd63746f26fbbab4c4cdd2f163f93356d3e777bb336f2de70dbda89bba9692b665046249f3d2be661850c1f8f0510c767d76212a04cc1a6e28fe980632e101aa2c8819153fa8a79f5e682786fbed2379d72c358f7264e6fd14291e5c37ef4ac0e4083d8f4828622e2005059452accb30f22c4fb3eff0266a84'
+  );
+  counter(
+    'xsalsa20: libsodium raw stream carries into the high 32 bits',
+    () => xsalsa20(seq(0x40, 32), seq(0xc0, 24), new Uint8Array(192), undefined, 0xffffffff),
+    'c5beb52c8b882ec68b23592da0bfcbe61adb6e4308ace5ff41b24bef88ede43b811e7c974d8e23882745347d73c166a48c5f80a47fb247ff5cf5ec1af1e3796ce268f80c3dd0a9494ccb88b0c2a3caefe10e5dfee661668a2582e131f8e9e14fc41abf09952395cbf5e3c42f464c92eb8930bbe9290681e99a209ee31b83f29abb98b17d25d2ab3bd84120fb9f3a5a0c0efd3597e1185f77c36956cb74cd0a6db9cf6eaa722a63e29bbddd50cf0cc6803116592420ad7c76c0b639a231b18a3f'
+  );
+  counter(
+    'xchacha20: libsodium raw stream carries into the high 32 bits',
+    () => xchacha20(seq(0x60, 32), seq(0xe0, 24), new Uint8Array(192), undefined, 0xffffffff),
+    '43e4f6775de266a18b592f8abf6769228c3a290cd4f77986dea167e9a1dfbe817f4d853d11cfc7d354978ae9e6331f2921b9f7594530452816c73eb506fdf553456e8d1e8e2c2792609d3f528a3828c3f69f84266f600a33332df080f74eb77a66508a77bcafb86aaf056eb3bfa906dc57c532de371663416132445d4cd1eceaa25c065bc99d18cdcd7762518cb4db315ddc0509787cf4ee09fbce6232f38b825484ad3cd2d4be1f2f366f3b7a337ade154783f60fb9e1b64eaff95712bbb4cf'
+  );
 });
 
 describe(`poly1305 (${variant})`, () => {

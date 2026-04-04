@@ -31,6 +31,9 @@ This is complicated:
 xchacha uses the subkey and remaining 8 byte nonce with ChaCha20 as normal
 (prefixed by 4 NUL bytes, since RFC8439 specifies a 12-byte nonce).
 Counter overflow is undefined; see {@link https://mailarchive.ietf.org/arch/msg/cfrg/gsOnTJzcbgG6OqD8Sc0GO5aR_tU/ | the CFRG thread}.
+Current noble policy is strict non-wrap for the shared 32-bit counter path:
+exported ARX ciphers reject initial `0xffffffff` and stop before any implicit
+wrap back to zero.
 See {@link https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha#appendix-A.2 | the XChaCha appendix} for the extended-nonce construction.
 
  * @module
@@ -44,16 +47,25 @@ import {
   checkOpts,
   clean,
   copyBytes,
+  getOutput,
+  isAligned32,
+  isLE,
   randomBytes,
+  swap32IfBE,
   u32,
 } from './utils.ts';
 
-// Replaces `TextEncoder`, which is not available in all environments
+// Replaces `TextEncoder` for ASCII literals, which is enough for sigma constants.
+// Non-ASCII input would not match UTF-8 `TextEncoder` output.
 const encodeStr = (str: string) => Uint8Array.from(str.split(''), (c) => c.charCodeAt(0));
-const sigma16 = /* @__PURE__ */ encodeStr('expand 16-byte k');
-const sigma32 = /* @__PURE__ */ encodeStr('expand 32-byte k');
-const sigma16_32 = /* @__PURE__ */ u32(sigma16);
-const sigma32_32 = /* @__PURE__ */ u32(sigma32);
+// Raw `createCipher(...)` exports consume these native-endian `u32(...)` views directly.
+// Public `wrapCipher(...)` APIs reject non-little-endian platforms before reaching this path.
+// RFC 8439 §2.3 / RFC 7539 §2.3 only define the 256-bit-key constants; this 16-byte sigma is
+// kept for legacy allowShortKeys Salsa/ChaCha variants.
+const sigma16_32 = /* @__PURE__ */ (() => swap32IfBE(u32(encodeStr('expand 16-byte k'))))();
+// RFC 8439 §2.3 / RFC 7539 §2.3 define words 0-3 as
+// `0x61707865 0x3320646e 0x79622d32 0x6b206574`, i.e. `expand 32-byte k`.
+const sigma32_32 = /* @__PURE__ */ (() => swap32IfBE(u32(encodeStr('expand 32-byte k'))))();
 
 /**
  * Rotates a 32-bit word left.
@@ -120,17 +132,24 @@ export type CipherOpts = {
   rounds?: number;
 };
 
-// Is byte array aligned to 4 byte offset (u32)?
-function isAligned32(b: Uint8Array) {
-  return b.byteOffset % 4 === 0;
-}
-
 // Salsa and Chacha block length is always 512-bit
 const BLOCK_LEN = 64;
+// RFC 8439 §2.2 / RFC 7539 §2.2: the ChaCha state has 16 32-bit words.
 const BLOCK_LEN32 = 16;
 
-// new Uint32Array([2**32])   // => Uint32Array(1) [ 0 ]
-// new Uint32Array([2**32-1]) // => Uint32Array(1) [ 4294967295 ]
+// Counter policy for the shared public `counter` argument:
+// - RFC/IETF ChaCha20 uses a 32-bit counter.
+// - OpenSSL/Node `chacha20` instead treat the full 16-byte IV as a 128-bit
+//   counter state and carry into the next word.
+// - Raw `chacha20orig`, `salsa20`, `xsalsa20`, and `xchacha20` use 64-bit counters in libsodium
+//   and libtomcrypt, while some libs (for example libtomcrypt's RFC/IETF path) reject the max
+//   boundary instead of carrying.
+// - AEAD wrappers diverge too: libsodium `xchacha20poly1305` uses the IETF payload counter from
+//   block 1, while `secretstream_xchacha20poly1305` is a different protocol with rekey/reset.
+// Noble intentionally throws instead of silently picking one wrap model for users. In the default
+// path, even a 32-bit boundary would take 2^32 blocks * 64 bytes = 256 GiB, which is practically
+// unreachable for normal JS callers; advanced users who pass `counter` explicitly can implement
+// whatever wider carry / wrap policy they need on top.
 const MAX_COUNTER = /* @__PURE__ */ (() => 2 ** 32 - 1)();
 const U32_EMPTY = /* @__PURE__ */ Uint32Array.of();
 function runCipher(
@@ -147,11 +166,29 @@ function runCipher(
   const block = new Uint8Array(BLOCK_LEN);
   const b32 = u32(block);
   // Make sure that buffers aligned to 4 bytes
-  const isAligned = isAligned32(data) && isAligned32(output);
+  const isAligned = isLE && isAligned32(data) && isAligned32(output);
   const d32 = isAligned ? u32(data) : U32_EMPTY;
   const o32 = isAligned ? u32(output) : U32_EMPTY;
+  // RFC 8439 §2.4.1 / RFC 7539 §2.4.1 allow XORing one keystream block at a time and
+  // truncating the final partial block instead of materializing the whole keystream.
+  if (!isLE) {
+    for (let pos = 0; pos < len; counter++) {
+      core(sigma, key, nonce, b32, counter, rounds);
+      // RFC 8439 §2.4 / RFC 7539 §2.4 serialize keystream words in little-endian order.
+      swap32IfBE(b32);
+      if (counter >= MAX_COUNTER) throw new Error('arx: counter overflow');
+      const take = Math.min(BLOCK_LEN, len - pos);
+      for (let j = 0, posj; j < take; j++) {
+        posj = pos + j;
+        output[posj] = data[posj] ^ block[j];
+      }
+      pos += take;
+    }
+    return;
+  }
   for (let pos = 0; pos < len; counter++) {
     core(sigma, key, nonce, b32, counter, rounds);
+    // See MAX_COUNTER policy note above: never silently wrap the shared public counter.
     if (counter >= MAX_COUNTER) throw new Error('arx: counter overflow');
     const take = Math.min(BLOCK_LEN, len - pos);
     // aligned to 4 bytes
@@ -202,12 +239,12 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
     abytes(nonce, undefined, 'nonce');
     abytes(data, undefined, 'data');
     const len = data.length;
-    if (output === undefined) output = new Uint8Array(len);
-    abytes(output, undefined, 'output');
+    // Raw XorStream APIs return ciphertext/plaintext bytes directly, so caller-provided outputs
+    // must match the logical result length exactly instead of returning an oversized workspace.
+    output = getOutput(len, output, false);
     anumber(counter);
+    // See MAX_COUNTER policy note above: reject advanced explicit-counter requests before any wrap.
     if (counter < 0 || counter >= MAX_COUNTER) throw new Error('arx: counter overflow');
-    if (output.length < len)
-      throw new Error(`arx: output (${output.length}) is shorter than data (${len})`);
     const toClean = [];
 
     // Key & sigma
@@ -217,6 +254,8 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
     let k: Uint8Array;
     let sigma: Uint32Array;
     if (l === 32) {
+      // Copy caller keys too: big-endian normalization, extended-nonce subkey derivation, and
+      // final clean(...) all mutate or wipe the temporary buffer in place.
       toClean.push((k = copyBytes(key)));
       sigma = sigma32_32;
     } else if (l === 16 && allowShortKeys) {
@@ -237,33 +276,47 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
     // chacha20:     12  (4-byte counter)
     // xsalsa20:     24  (16 -> hsalsa,  8 -> old nonce)
     // xchacha20:    24  (16 -> hchacha, 8 -> old nonce)
-    // Align nonce to 4 bytes
-    if (!isAligned32(nonce)) toClean.push((nonce = copyBytes(nonce)));
+    // Copy before taking u32(...) views on misaligned inputs, and on big-endian so later
+    // swap32IfBE(...) never mutates caller nonce bytes in place.
+    if (!isLE || !isAligned32(nonce)) toClean.push((nonce = copyBytes(nonce)));
 
-    const k32 = u32(k);
+    let k32 = u32(k);
     // hsalsa & hchacha: handle extended nonce
     if (extendNonceFn) {
       if (nonce.length !== 24) throw new Error(`arx: extended nonce must be 24 bytes`);
-      extendNonceFn(sigma, k32, u32(nonce.subarray(0, 16)), k32);
+      const n16 = nonce.subarray(0, 16);
+      if (isLE) extendNonceFn(sigma, k32, u32(n16), k32);
+      else {
+        const sigmaRaw = swap32IfBE(Uint32Array.from(sigma));
+        extendNonceFn(sigmaRaw, k32, u32(n16), k32);
+        clean(sigmaRaw);
+        swap32IfBE(k32);
+      }
       nonce = nonce.subarray(16);
-    }
+    } else if (!isLE) swap32IfBE(k32);
 
     // Handle nonce counter
     const nonceNcLen = 16 - counterLength;
     if (nonceNcLen !== nonce.length)
       throw new Error(`arx: nonce must be ${nonceNcLen} or 16 bytes`);
 
-    // Pad counter when nonce is 64 bit
+    // Normalize 64-bit-nonce layouts to the 12-byte core input: ChaCha/XChaCha prefix 4 zero
+    // counter bytes, while Salsa/XSalsa append them after the nonce words.
     if (nonceNcLen !== 12) {
       const nc = new Uint8Array(12);
       nc.set(nonce, counterRight ? 0 : 12 - nonce.length);
       nonce = nc;
       toClean.push(nonce);
     }
-    const n32 = u32(nonce);
-    runCipher(core, sigma, k32, n32, data, output, counter, rounds);
-    clean(...toClean);
-    return output;
+    const n32 = swap32IfBE(u32(nonce));
+    // Ensure temporary key/nonce copies are wiped even if the remaining
+    // runtime guard in runCipher(...) throws on counter overflow.
+    try {
+      runCipher(core, sigma, k32, n32, data, output, counter, rounds);
+      return output;
+    } finally {
+      clean(...toClean);
+    }
   };
 }
 
@@ -295,26 +348,42 @@ export class _XorStreamPRG implements PRG {
     this.ctr = 0;
     this.pos = this.blockLen;
     this.buf = new Uint8Array(this.blockLen);
+    // Keep a single key||nonce backing buffer so reseed/addEntropy/clean update the live cipher
+    // inputs in place through these subarray views.
     this.key = this.state.subarray(0, this.keyLen);
     this.nonce = this.state.subarray(this.keyLen);
   }
   private reseed(seed: Uint8Array) {
     abytes(seed);
     if (!seed || seed.length === 0) throw new Error('entropy required');
+    // Mix variable-length entropy cyclically across the whole key||nonce state, then restart the
+    // keystream so buffered leftovers from the previous state are never reused.
     for (let i = 0; i < seed.length; i++) this.state[i % this.state.length] ^= seed[i];
     this.ctr = 0;
     this.pos = this.blockLen;
   }
   addEntropy(seed: Uint8Array): void {
+    // Reject empty entropy before re-keying, otherwise a throwing call would still advance state.
+    abytes(seed);
+    if (seed.length === 0) throw new Error('entropy required');
+    // Re-key from the current stream first, then mix external entropy into the fresh key||nonce
+    // state through reseed() so stale buffered bytes are discarded.
     this.state.set(this.randomBytes(this.state.length));
     this.reseed(seed);
   }
   randomBytes(len: number): Uint8Array {
     anumber(len);
     if (len === 0) return new Uint8Array(0);
+    const avail = this.pos < this.blockLen ? this.blockLen - this.pos : 0;
+    const blocks = Math.ceil(Math.max(0, len - avail) / this.blockLen);
+    // Preflight overflow so failed reads don't partially consume keystream
+    // and leave the PRG repeating blocks.
+    if (blocks > 0 && this.ctr > MAX_COUNTER - blocks) throw new Error('arx: counter overflow');
     const out = new Uint8Array(len);
     let outPos = 0;
-    // Leftovers
+    // `out` starts zero-filled, and `buf.fill(0)` below does the same for leftovers: XOR-stream
+    // ciphers then emit raw keystream bytes directly into those buffers.
+    // Serve buffered leftovers first so split reads stay identical to one larger read.
     if (this.pos < this.blockLen) {
       const take = Math.min(len, this.blockLen - this.pos);
       out.set(this.buf.subarray(this.pos, this.pos + take), 0);
@@ -323,12 +392,12 @@ export class _XorStreamPRG implements PRG {
       if (outPos === len) return out; // fast path
     }
     // Full blocks directly to out
-    const blocks = Math.floor((len - outPos) / this.blockLen);
-    if (blocks > 0) {
-      const blockBytes = blocks * this.blockLen;
+    const full = Math.floor((len - outPos) / this.blockLen);
+    if (full > 0) {
+      const blockBytes = full * this.blockLen;
       const b = out.subarray(outPos, outPos + blockBytes);
       this.cipher(this.key, this.nonce, b, b, this.ctr);
-      this.ctr += blocks;
+      this.ctr += full;
       outPos += blockBytes;
     }
     // Save leftovers
@@ -342,6 +411,7 @@ export class _XorStreamPRG implements PRG {
     }
     return out;
   }
+  // Clone seeds the new instance from this stream, so the source PRG advances too.
   clone(): _XorStreamPRG {
     return new _XorStreamPRG(
       this.cipher,
@@ -351,6 +421,9 @@ export class _XorStreamPRG implements PRG {
       this.randomBytes(this.state.length)
     );
   }
+  // Zeroes the current state and leftover buffer, but does not make the instance unusable:
+  // Later reads first drain zeros from the cleared buffer and then continue
+  // from zero key||nonce state.
   clean(): void {
     this.pos = 0;
     this.ctr = 0;
@@ -361,8 +434,10 @@ export class _XorStreamPRG implements PRG {
 
 /**
  * PRG constructor backed by an ARX stream cipher.
- * @param seed - Optional seed bytes mixed into the initial state.
- * @returns Seeded PRG instance.
+ * @param seed - Optional seed bytes mixed into the initial state. When omitted, exactly 32
+ * random bytes are mixed in by default: larger states keep a zero tail, while smaller states
+ * wrap those bytes through `reseed()`'s XOR schedule.
+ * @returns Seeded concrete `_XorStreamPRG` instance, including `clone()`.
  */
 export type XorPRG = (seed?: Uint8Array) => _XorStreamPRG;
 
@@ -372,7 +447,7 @@ export type XorPRG = (seed?: Uint8Array) => _XorStreamPRG;
  * @param blockLen - Keystream block length in bytes.
  * @param keyLen - Internal key length in bytes.
  * @param nonceLen - Internal nonce length in bytes.
- * @returns PRG factory for seeded instances.
+ * @returns PRG factory for seeded concrete `_XorStreamPRG` instances.
  * @example
  * Builds a PRG from XChaCha20 and reads bytes from a randomly seeded instance.
  * ```ts

@@ -1,16 +1,18 @@
 /**
  * ChaCha stream cipher, released
  * in 2008. Developed after Salsa20, ChaCha aims to increase diffusion per round.
- * It was standardized in [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439) and
+ * It was standardized in
+ * {@link https://www.rfc-editor.org/rfc/rfc8439 | RFC 8439} and
  * is now used in TLS 1.3.
  *
- * [XChaCha20](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha)
+ * {@link https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha | XChaCha20}
  * extended-nonce variant is also provided. Similar to XSalsa, it's safe to use with
  * randomly-generated nonces.
  *
- * Check out [PDF](http://cr.yp.to/chacha/chacha-20080128.pdf) and
- * [wiki](https://en.wikipedia.org/wiki/Salsa20) and
- * [website](https://cr.yp.to/chacha.html).
+ * Check out
+ * {@link http://cr.yp.to/chacha/chacha-20080128.pdf | PDF},
+ * {@link https://en.wikipedia.org/wiki/Salsa20 | wiki}, and
+ * {@link https://cr.yp.to/chacha.html | website}.
  *
  * @module
  */
@@ -24,6 +26,8 @@ import {
   clean,
   equalBytes,
   getOutput,
+  swap8IfBE,
+  swap32IfBE,
   u64Lengths,
   wrapCipher,
 } from './utils.ts';
@@ -35,7 +39,7 @@ import {
  * The specific implementation is selected in `createCipher` below.
  */
 
-/** quarter-round */
+/** RFC 8439 §2.1 quarter round on words a, b, c, d. */
 // prettier-ignore
 function chachaQR(x: Uint32Array, a: number, b: number, c: number, d: number) {
   x[a] = (x[a] + x[b]) | 0; x[d] = rotl(x[d] ^ x[a], 16);
@@ -44,9 +48,10 @@ function chachaQR(x: Uint32Array, a: number, b: number, c: number, d: number) {
   x[c] = (x[c] + x[d]) | 0; x[b] = rotl(x[b] ^ x[c], 7);
 }
 
-/** single round */
+/** Repeated ChaCha double rounds; callers are expected to pass an even round count. */
 function chachaRound(x: Uint32Array, rounds = 20) {
   for (let r = 0; r < rounds; r += 2) {
+    // RFC 8439 §2.3 / §2.3.1 inner_block: four column rounds, then four diagonal rounds.
     chachaQR(x, 0, 4, 8, 12);
     chachaQR(x, 1, 5, 9, 13);
     chachaQR(x, 2, 6, 10, 14);
@@ -58,6 +63,8 @@ function chachaRound(x: Uint32Array, rounds = 20) {
   }
 }
 
+// Shared scratch for the auditability-only helper below; only the test-only
+// __TESTS.chachaCore_small hook reaches it, so production exports stay reentrant.
 const ctmp = /* @__PURE__ */ new Uint32Array(16);
 
 /** Small version of chacha without loop unrolling. Unused, provided for auditability. */
@@ -66,6 +73,8 @@ function chacha(
   s: Uint32Array, k: Uint32Array, i: Uint32Array, out: Uint32Array,
   isHChacha: boolean = true, rounds: number = 20
 ): void {
+  // `i` is either `[counter, nonce0, nonce1, nonce2]` for the ChaCha block
+  // function or the full 128-bit nonce prefix for the HChaCha subkey path.
   // Create initial array using common pattern
   const y = Uint32Array.from([
     s[0], s[1], s[2], s[3], // "expa"   "nd 3"  "2-by"  "te k"
@@ -77,7 +86,8 @@ function chacha(
   x.set(y);
   chachaRound(x, rounds);
 
-  // hchacha extracts 8 specific bytes, chacha adds orig to result
+  // HChaCha writes words 0..3 and 12..15 after the rounds; the ChaCha
+  // block path adds the original state word-by-word.
   if (isHChacha) {
     const xindexes = [0, 1, 2, 3, 12, 13, 14, 15];
     for (let i = 0; i < 8; i++) out[i] = x[xindexes[i]];
@@ -86,15 +96,16 @@ function chacha(
   }
 }
 
-/** Identical to `chachaCore`. Unused. */
+/** Identical to `chachaCore`. Reached only through the test-only `__TESTS` export. */
 // @ts-ignore
 const chachaCore_small: typeof chachaCore = (s, k, n, out, cnt, rounds) =>
-  chacha(s, k, Uint32Array.from([n[0], n[1], cnt, 0]), out, false, rounds);
+  // Keep the reference wrapper on the same [counter, nonce0, nonce1, nonce2] layout as chacha().
+  chacha(s, k, Uint32Array.from([cnt, n[0], n[1], n[2]]), out, false, rounds);
 /** Identical to `hchacha`. Unused. */
 // @ts-ignore
 const hchacha_small: typeof hchacha = chacha;
 
-/** Identical to `chachaCore_small`. Unused. */
+/** RFC 8439 §2.3 block core for `state = constants | key | counter | nonce`. */
 // prettier-ignore
 function chachaCore(
   s: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32Array, cnt: number, rounds = 20
@@ -102,7 +113,7 @@ function chachaCore(
   let y00 = s[0], y01 = s[1], y02 = s[2], y03 = s[3], // "expa"   "nd 3"  "2-by"  "te k"
       y04 = k[0], y05 = k[1], y06 = k[2], y07 = k[3], // Key      Key     Key     Key
       y08 = k[4], y09 = k[5], y10 = k[6], y11 = k[7], // Key      Key     Key     Key
-      y12 = cnt,  y13 = n[0], y14 = n[1], y15 = n[2];  // Counter  Counter	Nonce   Nonce
+      y12 = cnt,  y13 = n[0], y14 = n[1], y15 = n[2];  // Counter  Nonce   Nonce   Nonce
   // Save state to temporary variables
   let x00 = y00, x01 = y01, x02 = y02, x03 = y03,
       x04 = y04, x05 = y05, x06 = y06, x07 = y07,
@@ -149,7 +160,7 @@ function chachaCore(
     x03 = (x03 + x04) | 0; x14 = rotl(x14 ^ x03, 8);
     x09 = (x09 + x14) | 0; x04 = rotl(x04 ^ x09, 7);
   }
-  // Write output
+  // RFC 8439 §2.3 / §2.3.1: add the original state words back in state order.
   let oi = 0;
   out[oi++] = (y00 + x00) | 0; out[oi++] = (y01 + x01) | 0;
   out[oi++] = (y02 + x02) | 0; out[oi++] = (y03 + x03) | 0;
@@ -162,7 +173,8 @@ function chachaCore(
 }
 /**
  * hchacha hashes key and nonce into key' and nonce' for xchacha20.
- * Identical to `hchacha_small`.
+ * Algorithmically identical to `hchacha_small`, but this exported path
+ * normalizes word order on big-endian hosts.
  * Need to find a way to merge it with `chachaCore` without 25% performance hit.
  * @param s - Sigma constants as 32-bit words.
  * @param k - Key words.
@@ -183,10 +195,10 @@ function chachaCore(
 export function hchacha(
   s: Uint32Array, k: Uint32Array, i: Uint32Array, out: Uint32Array
 ): void {
-  let x00 = s[0], x01 = s[1], x02 = s[2], x03 = s[3],
-      x04 = k[0], x05 = k[1], x06 = k[2], x07 = k[3],
-      x08 = k[4], x09 = k[5], x10 = k[6], x11 = k[7],
-      x12 = i[0], x13 = i[1], x14 = i[2], x15 = i[3];
+  let x00 = swap8IfBE(s[0]), x01 = swap8IfBE(s[1]), x02 = swap8IfBE(s[2]), x03 = swap8IfBE(s[3]),
+      x04 = swap8IfBE(k[0]), x05 = swap8IfBE(k[1]), x06 = swap8IfBE(k[2]), x07 = swap8IfBE(k[3]),
+      x08 = swap8IfBE(k[4]), x09 = swap8IfBE(k[5]), x10 = swap8IfBE(k[6]), x11 = swap8IfBE(k[7]),
+      x12 = swap8IfBE(i[0]), x13 = swap8IfBE(i[1]), x14 = swap8IfBE(i[2]), x15 = swap8IfBE(i[3]);
   for (let r = 0; r < 20; r += 2) {
     x00 = (x00 + x04) | 0; x12 = rotl(x12 ^ x00, 16);
     x08 = (x08 + x12) | 0; x04 = rotl(x04 ^ x08, 12);
@@ -228,15 +240,20 @@ export function hchacha(
     x03 = (x03 + x04) | 0; x14 = rotl(x14 ^ x03, 8);
     x09 = (x09 + x14) | 0; x04 = rotl(x04 ^ x09, 7);
   }
+  // HChaCha derives the subkey from state words 0..3 and 12..15 after 20 rounds.
   let oi = 0;
   out[oi++] = x00; out[oi++] = x01;
   out[oi++] = x02; out[oi++] = x03;
   out[oi++] = x12; out[oi++] = x13;
   out[oi++] = x14; out[oi++] = x15;
+  swap32IfBE(out);
 }
 
 /**
  * Original, non-RFC chacha20 from DJB. 8-byte nonce, 8-byte counter.
+ * The nonce/counter layout still reserves 8 counter bytes internally, but the shared public
+ * `counter` argument follows noble's strict non-wrapping 32-bit policy. See `src/_arx.ts`
+ * near `MAX_COUNTER` for the full counter-policy rationale.
  * @param key - 16-byte or 32-byte key.
  * @param nonce - 8-byte nonce.
  * @param data - Input bytes to xor with the keystream.
@@ -288,6 +305,9 @@ export const chacha20: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
 /**
  * XChaCha eXtended-nonce ChaCha. With 24-byte nonce, it's safe to make it random (CSPRNG).
  * See {@link https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha | the IRTF draft}.
+ * The nonce/counter layout still reserves 8 counter bytes internally, but the shared public
+ * `counter` argument follows noble's strict non-wrapping 32-bit policy. See `src/_arx.ts`
+ * near `MAX_COUNTER` for the full counter-policy rationale.
  * @param key - 32-byte key.
  * @param nonce - 24-byte extended nonce.
  * @param data - Input bytes to xor with the keystream.
@@ -362,14 +382,23 @@ export const chacha12: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
   rounds: 12,
 });
 
+// Test-only hooks for keeping the simple/reference core aligned with the unrolled production core.
+export const __TESTS: {
+  chachaCore_small: typeof chachaCore_small;
+  chachaCore: typeof chachaCore;
+} = { chachaCore_small, chachaCore };
+
+// RFC 8439 §2.8.1 pad16(x): shared zero block for AAD/ciphertext padding.
 const ZEROS16 = /* @__PURE__ */ new Uint8Array(16);
-// Pad to digest size with zeros
+// RFC 8439 §2.8 / §2.8.1: aligned inputs add nothing, otherwise append 16-(len%16) zero bytes.
 const updatePadded = (h: ReturnType<typeof poly1305.create>, msg: Uint8Array) => {
   h.update(msg);
   const leftover = msg.length % 16;
   if (leftover) h.update(ZEROS16.subarray(leftover));
 };
 
+// RFC 8439 §2.6.1 poly1305_key_gen returns `block[0..31]`, so AEAD key
+// generation only needs 32 zero bytes.
 const ZEROS32 = /* @__PURE__ */ new Uint8Array(32);
 function computeTag(
   fn: XorStream,
@@ -379,6 +408,8 @@ function computeTag(
   AAD?: Uint8Array
 ): Uint8Array {
   if (AAD !== undefined) abytes(AAD, undefined, 'AAD');
+  // RFC 8439 §2.6 / §2.8: derive the Poly1305 one-time key from counter 0,
+  // then MAC AAD || pad16(AAD) || ciphertext || pad16(ciphertext) || len(AAD) || len(ciphertext).
   const authKey = fn(key, nonce, ZEROS32);
   const lengths = u64Lengths(ciphertext.length, AAD ? AAD.length : 0, true);
 
@@ -403,6 +434,8 @@ function computeTag(
 export const _poly1305_aead =
   (xorStream: XorStream) =>
   (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): CipherWithOutput => {
+    // This borrows caller key/nonce/AAD buffers by reference; mutating them after construction
+    // changes future encrypt/decrypt results.
     const tagLength = 16;
     return {
       encrypt(plaintext: Uint8Array, output?: Uint8Array) {
@@ -410,7 +443,7 @@ export const _poly1305_aead =
         output = getOutput(plength + tagLength, output, false);
         output.set(plaintext);
         const oPlain = output.subarray(0, -tagLength);
-        // Actual encryption
+        // RFC 8439 §2.8: payload encryption starts at counter 1 because counter 0 produced the OTK.
         xorStream(key, nonce, oPlain, oPlain, 1);
         const tag = computeTag(xorStream, key, nonce, oPlain, AAD);
         output.set(tag, plength); // append tag
@@ -422,6 +455,8 @@ export const _poly1305_aead =
         const data = ciphertext.subarray(0, -tagLength);
         const passedTag = ciphertext.subarray(-tagLength);
         const tag = computeTag(xorStream, key, nonce, data, AAD);
+        // RFC 8439 §2.8 / §4: authenticate ciphertext before decrypting it, and compare tags with
+        // the constant-time equalBytes() helper rather than decrypting speculative plaintext first.
         if (!equalBytes(passedTag, tag)) throw new Error('invalid tag');
         output.set(ciphertext.subarray(0, -tagLength));
         // Actual decryption
@@ -487,8 +522,9 @@ export const xchacha20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
  * Chacha20 CSPRNG (cryptographically secure pseudorandom number generator).
  * It's best to limit usage to non-production, non-critical cases: for example, test-only.
  * Compatible with libtomcrypt. It does not have a specification, so unclear how secure it is.
- * @param seed - Seed bytes mixed into internal state.
- * @returns Seeded PRG instance.
+ * @param seed - Optional seed bytes mixed into the internal `key || nonce` state. When omitted,
+ * only 32 random bytes are mixed into the 40-byte state.
+ * @returns Seeded concrete `_XorStreamPRG` instance, including `clone()`.
  * @example
  * Seeds the test-only ChaCha20 DRBG from fresh entropy.
  *
@@ -505,8 +541,9 @@ export const rngChacha20: XorPRG = /* @__PURE__ */ createPRG(chacha20orig, 64, 3
  * Chacha20/8 CSPRNG (cryptographically secure pseudorandom number generator).
  * It's best to limit usage to non-production, non-critical cases: for example, test-only.
  * Faster than `rngChacha20`.
- * @param seed - Seed bytes mixed into internal state.
- * @returns Seeded PRG instance.
+ * @param seed - Optional seed bytes mixed into the internal `key || nonce` state. When omitted,
+ * only 32 random bytes are mixed into the 44-byte state.
+ * @returns Seeded concrete `_XorStreamPRG` instance, including `clone()`.
  * @example
  * Seeds the faster test-only ChaCha8 DRBG from fresh entropy.
  *

@@ -63,6 +63,12 @@ describe(`S2V (${variant})`, () => {
       throws(() => unsafe.s2v(new Uint8Array(17), [new Uint8Array(16)]));
       throws(() => unsafe.s2v(new Uint8Array(25), [new Uint8Array(16)]));
     });
+
+    should('reject non-Uint8Array final component', () => {
+      const key = hexToBytes('0102030405060708090a0b0c0d0e0f10');
+      const bad: any = [1, 2, 3];
+      throws(() => unsafe.s2v(key, [bad]));
+    });
   });
 });
 

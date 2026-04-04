@@ -68,7 +68,9 @@ async function main() {
     }
     await mark('rngChacha8', () => rng8.randomBytes(len));
     await mark('rngChacha20', () => rng20.randomBytes(len));
-    await mark('rngAesCtrDrbg', () => rngCtr.randomBytes(len));
+    if (size !== '1MB') {
+      await mark('rngAesCtrDrbg', () => rngCtr.randomBytes(len));
+    }
 
     if (size === '1MB') {
       console.log('# Wrapper over built-in webcrypto');
