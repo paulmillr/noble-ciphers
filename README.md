@@ -551,19 +551,18 @@ Compare to other implementations:
 
 ```
 xsalsa20poly1305 (encrypt, 1MB)
-├─tweetnacl x 196 ops/sec
-└─noble x 305 ops/sec
-
-chacha20poly1305 (encrypt, 1MB)
-├─node x 1,668 ops/sec
-├─stablelib x 202 ops/sec
-└─noble x 319 ops/sec
+├─tweetnacl x 196 mb/sec
+├─awasm-noble_threads x 2,318 mb/sec
+├─awasm-noble_no_threads x 1,196 mb/sec
+└─noble x 305 mb/sec
 
 aes-ctr-256 (encrypt, 1MB)
-├─stablelib x 123 ops/sec
-├─aesjs x 42 ops/sec
-├─noble-webcrypto x 5,965 ops/sec
-└─noble x 124 ops/sec
+├─stablelib x 123 mb/sec
+├─aesjs x 42 mb/sec
+├─awasm-noble_thread x 2,105 mb/sec
+├─awasm-noble_no_threads x 272 mb/sec
+├─noble_webcrypto x 5,965 mb/sec
+└─noble x 124 mb/sec
 ```
 
 ## Upgrading
