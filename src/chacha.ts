@@ -469,7 +469,7 @@ export const _poly1305_aead =
         const tag = computeTag(xorStream, key, nonce, data, AAD);
         // RFC 8439 §2.8 / §4: authenticate ciphertext before decrypting it, and compare tags with
         // the constant-time equalBytes() helper rather than decrypting speculative plaintext first.
-        if (!equalBytes(passedTag, tag)) {        
+        if (!equalBytes(passedTag, tag)) {
           clean(tag);
           throw new Error('invalid tag');
         }
