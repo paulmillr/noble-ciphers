@@ -116,7 +116,11 @@ describe('FF1', () => {
   });
   should('reject digits outside the radix domain', () => {
     const ff1 = FF1(10, new Uint8Array(16));
-    for (const x of [[10, 0], [-1, 2, 3], [1.5, 0]]) {
+    for (const x of [
+      [10, 0],
+      [-1, 2, 3],
+      [1.5, 0],
+    ]) {
       throws(() => ff1.encrypt(x));
       throws(() => ff1.decrypt(x));
     }

@@ -175,7 +175,10 @@ describe('PRNG', () => {
   });
   should('rejected addEntropy leaves PRG state unchanged', () => {
     const expectRejectedAddEntropyStable = (
-      create: () => { addEntropy: (...args: any[]) => void; randomBytes: (len: number) => Uint8Array },
+      create: () => {
+        addEntropy: (...args: any[]) => void;
+        randomBytes: (len: number) => Uint8Array;
+      },
       fail: (prg: { addEntropy: (...args: any[]) => void }) => void
     ) => {
       const control = create();
