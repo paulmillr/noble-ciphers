@@ -40,6 +40,8 @@ See {@link https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha#appendi
  */
 import {
   type PRG,
+  type TArg,
+  type TRet,
   type XorStream,
   abool,
   abytes,
@@ -92,10 +94,10 @@ export function rotl(a: number, b: number): number {
  * @param rounds - Optional round count override.
  */
 export type CipherCoreFn = (
-  sigma: Uint32Array,
-  key: Uint32Array,
-  nonce: Uint32Array,
-  output: Uint32Array,
+  sigma: TArg<Uint32Array>,
+  key: TArg<Uint32Array>,
+  nonce: TArg<Uint32Array>,
+  output: TArg<Uint32Array>,
   counter: number,
   rounds?: number
 ) => void;
@@ -108,10 +110,10 @@ export type CipherCoreFn = (
  * @param output - Output buffer written with the derived nonce words.
  */
 export type ExtendNonceFn = (
-  sigma: Uint32Array,
-  key: Uint32Array,
-  input: Uint32Array,
-  output: Uint32Array
+  sigma: TArg<Uint32Array>,
+  key: TArg<Uint32Array>,
+  input: TArg<Uint32Array>,
+  output: TArg<Uint32Array>
 ) => void;
 
 /** ARX cipher options.
@@ -153,12 +155,12 @@ const BLOCK_LEN32 = 16;
 const MAX_COUNTER = /* @__PURE__ */ (() => 2 ** 32 - 1)();
 const U32_EMPTY = /* @__PURE__ */ Uint32Array.of();
 function runCipher(
-  core: CipherCoreFn,
-  sigma: Uint32Array,
-  key: Uint32Array,
-  nonce: Uint32Array,
-  data: Uint8Array,
-  output: Uint8Array,
+  core: TArg<CipherCoreFn>,
+  sigma: TArg<Uint32Array>,
+  key: TArg<Uint32Array>,
+  nonce: TArg<Uint32Array>,
+  data: TArg<Uint8Array>,
+  output: TArg<Uint8Array>,
   counter: number,
   rounds: number
 ): void {
@@ -173,7 +175,14 @@ function runCipher(
   // truncating the final partial block instead of materializing the whole keystream.
   if (!isLE) {
     for (let pos = 0; pos < len; counter++) {
-      core(sigma, key, nonce, b32, counter, rounds);
+      core(
+        sigma as TRet<Uint32Array>,
+        key as TRet<Uint32Array>,
+        nonce as TRet<Uint32Array>,
+        b32,
+        counter,
+        rounds
+      );
       // RFC 8439 §2.4 / RFC 7539 §2.4 serialize keystream words in little-endian order.
       swap32IfBE(b32);
       if (counter >= MAX_COUNTER) throw new Error('arx: counter overflow');
@@ -187,7 +196,14 @@ function runCipher(
     return;
   }
   for (let pos = 0; pos < len; counter++) {
-    core(sigma, key, nonce, b32, counter, rounds);
+    core(
+      sigma as TRet<Uint32Array>,
+      key as TRet<Uint32Array>,
+      nonce as TRet<Uint32Array>,
+      b32,
+      counter,
+      rounds
+    );
     // See MAX_COUNTER policy note above: never silently wrap the shared public counter.
     if (counter >= MAX_COUNTER) throw new Error('arx: counter overflow');
     const take = Math.min(BLOCK_LEN, len - pos);
@@ -218,7 +234,7 @@ function runCipher(
  * @returns Stream cipher function over byte arrays.
  * @throws If the core callback, key size, counter, or output sizing is invalid. {@link Error}
  */
-export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
+export function createCipher(core: TArg<CipherCoreFn>, opts: TArg<CipherOpts>): TRet<XorStream> {
   const { allowShortKeys, extendNonceFn, counterLength, counterRight, rounds } = checkOpts(
     { allowShortKeys: false, counterLength: 8, counterRight: false, rounds: 20 },
     opts
@@ -229,12 +245,12 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
   abool(counterRight);
   abool(allowShortKeys);
   return (
-    key: Uint8Array,
-    nonce: Uint8Array,
-    data: Uint8Array,
-    output?: Uint8Array,
+    key: TArg<Uint8Array>,
+    nonce: TArg<Uint8Array>,
+    data: TArg<Uint8Array>,
+    output?: TArg<Uint8Array>,
     counter = 0
-  ): Uint8Array => {
+  ): TRet<Uint8Array> => {
     abytes(key, undefined, 'key');
     abytes(nonce, undefined, 'nonce');
     abytes(data, undefined, 'data');
@@ -285,7 +301,7 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
     if (extendNonceFn) {
       if (nonce.length !== 24) throw new Error(`arx: extended nonce must be 24 bytes`);
       const n16 = nonce.subarray(0, 16);
-      if (isLE) extendNonceFn(sigma, k32, u32(n16), k32);
+      if (isLE) extendNonceFn(sigma as TRet<Uint32Array>, k32, u32(n16), k32);
       else {
         const sigmaRaw = swap32IfBE(Uint32Array.from(sigma));
         extendNonceFn(sigmaRaw, k32, u32(n16), k32);
@@ -313,7 +329,7 @@ export function createCipher(core: CipherCoreFn, opts: CipherOpts): XorStream {
     // runtime guard in runCipher(...) throws on counter overflow.
     try {
       runCipher(core, sigma, k32, n32, data, output, counter, rounds);
-      return output;
+      return output as TRet<Uint8Array>;
     } finally {
       clean(...toClean);
     }
@@ -325,35 +341,35 @@ export class _XorStreamPRG implements PRG {
   readonly blockLen: number;
   readonly keyLen: number;
   readonly nonceLen: number;
-  private state: Uint8Array;
-  private buf: Uint8Array;
-  private key: Uint8Array;
-  private nonce: Uint8Array;
+  private state: TRet<Uint8Array>;
+  private buf: TRet<Uint8Array>;
+  private key: TRet<Uint8Array>;
+  private nonce: TRet<Uint8Array>;
   private pos: number;
   private ctr: number;
-  private cipher: XorStream;
+  private cipher: TArg<XorStream>;
   constructor(
-    cipher: XorStream,
+    cipher: TArg<XorStream>,
     blockLen: number,
     keyLen: number,
     nonceLen: number,
-    seed: Uint8Array
+    seed: TArg<Uint8Array>
   ) {
     this.cipher = cipher;
     this.blockLen = blockLen;
     this.keyLen = keyLen;
     this.nonceLen = nonceLen;
-    this.state = new Uint8Array(this.keyLen + this.nonceLen);
+    this.state = new Uint8Array(this.keyLen + this.nonceLen) as TRet<Uint8Array>;
     this.reseed(seed);
     this.ctr = 0;
     this.pos = this.blockLen;
-    this.buf = new Uint8Array(this.blockLen);
+    this.buf = new Uint8Array(this.blockLen) as TRet<Uint8Array>;
     // Keep a single key||nonce backing buffer so reseed/addEntropy/clean update the live cipher
     // inputs in place through these subarray views.
-    this.key = this.state.subarray(0, this.keyLen);
-    this.nonce = this.state.subarray(this.keyLen);
+    this.key = this.state.subarray(0, this.keyLen) as TRet<Uint8Array>;
+    this.nonce = this.state.subarray(this.keyLen) as TRet<Uint8Array>;
   }
-  private reseed(seed: Uint8Array) {
+  private reseed(seed: TArg<Uint8Array>) {
     abytes(seed);
     if (!seed || seed.length === 0) throw new Error('entropy required');
     // Mix variable-length entropy cyclically across the whole key||nonce state, then restart the
@@ -362,7 +378,7 @@ export class _XorStreamPRG implements PRG {
     this.ctr = 0;
     this.pos = this.blockLen;
   }
-  addEntropy(seed: Uint8Array): void {
+  addEntropy(seed: TArg<Uint8Array>): void {
     // Reject empty entropy before re-keying, otherwise a throwing call would still advance state.
     abytes(seed);
     if (seed.length === 0) throw new Error('entropy required');
@@ -371,9 +387,9 @@ export class _XorStreamPRG implements PRG {
     this.state.set(this.randomBytes(this.state.length));
     this.reseed(seed);
   }
-  randomBytes(len: number): Uint8Array {
+  randomBytes(len: number): TRet<Uint8Array> {
     anumber(len);
-    if (len === 0) return new Uint8Array(0);
+    if (len === 0) return new Uint8Array(0) as TRet<Uint8Array>;
     const avail = this.pos < this.blockLen ? this.blockLen - this.pos : 0;
     const blocks = Math.ceil(Math.max(0, len - avail) / this.blockLen);
     // Preflight overflow so failed reads don't partially consume keystream
@@ -389,14 +405,14 @@ export class _XorStreamPRG implements PRG {
       out.set(this.buf.subarray(this.pos, this.pos + take), 0);
       this.pos += take;
       outPos += take;
-      if (outPos === len) return out; // fast path
+      if (outPos === len) return out as TRet<Uint8Array>; // fast path
     }
     // Full blocks directly to out
     const full = Math.floor((len - outPos) / this.blockLen);
     if (full > 0) {
       const blockBytes = full * this.blockLen;
       const b = out.subarray(outPos, outPos + blockBytes);
-      this.cipher(this.key, this.nonce, b, b, this.ctr);
+      this.cipher(this.key, this.nonce, b as TRet<Uint8Array>, b as TRet<Uint8Array>, this.ctr);
       this.ctr += full;
       outPos += blockBytes;
     }
@@ -405,11 +421,17 @@ export class _XorStreamPRG implements PRG {
     if (left > 0) {
       this.buf.fill(0);
       // NOTE: cipher will handle overflow
-      this.cipher(this.key, this.nonce, this.buf, this.buf, this.ctr++);
+      this.cipher(
+        this.key,
+        this.nonce,
+        this.buf as TRet<Uint8Array>,
+        this.buf as TRet<Uint8Array>,
+        this.ctr++
+      );
       out.set(this.buf.subarray(0, left), outPos);
       this.pos = left;
     }
-    return out;
+    return out as TRet<Uint8Array>;
   }
   // Clone seeds the new instance from this stream, so the source PRG advances too.
   clone(): _XorStreamPRG {
@@ -439,7 +461,7 @@ export class _XorStreamPRG implements PRG {
  * wrap those bytes through `reseed()`'s XOR schedule.
  * @returns Seeded concrete `_XorStreamPRG` instance, including `clone()`.
  */
-export type XorPRG = (seed?: Uint8Array) => _XorStreamPRG;
+export type XorPRG = (seed?: TArg<Uint8Array>) => TRet<_XorStreamPRG>;
 
 /**
  * Creates a PRG constructor from a stream cipher.
@@ -461,11 +483,17 @@ export type XorPRG = (seed?: Uint8Array) => _XorStreamPRG;
  * ```
  */
 export const createPRG = (
-  cipher: XorStream,
+  cipher: TArg<XorStream>,
   blockLen: number,
   keyLen: number,
   nonceLen: number
-): XorPRG => {
-  return (seed: Uint8Array = randomBytes(32)): _XorStreamPRG =>
-    new _XorStreamPRG(cipher, blockLen, keyLen, nonceLen, seed);
+): TRet<XorPRG> => {
+  return ((seed: TArg<Uint8Array> = randomBytes(32)): TRet<_XorStreamPRG> =>
+    new _XorStreamPRG(
+      cipher,
+      blockLen,
+      keyLen,
+      nonceLen,
+      seed
+    ) as TRet<_XorStreamPRG>) as TRet<XorPRG>;
 };

@@ -21,6 +21,8 @@ import { poly1305 } from './_poly1305.ts';
 import {
   type ARXCipher,
   type CipherWithOutput,
+  type TArg,
+  type TRet,
   type XorStream,
   abytes,
   clean,
@@ -41,7 +43,7 @@ import {
 
 /** RFC 8439 §2.1 quarter round on words a, b, c, d. */
 // prettier-ignore
-function chachaQR(x: Uint32Array, a: number, b: number, c: number, d: number) {
+function chachaQR(x: TArg<Uint32Array>, a: number, b: number, c: number, d: number) {
   x[a] = (x[a] + x[b]) | 0; x[d] = rotl(x[d] ^ x[a], 16);
   x[c] = (x[c] + x[d]) | 0; x[b] = rotl(x[b] ^ x[c], 12);
   x[a] = (x[a] + x[b]) | 0; x[d] = rotl(x[d] ^ x[a], 8);
@@ -49,7 +51,7 @@ function chachaQR(x: Uint32Array, a: number, b: number, c: number, d: number) {
 }
 
 /** Repeated ChaCha double rounds; callers are expected to pass an even round count. */
-function chachaRound(x: Uint32Array, rounds = 20) {
+function chachaRound(x: TArg<Uint32Array>, rounds = 20) {
   for (let r = 0; r < rounds; r += 2) {
     // RFC 8439 §2.3 / §2.3.1 inner_block: four column rounds, then four diagonal rounds.
     chachaQR(x, 0, 4, 8, 12);
@@ -70,7 +72,7 @@ const ctmp = /* @__PURE__ */ new Uint32Array(16);
 /** Small version of chacha without loop unrolling. Unused, provided for auditability. */
 // prettier-ignore
 function chacha(
-  s: Uint32Array, k: Uint32Array, i: Uint32Array, out: Uint32Array,
+  s: TArg<Uint32Array>, k: TArg<Uint32Array>, i: TArg<Uint32Array>, out: TArg<Uint32Array>,
   isHChacha: boolean = true, rounds: number = 20
 ): void {
   // `i` is either `[counter, nonce0, nonce1, nonce2]` for the ChaCha block
@@ -108,7 +110,7 @@ const hchacha_small: typeof hchacha = chacha;
 /** RFC 8439 §2.3 block core for `state = constants | key | counter | nonce`. */
 // prettier-ignore
 function chachaCore(
-  s: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32Array, cnt: number, rounds = 20
+  s: TArg<Uint32Array>, k: TArg<Uint32Array>, n: TArg<Uint32Array>, out: TArg<Uint32Array>, cnt: number, rounds = 20
 ): void {
   let y00 = s[0], y01 = s[1], y02 = s[2], y03 = s[3], // "expa"   "nd 3"  "2-by"  "te k"
       y04 = k[0], y05 = k[1], y06 = k[2], y07 = k[3], // Key      Key     Key     Key
@@ -193,7 +195,7 @@ function chachaCore(
  */
 // prettier-ignore
 export function hchacha(
-  s: Uint32Array, k: Uint32Array, i: Uint32Array, out: Uint32Array
+  s: TArg<Uint32Array>, k: TArg<Uint32Array>, i: TArg<Uint32Array>, out: TArg<Uint32Array>
 ): void {
   let x00 = swap8IfBE(s[0]), x01 = swap8IfBE(s[1]), x02 = swap8IfBE(s[2]), x03 = swap8IfBE(s[3]),
       x04 = swap8IfBE(k[0]), x05 = swap8IfBE(k[1]), x06 = swap8IfBE(k[2]), x07 = swap8IfBE(k[3]),
@@ -271,7 +273,7 @@ export function hchacha(
  * chacha20orig(key, nonce, new Uint8Array(4));
  * ```
  */
-export const chacha20orig: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
+export const chacha20orig: TRet<XorStream> = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 8,
   allowShortKeys: true,
@@ -296,7 +298,7 @@ export const chacha20orig: XorStream = /* @__PURE__ */ createCipher(chachaCore, 
  * chacha20(key, nonce, new Uint8Array(4));
  * ```
  */
-export const chacha20: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
+export const chacha20: TRet<XorStream> = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 4,
   allowShortKeys: false,
@@ -325,7 +327,7 @@ export const chacha20: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
  * xchacha20(key, nonce, new Uint8Array(4));
  * ```
  */
-export const xchacha20: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
+export const xchacha20: TRet<XorStream> = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 8,
   extendNonceFn: hchacha,
@@ -351,7 +353,7 @@ export const xchacha20: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
  * chacha8(key, nonce, new Uint8Array(4));
  * ```
  */
-export const chacha8: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
+export const chacha8: TRet<XorStream> = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 4,
   rounds: 8,
@@ -376,7 +378,7 @@ export const chacha8: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
  * chacha12(key, nonce, new Uint8Array(4));
  * ```
  */
-export const chacha12: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
+export const chacha12: TRet<XorStream> = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 4,
   rounds: 12,
@@ -386,12 +388,12 @@ export const chacha12: XorStream = /* @__PURE__ */ createCipher(chachaCore, {
 export const __TESTS: {
   chachaCore_small: typeof chachaCore_small;
   chachaCore: typeof chachaCore;
-} = { chachaCore_small, chachaCore };
+} = /* @__PURE__ */ Object.freeze({ chachaCore_small, chachaCore });
 
 // RFC 8439 §2.8.1 pad16(x): shared zero block for AAD/ciphertext padding.
 const ZEROS16 = /* @__PURE__ */ new Uint8Array(16);
 // RFC 8439 §2.8 / §2.8.1: aligned inputs add nothing, otherwise append 16-(len%16) zero bytes.
-const updatePadded = (h: ReturnType<typeof poly1305.create>, msg: Uint8Array) => {
+const updatePadded = (h: ReturnType<typeof poly1305.create>, msg: TArg<Uint8Array>) => {
   h.update(msg);
   const leftover = msg.length % 16;
   if (leftover) h.update(ZEROS16.subarray(leftover));
@@ -401,16 +403,20 @@ const updatePadded = (h: ReturnType<typeof poly1305.create>, msg: Uint8Array) =>
 // generation only needs 32 zero bytes.
 const ZEROS32 = /* @__PURE__ */ new Uint8Array(32);
 function computeTag(
-  fn: XorStream,
-  key: Uint8Array,
-  nonce: Uint8Array,
-  ciphertext: Uint8Array,
-  AAD?: Uint8Array
-): Uint8Array {
+  fn: TArg<XorStream>,
+  key: TArg<Uint8Array>,
+  nonce: TArg<Uint8Array>,
+  ciphertext: TArg<Uint8Array>,
+  AAD?: TArg<Uint8Array>
+): TRet<Uint8Array> {
   if (AAD !== undefined) abytes(AAD, undefined, 'AAD');
   // RFC 8439 §2.6 / §2.8: derive the Poly1305 one-time key from counter 0,
   // then MAC AAD || pad16(AAD) || ciphertext || pad16(ciphertext) || len(AAD) || len(ciphertext).
-  const authKey = fn(key, nonce, ZEROS32);
+  const authKey = fn(
+    key as TRet<Uint8Array>,
+    nonce as TRet<Uint8Array>,
+    ZEROS32 as TRet<Uint8Array>
+  );
   const lengths = u64Lengths(ciphertext.length, AAD ? AAD.length : 0, true);
 
   // Methods below can be replaced with
@@ -432,25 +438,31 @@ function computeTag(
  * In chacha, authKey can't be computed inside computeTag, it modifies the counter.
  */
 export const _poly1305_aead =
-  (xorStream: XorStream) =>
-  (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): CipherWithOutput => {
+  (xorStream: TArg<XorStream>) =>
+  (key: TArg<Uint8Array>, nonce: TArg<Uint8Array>, AAD?: TArg<Uint8Array>): CipherWithOutput => {
     // This borrows caller key/nonce/AAD buffers by reference; mutating them after construction
     // changes future encrypt/decrypt results.
     const tagLength = 16;
     return {
-      encrypt(plaintext: Uint8Array, output?: Uint8Array) {
+      encrypt(plaintext: TArg<Uint8Array>, output?: TArg<Uint8Array>): TRet<Uint8Array> {
         const plength = plaintext.length;
         output = getOutput(plength + tagLength, output, false);
         output.set(plaintext);
         const oPlain = output.subarray(0, -tagLength);
         // RFC 8439 §2.8: payload encryption starts at counter 1 because counter 0 produced the OTK.
-        xorStream(key, nonce, oPlain, oPlain, 1);
+        xorStream(
+          key as TRet<Uint8Array>,
+          nonce as TRet<Uint8Array>,
+          oPlain as TRet<Uint8Array>,
+          oPlain as TRet<Uint8Array>,
+          1
+        );
         const tag = computeTag(xorStream, key, nonce, oPlain, AAD);
         output.set(tag, plength); // append tag
         clean(tag);
-        return output;
+        return output as TRet<Uint8Array>;
       },
-      decrypt(ciphertext: Uint8Array, output?: Uint8Array) {
+      decrypt(ciphertext: TArg<Uint8Array>, output?: TArg<Uint8Array>): TRet<Uint8Array> {
         output = getOutput(ciphertext.length - tagLength, output, false);
         const data = ciphertext.subarray(0, -tagLength);
         const passedTag = ciphertext.subarray(-tagLength);
@@ -460,9 +472,15 @@ export const _poly1305_aead =
         if (!equalBytes(passedTag, tag)) throw new Error('invalid tag');
         output.set(ciphertext.subarray(0, -tagLength));
         // Actual decryption
-        xorStream(key, nonce, output, output, 1); // start stream with i=1
+        xorStream(
+          key as TRet<Uint8Array>,
+          nonce as TRet<Uint8Array>,
+          output as TRet<Uint8Array>,
+          output as TRet<Uint8Array>,
+          1
+        ); // start stream with i=1
         clean(tag);
-        return output;
+        return output as TRet<Uint8Array>;
       },
     };
   };
@@ -488,7 +506,7 @@ export const _poly1305_aead =
  * cipher.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */
-export const chacha20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
+export const chacha20poly1305: TRet<ARXCipher> = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 12, tagLength: 16 },
   /* @__PURE__ */ _poly1305_aead(chacha20)
 );
@@ -513,7 +531,7 @@ export const chacha20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
  * cipher.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */
-export const xchacha20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
+export const xchacha20poly1305: TRet<ARXCipher> = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
   /* @__PURE__ */ _poly1305_aead(xchacha20)
 );
@@ -536,7 +554,7 @@ export const xchacha20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
  * prg.randomBytes(8);
  * ```
  */
-export const rngChacha20: XorPRG = /* @__PURE__ */ createPRG(chacha20orig, 64, 32, 8);
+export const rngChacha20: TRet<XorPRG> = /* @__PURE__ */ createPRG(chacha20orig, 64, 32, 8);
 /**
  * Chacha20/8 CSPRNG (cryptographically secure pseudorandom number generator).
  * It's best to limit usage to non-production, non-critical cases: for example, test-only.
@@ -555,4 +573,4 @@ export const rngChacha20: XorPRG = /* @__PURE__ */ createPRG(chacha20orig, 64, 3
  * prg.randomBytes(8);
  * ```
  */
-export const rngChacha8: XorPRG = /* @__PURE__ */ createPRG(chacha8, 64, 32, 12);
+export const rngChacha8: TRet<XorPRG> = /* @__PURE__ */ createPRG(chacha8, 64, 32, 12);

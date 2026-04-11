@@ -21,20 +21,20 @@
 import {
   abytes, aexists, aoutput, bytesToHex,
   clean, concatBytes, copyBytes, hexToNumber, numberToBytesBE,
-  wrapMacConstructor, type CMac, type IHash2
+  wrapMacConstructor, type CMac, type IHash2, type TArg, type TRet
 } from './utils.ts';
 
 // Little-endian 2-byte load used by the Poly1305 limb decomposition.
-function u8to16(a: Uint8Array, i: number) {
+function u8to16(a: TArg<Uint8Array>, i: number) {
   return (a[i++] & 0xff) | ((a[i++] & 0xff) << 8);
 }
 
-function bytesToNumberLE(bytes: Uint8Array): bigint {
+function bytesToNumberLE(bytes: TArg<Uint8Array>): bigint {
   return hexToNumber(bytesToHex(Uint8Array.from(bytes).reverse()));
 }
 
 /** Small version of `poly1305` without loop unrolling. Unused, provided for auditability. */
-function poly1305_small(msg: Uint8Array, key: Uint8Array): Uint8Array {
+function poly1305_small(msg: TArg<Uint8Array>, key: TArg<Uint8Array>): TRet<Uint8Array> {
   abytes(msg);
   abytes(key, 32, 'key');
   const POW_2_130_5 = BigInt(2) ** BigInt(130) - BigInt(5); // 2^130-5
@@ -52,23 +52,23 @@ function poly1305_small(msg: Uint8Array, key: Uint8Array): Uint8Array {
   }
   const res = (acc + s) & POW_2_128_1;
   // RFC 8439 §2.5 / RFC 7539 §2.5 serialize the low 128 bits in little-endian order.
-  return numberToBytesBE(res, 16).reverse(); // LE
+  return numberToBytesBE(res, 16).reverse() as TRet<Uint8Array>; // LE
 }
 
 // Can be used to replace `computeTag` in chacha.ts. Unused, provided for auditability.
 // @ts-expect-error
 function poly1305_computeTag_small(
-  authKey: Uint8Array,
+  authKey: TArg<Uint8Array>,
   // AEAD trailer must already be the 16-byte length block:
   // 8-byte little-endian AAD length || 8-byte little-endian ciphertext length.
-  lengths: Uint8Array,
-  ciphertext: Uint8Array,
-  AAD?: Uint8Array
-): Uint8Array {
+  lengths: TArg<Uint8Array>,
+  ciphertext: TArg<Uint8Array>,
+  AAD?: TArg<Uint8Array>
+): TRet<Uint8Array> {
   // RFC 8439 §2.8.1 / RFC 7539 §2.8.1 MAC input is
   // AAD || pad16(AAD) || ciphertext || pad16(ciphertext) || lengths.
   const res = [];
-  const updatePadded2 = (msg: Uint8Array) => {
+  const updatePadded2 = (msg: TArg<Uint8Array>) => {
     res.push(msg);
     const leftover = msg.length % 16;
     // RFC 8439 §2.8.1 / RFC 7539 §2.8.1: pad16(x) is empty for aligned
@@ -109,7 +109,7 @@ export class Poly1305 implements IHash2 {
   protected destroyed = false;
 
   // Can be speed-up using BigUint64Array, at the cost of complexity
-  constructor(key: Uint8Array) {
+  constructor(key: TArg<Uint8Array>) {
     key = copyBytes(abytes(key, 32, 'key'));
     const t0 = u8to16(key, 0);
     const t1 = u8to16(key, 2);
@@ -137,7 +137,7 @@ export class Poly1305 implements IHash2 {
     for (let i = 0; i < 8; i++) this.pad[i] = u8to16(key, 16 + 2 * i);
   }
 
-  private process(data: Uint8Array, offset: number, isLast = false) {
+  private process(data: TArg<Uint8Array>, offset: number, isLast = false) {
     // RFC 8439 §2.5 / §2.5.1 and RFC 7539 §2.5 / §2.5.1 add an extra high
     // bit to every full 16-byte block. The final partial block gets its
     // explicit `1` byte during digestInto(), so `hibit` stays zero there.
@@ -315,7 +315,7 @@ export class Poly1305 implements IHash2 {
     }
     clean(g);
   }
-  update(data: Uint8Array): this {
+  update(data: TArg<Uint8Array>): this {
     aexists(this);
     abytes(data);
     data = copyBytes(data);
@@ -344,7 +344,7 @@ export class Poly1305 implements IHash2 {
     this.destroyed = true;
     clean(this.h, this.r, this.buffer, this.pad);
   }
-  digestInto(out: Uint8Array): void {
+  digestInto(out: TArg<Uint8Array>): void {
     aexists(this);
     aoutput(out, this);
     this.finished = true;
@@ -365,37 +365,19 @@ export class Poly1305 implements IHash2 {
       out[opos++] = h[i] >>> 8;
     }
   }
-  digest(): Uint8Array {
+  digest(): TRet<Uint8Array> {
     const { buffer, outputLen } = this;
     this.digestInto(buffer);
     // Copy out before destroy() zeroes the internal buffer.
     const res = buffer.slice(0, outputLen);
     this.destroy();
-    return res;
+    return res as TRet<Uint8Array>;
   }
 }
 
 /** One-shot keyed hash helper with `.create()`. */
 export type CHash = CMac<Poly1305>;
 
-/**
- * Wraps a keyed hash constructor into a one-shot helper.
- * `keyLen` is only the metadata probe size; runtime callers can still pass any key length
- * accepted by the wrapped constructor.
- * @param keyLen - Valid probe-key length used to read static metadata once.
- * @param hashCons - Keyed hash constructor.
- * @returns Callable hash helper with `.create()`.
- * @example
- * Turns Poly1305's incremental constructor into a one-shot helper with a random key.
- *
- * ```ts
- * import { Poly1305 } from '@noble/ciphers/_poly1305.js';
- * import { randomBytes, wrapMacConstructor } from '@noble/ciphers/utils.js';
- * const key = randomBytes(32);
- * const hash = wrapMacConstructor(32, (key) => new Poly1305(key));
- * hash(new Uint8Array([1, 2, 3]), key);
- * ```
- */
 /**
  * Poly1305 MAC from RFC 8439.
  * @param msg - Message bytes to authenticate.
@@ -411,4 +393,7 @@ export type CHash = CMac<Poly1305>;
  * poly1305(new Uint8Array(), key);
  * ```
  */
-export const poly1305: CHash = /* @__PURE__ */ wrapMacConstructor(32, (key) => new Poly1305(key));
+export const poly1305: TRet<CHash> = /* @__PURE__ */ wrapMacConstructor(
+  32,
+  (key: TArg<Uint8Array>) => new Poly1305(key)
+);

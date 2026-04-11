@@ -30,11 +30,11 @@ import {
   overlapBytes,
   swap32IfBE,
   swap8IfBE,
-  u32, u64Lengths, u8, wrapCipher, wrapMacConstructor,
-  type Cipher, type CipherWithOutput,
-  type CMac, type IHash2,
-  type PRG, type Uint8ArrayBuffer
-} from './utils.ts';
+	  u32, u64Lengths, u8, wrapCipher, wrapMacConstructor,
+	  type Cipher, type CipherWithOutput,
+	  type CMac, type IHash2,
+	  type PRG, type TArg, type TRet, type Uint8ArrayBuffer
+	} from './utils.ts';
 
 const BLOCK_SIZE = 16;
 // AES operates on 16-byte blocks, i.e. 4 32-bit words.
@@ -48,7 +48,7 @@ const ONE_BLOCK = /* @__PURE__ */ Uint8Array.from([
 ]);
 const POLY = 0x11b; // 1 + x + x**3 + x**4 + x**8
 // Validates plain AES key sizes only; AES-SIV's doubled-key contract is checked elsewhere.
-function validateKeyLength(key: Uint8Array) {
+function validateKeyLength(key: TArg<Uint8Array>) {
   if (![16, 24, 32].includes(key.length))
     throw new Error('"aes key" expected Uint8Array of length 16/24/32, got length=' + key.length);
 }
@@ -87,8 +87,8 @@ function mul(a: number, b: number) {
  */
 // Keep the helper explicitly typed so `--isolatedDeclarations` can expose it
 // through the test-only `__TESTS` export without inference errors.
-const incBytes: (data: Uint8Array, isLE: boolean, carry?: number) => void = (
-  data: Uint8Array,
+const incBytes: (data: TArg<Uint8Array>, isLE: boolean, carry?: number) => void = (
+  data: TArg<Uint8Array>,
   isLE: boolean,
   carry: number = 1
 ): void => {
@@ -141,7 +141,7 @@ const rotl32_8 = (n: number) => (n << 8) | (n >>> 24);
 // - LE instead of BE
 // - bigger tables: T0 and T1 are merged into T01 table and T2 & T3 into T23;
 //   so index is u16, instead of u8. This speeds up things, unexpectedly
-function genTtable(sbox: Uint8Array, fn: (n: number) => number) {
+function genTtable(sbox: TArg<Uint8Array>, fn: (n: number) => number) {
   if (sbox.length !== 256) throw new Error('Wrong sbox length');
   const T0 = new Uint32Array(256).map((_, j) => fn(sbox[j]));
   const T1 = T0.map(rotl32_8);
@@ -186,7 +186,7 @@ const xPowers = /* @__PURE__ */ (() => {
 })();
 
 /** Forward AES key expansion used across ECB/CBC/CTR/GCM/CMAC/KW-style paths. */
-function expandKeyLE(key: Uint8Array): Uint32Array {
+function expandKeyLE(key: TArg<Uint8Array>): TRet<Uint32Array> {
   abytes(key);
   const len = key.length;
   validateKeyLength(key);
@@ -212,10 +212,10 @@ function expandKeyLE(key: Uint8Array): Uint32Array {
     xk[i] = xk[i - Nk] ^ t;
   }
   clean(...toClean);
-  return xk;
+  return xk as TRet<Uint32Array>;
 }
 
-function expandKeyDecLE(key: Uint8Array): Uint32Array {
+function expandKeyDecLE(key: TArg<Uint8Array>): TRet<Uint32Array> {
   const encKey = expandKeyLE(key);
   const xk = encKey.slice();
   const Nk = encKey.length;
@@ -236,13 +236,13 @@ function expandKeyDecLE(key: Uint8Array): Uint32Array {
     const w = applySbox(sbox2, x, x, x, x);
     xk[i] = T0[w & 0xff] ^ T1[(w >>> 8) & 0xff] ^ T2[(w >>> 16) & 0xff] ^ T3[w >>> 24];
   }
-  return xk;
+  return xk as TRet<Uint32Array>;
 }
 
 // Apply tables
 function apply0123(
-  T01: Uint32Array,
-  T23: Uint32Array,
+  T01: TArg<Uint32Array>,
+  T23: TArg<Uint32Array>,
   s0: number,
   s1: number,
   s2: number,
@@ -258,7 +258,7 @@ function apply0123(
   );
 }
 
-function applySbox(sbox2: Uint16Array, s0: number, s1: number, s2: number, s3: number) {
+function applySbox(sbox2: TArg<Uint16Array>, s0: number, s1: number, s2: number, s3: number) {
   // `sbox2` packs two substituted byte lanes at a time in the same LE
   // layout used by the round code.
   // Equivalent to `SBOX(byte0(s0)) | SBOX(byte1(s1))<<8 |
@@ -270,7 +270,7 @@ function applySbox(sbox2: Uint16Array, s0: number, s1: number, s2: number, s3: n
 }
 
 function encrypt(
-  xk: Uint32Array,
+  xk: TArg<Uint32Array>,
   s0: number,
   s1: number,
   s2: number,
@@ -299,7 +299,7 @@ function encrypt(
 
 // Can't be merged with encrypt: arg positions for apply0123 / applySbox are different
 function decrypt(
-  xk: Uint32Array,
+  xk: TArg<Uint32Array>,
   s0: number,
   s1: number,
   s2: number,
@@ -334,11 +334,11 @@ function decrypt(
 }
 
 function ctrCounter(
-  xk: Uint32Array,
-  nonce: Uint8Array,
-  src: Uint8Array,
-  dst?: Uint8Array
-): Uint8Array {
+  xk: TArg<Uint32Array>,
+  nonce: TArg<Uint8Array>,
+  src: TArg<Uint8Array>,
+  dst?: TArg<Uint8Array>
+): TRet<Uint8Array> {
   abytes(nonce, BLOCK_SIZE, 'nonce');
   abytes(src);
   const srcLen = src.length;
@@ -387,7 +387,7 @@ function ctrCounter(
   // Unsafe mutable-counter API only advances whole blocks. Callers that want to
   // resume after consuming part of this block must re-run from the same counter
   // with left-padding and strip the already-consumed prefix themselves.
-  return dst;
+  return dst as TRet<Uint8Array>;
 }
 
 // AES CTR with overflowing 32 bit counter
@@ -396,12 +396,12 @@ function ctrCounter(
 // Unsafe 32-bit CTR helper: mutates `nonce` in place, expects aligned `src`/`dst`,
 // and uses `isLE` to choose which 32-bit counter word is incremented.
 function ctr32(
-  xk: Uint32Array,
+  xk: TArg<Uint32Array>,
   isLE: boolean,
-  nonce: Uint8Array,
-  src: Uint8Array,
-  dst?: Uint8Array
-): Uint8Array {
+  nonce: TArg<Uint8Array>,
+  src: TArg<Uint8Array>,
+  dst?: TArg<Uint8Array>
+): TRet<Uint8Array> {
   abytes(nonce, BLOCK_SIZE, 'nonce');
   abytes(src);
   dst = getOutput(src.length, dst);
@@ -450,7 +450,7 @@ function ctr32(
   }
   // Same unsafe contract as ctrCounter(): only full blocks advance the stored
   // mutable counter state; partial-block continuation is caller-managed.
-  return dst;
+  return dst as TRet<Uint8Array>;
 }
 
 /**
@@ -472,13 +472,15 @@ function ctr32(
  * cipher.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */
-export const ctr: ((key: Uint8Array, nonce: Uint8Array) => CipherWithOutput) & {
-  blockSize: number;
-  nonceLength: number;
-} = /* @__PURE__ */ wrapCipher(
+export const ctr: TRet<
+  ((key: TArg<Uint8Array>, nonce: TArg<Uint8Array>) => CipherWithOutput) & {
+    blockSize: number;
+    nonceLength: number;
+  }
+> = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 16 },
-  function aesctr(key: Uint8Array, nonce: Uint8Array): CipherWithOutput {
-    function processCtr(buf: Uint8Array, dst?: Uint8Array) {
+  function aesctr(key: TArg<Uint8Array>, nonce: TArg<Uint8Array>): TRet<CipherWithOutput> {
+    function processCtr(buf: TArg<Uint8Array>, dst?: TArg<Uint8Array>): TRet<Uint8Array> {
       abytes(buf);
       if (dst !== undefined) {
         abytes(dst);
@@ -494,16 +496,17 @@ export const ctr: ((key: Uint8Array, nonce: Uint8Array) => CipherWithOutput) & {
       if (!isAligned32(buf)) toClean.push((buf = copyBytes(buf)));
       const out = ctrCounter(xk, n, buf, dst);
       clean(...toClean);
-      return out;
+      return out as TRet<Uint8Array>;
     }
     return {
-      encrypt: (plaintext: Uint8Array, dst?: Uint8Array) => processCtr(plaintext, dst),
-      decrypt: (ciphertext: Uint8Array, dst?: Uint8Array) => processCtr(ciphertext, dst),
-    };
+      encrypt: (plaintext: TArg<Uint8Array>, dst?: TArg<Uint8Array>) => processCtr(plaintext, dst),
+      decrypt: (ciphertext: TArg<Uint8Array>, dst?: TArg<Uint8Array>) =>
+        processCtr(ciphertext, dst),
+    } as TRet<CipherWithOutput>;
   }
 );
 
-function validateBlockDecrypt(data: Uint8Array) {
+function validateBlockDecrypt(data: TArg<Uint8Array>) {
   abytes(data);
   // ECB/CBC decryption always consumes whole ciphertext blocks; PKCS#7/CMS
   // padding, when enabled, is removed only after decrypting the final block.
@@ -516,7 +519,7 @@ function validateBlockDecrypt(data: Uint8Array) {
 
 // ECB/CBC core modes operate on whole blocks; `pkcs5` enables the library's
 // PKCS#7/CMS-compatible final-block padding convenience before encryption.
-function validateBlockEncrypt(plaintext: Uint8Array, pkcs5: boolean, dst?: Uint8Array) {
+function validateBlockEncrypt(plaintext: TArg<Uint8Array>, pkcs5: boolean, dst?: TArg<Uint8Array>) {
   abytes(plaintext);
   let outLen = plaintext.length;
   const remaining = outLen % BLOCK_SIZE;
@@ -542,8 +545,8 @@ function validateBlockEncrypt(plaintext: Uint8Array, pkcs5: boolean, dst?: Uint8
 
 // `pkcs5` is the historical option name; for AES's 16-byte block this is the
 // generic PKCS#7/CMS-style block-padding rule on decrypt.
-function validatePKCS(data: Uint8Array, pkcs5: boolean): Uint8Array {
-  if (!pkcs5) return data;
+function validatePKCS(data: TArg<Uint8Array>, pkcs5: boolean): TRet<Uint8Array> {
+  if (!pkcs5) return data as TRet<Uint8Array>;
 
   const len = data.length;
   // RFC 5652 pads even empty / already-aligned inputs, so a valid padded
@@ -566,12 +569,12 @@ function validatePKCS(data: Uint8Array, pkcs5: boolean): Uint8Array {
 
   // if (invalidLen) throw new Error('aes/pkcs7: ciphertext length must be multiple of 16');
   if (!valid) throw new Error('aes/pkcs7: wrong padding');
-  return data.subarray(0, len - lastByte);
+  return data.subarray(0, len - lastByte) as TRet<Uint8Array>;
 }
 
 // ECB/CBC callers only pass the final short block here, so `left.length` is
 // 0..15 and the helper always emits exactly one padded 16-byte block.
-function padPCKS(left: Uint8Array) {
+function padPCKS(left: TArg<Uint8Array>): TRet<Uint32Array> {
   const tmp = new Uint8Array(16);
   const tmp32 = u32(tmp);
   tmp.set(left);
@@ -606,14 +609,16 @@ export type BlockOpts = {
  * cipher.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */
-export const ecb: ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
-  blockSize: number;
-} = /* @__PURE__ */ wrapCipher(
+export const ecb: TRet<
+  ((key: TArg<Uint8Array>, opts?: BlockOpts) => CipherWithOutput) & {
+    blockSize: number;
+  }
+> = /* @__PURE__ */ wrapCipher(
   { blockSize: 16 },
-  function aesecb(key: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
+  function aesecb(key: TArg<Uint8Array>, opts: BlockOpts = {}): TRet<CipherWithOutput> {
     const pkcs5 = !opts.disablePadding;
     return {
-      encrypt(plaintext: Uint8Array, dst?: Uint8Array) {
+      encrypt(plaintext: TArg<Uint8Array>, dst?: TArg<Uint8Array>): TRet<Uint8Array> {
         const { b, o, out: _out } = validateBlockEncrypt(plaintext, pkcs5, dst);
         const xk = expandKeyLE(key);
         let i = 0;
@@ -629,9 +634,9 @@ export const ecb: ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
         }
         swap32IfBE(o);
         clean(xk);
-        return _out;
+        return _out as TRet<Uint8Array>;
       },
-      decrypt(ciphertext: Uint8Array, dst?: Uint8Array) {
+      decrypt(ciphertext: TArg<Uint8Array>, dst?: TArg<Uint8Array>): TRet<Uint8Array> {
         validateBlockDecrypt(ciphertext);
         const xk = expandKeyDecLE(key);
         dst = getOutput(ciphertext.length, dst);
@@ -649,9 +654,9 @@ export const ecb: ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
         }
         swap32IfBE(o);
         clean(...toClean);
-        return validatePKCS(dst, pkcs5);
+        return validatePKCS(dst, pkcs5) as TRet<Uint8Array>;
       },
-    };
+    } as TRet<CipherWithOutput>;
   }
 );
 
@@ -675,15 +680,21 @@ export const ecb: ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
  * cipher.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */
-export const cbc: ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
-  blockSize: number;
-  nonceLength: number;
-} = /* @__PURE__ */ wrapCipher(
+export const cbc: TRet<
+  ((key: TArg<Uint8Array>, iv: TArg<Uint8Array>, opts?: BlockOpts) => CipherWithOutput) & {
+    blockSize: number;
+    nonceLength: number;
+  }
+> = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 16 },
-  function aescbc(key: Uint8Array, iv: Uint8Array, opts: BlockOpts = {}): CipherWithOutput {
+  function aescbc(
+    key: TArg<Uint8Array>,
+    iv: TArg<Uint8Array>,
+    opts: BlockOpts = {}
+  ): TRet<CipherWithOutput> {
     const pkcs5 = !opts.disablePadding;
     return {
-      encrypt(plaintext: Uint8Array, dst?: Uint8Array) {
+      encrypt(plaintext: TArg<Uint8Array>, dst?: TArg<Uint8Array>): TRet<Uint8Array> {
         const xk = expandKeyLE(key);
         const { b, o, out: _out } = validateBlockEncrypt(plaintext, pkcs5, dst);
         let _iv = iv;
@@ -710,9 +721,9 @@ export const cbc: ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => Cipher
         }
         swap32IfBE(o);
         clean(...toClean);
-        return _out;
+        return _out as TRet<Uint8Array>;
       },
-      decrypt(ciphertext: Uint8Array, dst?: Uint8Array) {
+      decrypt(ciphertext: TArg<Uint8Array>, dst?: TArg<Uint8Array>): TRet<Uint8Array> {
         validateBlockDecrypt(ciphertext);
         const xk = expandKeyDecLE(key);
         let _iv = iv;
@@ -741,9 +752,9 @@ export const cbc: ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => Cipher
         }
         swap32IfBE(o);
         clean(...toClean);
-        return validatePKCS(dst, pkcs5);
+        return validatePKCS(dst, pkcs5) as TRet<Uint8Array>;
       },
-    };
+    } as TRet<CipherWithOutput>;
   }
 );
 
@@ -766,13 +777,19 @@ export const cbc: ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => Cipher
  * cipher.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */
-export const cfb: ((key: Uint8Array, iv: Uint8Array) => CipherWithOutput) & {
-  blockSize: number;
-  nonceLength: number;
-} = /* @__PURE__ */ wrapCipher(
+export const cfb: TRet<
+  ((key: TArg<Uint8Array>, iv: TArg<Uint8Array>) => CipherWithOutput) & {
+    blockSize: number;
+    nonceLength: number;
+  }
+> = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 16 },
-  function aescfb(key: Uint8Array, iv: Uint8Array): CipherWithOutput {
-    function processCfb(src: Uint8Array, isEncrypt: boolean, dst?: Uint8Array) {
+  function aescfb(key: TArg<Uint8Array>, iv: TArg<Uint8Array>): TRet<CipherWithOutput> {
+    function processCfb(
+      src: TArg<Uint8Array>,
+      isEncrypt: boolean,
+      dst?: TArg<Uint8Array>
+    ): TRet<Uint8Array> {
       abytes(src);
       const srcLen = src.length;
       dst = getOutput(srcLen, dst);
@@ -821,12 +838,14 @@ export const cfb: ((key: Uint8Array, iv: Uint8Array) => CipherWithOutput) & {
       }
       swap32IfBE(dst32);
       clean(...toClean);
-      return dst;
+      return dst as TRet<Uint8Array>;
     }
     return {
-      encrypt: (plaintext: Uint8Array, dst?: Uint8Array) => processCfb(plaintext, true, dst),
-      decrypt: (ciphertext: Uint8Array, dst?: Uint8Array) => processCfb(ciphertext, false, dst),
-    };
+      encrypt: (plaintext: TArg<Uint8Array>, dst?: TArg<Uint8Array>) =>
+        processCfb(plaintext, true, dst),
+      decrypt: (ciphertext: TArg<Uint8Array>, dst?: TArg<Uint8Array>) =>
+        processCfb(ciphertext, false, dst),
+    } as TRet<CipherWithOutput>;
   }
 );
 
@@ -838,10 +857,10 @@ export const cfb: ((key: Uint8Array, iv: Uint8Array) => CipherWithOutput) & {
 function computeTag(
   fn: typeof ghash,
   isLE: boolean,
-  key: Uint8Array,
-  data: Uint8Array,
-  AAD?: Uint8Array
-) {
+  key: TArg<Uint8Array>,
+  data: TArg<Uint8Array>,
+  AAD?: TArg<Uint8Array>
+): TRet<Uint8Array> {
   const aadLength = AAD ? AAD.length : 0;
   const h = fn.create(key, data.length + aadLength);
   if (AAD) h.update(AAD);
@@ -877,20 +896,30 @@ function computeTag(
  * cipher.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */
-export const gcm: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
-  blockSize: number;
-  nonceLength: number;
-  tagLength: number;
-  varSizeNonce: true;
-} = /* @__PURE__ */ wrapCipher(
+export const gcm: TRet<
+  ((key: TArg<Uint8Array>, nonce: TArg<Uint8Array>, AAD?: TArg<Uint8Array>) => Cipher) & {
+    blockSize: number;
+    nonceLength: number;
+    tagLength: number;
+    varSizeNonce: true;
+  }
+> = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 12, tagLength: 16, varSizeNonce: true },
-  function aesgcm(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
+  function aesgcm(
+    key: TArg<Uint8Array>,
+    nonce: TArg<Uint8Array>,
+    AAD?: TArg<Uint8Array>
+  ): TRet<Cipher> {
     // SP 800-38D lets implementations narrow supported IV lengths.
     // This wrapper intentionally requires at least 8 bytes; OpenSSL accepts shorter IVs too.
     // 12-byte nonces take the fast path; other allowed lengths use GHASH to derive J0.
     if (nonce.length < 8) throw new Error('aes/gcm: invalid nonce length');
     const tagLength = 16;
-    function _computeTag(authKey: Uint8Array, tagMask: Uint8Array, data: Uint8Array) {
+    function _computeTag(
+      authKey: TArg<Uint8Array>,
+      tagMask: TArg<Uint8Array>,
+      data: TArg<Uint8Array>
+    ): TRet<Uint8Array> {
       const tag = computeTag(ghash, false, authKey, data, AAD);
       for (let i = 0; i < tagMask.length; i++) tag[i] ^= tagMask[i];
       return tag;
@@ -921,7 +950,7 @@ export const gcm: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cip
       return { xk, authKey, counter, tagMask };
     }
     return {
-      encrypt(plaintext: Uint8Array) {
+      encrypt(plaintext: TArg<Uint8Array>): TRet<Uint8Array> {
         const { xk, authKey, counter, tagMask } = deriveKeys();
         const out = new Uint8Array(plaintext.length + tagLength);
         const toClean: (Uint8Array | Uint32Array)[] = [xk, authKey, counter, tagMask];
@@ -931,9 +960,9 @@ export const gcm: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cip
         toClean.push(tag);
         out.set(tag, plaintext.length);
         clean(...toClean);
-        return out;
+        return out as TRet<Uint8Array>;
       },
-      decrypt(ciphertext: Uint8Array) {
+      decrypt(ciphertext: TArg<Uint8Array>): TRet<Uint8Array> {
         const { xk, authKey, counter, tagMask } = deriveKeys();
         const toClean: (Uint8Array | Uint32Array)[] = [xk, authKey, tagMask, counter];
         if (!isAligned32(ciphertext)) toClean.push((ciphertext = copyBytes(ciphertext)));
@@ -946,9 +975,9 @@ export const gcm: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cip
         if (!equalBytes(tag, passedTag)) throw new Error('aes/gcm: invalid ghash tag');
         const out = ctr32(xk, false, counter, data);
         clean(...toClean);
-        return out;
+        return out as TRet<Uint8Array>;
       },
-    };
+    } as TRet<Cipher>;
   }
 );
 
@@ -988,14 +1017,20 @@ const limit = (name: string, min: number, max: number) => (value: number) => {
  * cipher.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */
-export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => Cipher) & {
-  blockSize: number;
-  nonceLength: number;
-  tagLength: number;
-  varSizeNonce: true;
-} = /* @__PURE__ */ wrapCipher(
+export const gcmsiv: TRet<
+  ((key: TArg<Uint8Array>, nonce: TArg<Uint8Array>, AAD?: TArg<Uint8Array>) => Cipher) & {
+    blockSize: number;
+    nonceLength: number;
+    tagLength: number;
+    varSizeNonce: true;
+  }
+> = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, nonceLength: 12, tagLength: 16, varSizeNonce: true },
-  function aessiv(key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): Cipher {
+  function aessiv(
+    key: TArg<Uint8Array>,
+    nonce: TArg<Uint8Array>,
+    AAD?: TArg<Uint8Array>
+  ): TRet<Cipher> {
     const tagLength = 16;
     // From RFC 8452: Section 6
     const AAD_LIMIT = limit('AAD', 0, 2 ** 36);
@@ -1038,7 +1073,11 @@ export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => 
       clean(...toClean);
       return res;
     }
-    function _computeTag(encKey: Uint32Array, authKey: Uint8Array, data: Uint8Array) {
+    function _computeTag(
+      encKey: TArg<Uint32Array>,
+      authKey: TArg<Uint8Array>,
+      data: TArg<Uint8Array>
+    ): TRet<Uint8Array> {
       const tag = computeTag(polyval, true, authKey, data, AAD);
       // Compute the expected tag by XORing S_s and the nonce, clearing the
       // most significant bit of the last byte and encrypting with the
@@ -1056,7 +1095,11 @@ export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => 
       return tag;
     }
     // actual decrypt/encrypt of message.
-    function processSiv(encKey: Uint32Array, tag: Uint8Array, input: Uint8Array) {
+    function processSiv(
+      encKey: TArg<Uint32Array>,
+      tag: TArg<Uint8Array>,
+      input: TArg<Uint8Array>
+    ): TRet<Uint8Array> {
       let block = copyBytes(tag);
       // RFC 8452 §4 / §5 use the tag with the highest bit of the last byte
       // forced to one as the initial AES-CTR counter block.
@@ -1067,7 +1110,7 @@ export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => 
       return res;
     }
     return {
-      encrypt(plaintext: Uint8Array) {
+      encrypt(plaintext: TArg<Uint8Array>): TRet<Uint8Array> {
         PLAIN_LIMIT(plaintext.length);
         const { encKey, authKey } = deriveKeys();
         const tag = _computeTag(encKey, authKey, plaintext);
@@ -1078,9 +1121,9 @@ export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => 
         out.set(processSiv(encKey, tag, plaintext));
         // Cleanup
         clean(...toClean);
-        return out;
+        return out as TRet<Uint8Array>;
       },
-      decrypt(ciphertext: Uint8Array) {
+      decrypt(ciphertext: TArg<Uint8Array>): TRet<Uint8Array> {
         CIPHER_LIMIT(ciphertext.length);
         const tag = ciphertext.subarray(-tagLength);
         const { encKey, authKey } = deriveKeys();
@@ -1097,9 +1140,9 @@ export const gcmsiv: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => 
         }
         // Cleanup
         clean(...toClean);
-        return plaintext;
+        return plaintext as TRet<Uint8Array>;
       },
-    };
+    } as TRet<Cipher>;
   }
 );
 
@@ -1113,7 +1156,7 @@ function isBytes32(a: unknown): a is Uint32Array {
 
 // Unsafe single-block helpers: mutate `block` in place and require its 16-byte
 // Uint8Array view to be 4-byte aligned because `u32(block)` reinterprets it.
-function encryptBlock(xk: Uint32Array, block: Uint8Array): Uint8Array {
+function encryptBlock(xk: TArg<Uint32Array>, block: TArg<Uint8Array>): TRet<Uint8Array> {
   abytes(block, 16, 'block');
   if (!isBytes32(xk)) throw new Error('_encryptBlock accepts result of expandKeyLE');
   const b32 = u32(block);
@@ -1121,10 +1164,10 @@ function encryptBlock(xk: Uint32Array, block: Uint8Array): Uint8Array {
   let { s0, s1, s2, s3 } = encrypt(xk, b32[0], b32[1], b32[2], b32[3]);
   ((b32[0] = s0), (b32[1] = s1), (b32[2] = s2), (b32[3] = s3));
   swap32IfBE(b32);
-  return block;
+  return block as TRet<Uint8Array>;
 }
 
-function decryptBlock(xk: Uint32Array, block: Uint8Array): Uint8Array {
+function decryptBlock(xk: TArg<Uint32Array>, block: TArg<Uint8Array>): TRet<Uint8Array> {
   abytes(block, 16, 'block');
   if (!isBytes32(xk)) throw new Error('_decryptBlock accepts result of expandKeyLE');
   const b32 = u32(block);
@@ -1132,7 +1175,7 @@ function decryptBlock(xk: Uint32Array, block: Uint8Array): Uint8Array {
   let { s0, s1, s2, s3 } = decrypt(xk, b32[0], b32[1], b32[2], b32[3]);
   ((b32[0] = s0), (b32[1] = s1), (b32[2] = s2), (b32[3] = s3));
   swap32IfBE(b32);
-  return block;
+  return block as TRet<Uint8Array>;
 }
 
 /**
@@ -1161,7 +1204,7 @@ const AESW = {
   ```
   Decrypt is the same, but reversed.
   */
-  encrypt(kek: Uint8Array, out: Uint8Array) {
+  encrypt(kek: TArg<Uint8Array>, out: TArg<Uint8Array>) {
     // Current implementation keeps RFC 3394/5649 `t` in a u32-shaped counter,
     // so the shared core caps plaintext below 4 GiB even though the specs allow more.
     if (out.length >= 2 ** 32) throw new Error('plaintext should be less than 4gb');
@@ -1188,7 +1231,7 @@ const AESW = {
     }
     xk.fill(0);
   },
-  decrypt(kek: Uint8Array, out: Uint8Array) {
+  decrypt(kek: TArg<Uint8Array>, out: TArg<Uint8Array>) {
     // Same implementation cap on the recovered plaintext length after
     // removing the 8-byte A/IV prefix.
     if (out.length - 8 >= 2 ** 32) throw new Error('ciphertext should be less than 4gb');
@@ -1245,37 +1288,40 @@ const AESKW_IV = /* @__PURE__ */ new Uint8Array(8).fill(0xa6); // A6A6A6A6A6A6A6
  * wrap.encrypt(cek);
  * ```
  */
-export const aeskw: ((kek: Uint8Array) => Cipher) & {
-  blockSize: number;
-} = /* @__PURE__ */ wrapCipher(
+export const aeskw: TRet<
+  ((kek: TArg<Uint8Array>) => Cipher) & {
+    blockSize: number;
+  }
+> = /* @__PURE__ */ wrapCipher(
   { blockSize: 8 },
-  (kek: Uint8Array): Cipher => ({
-    encrypt(plaintext: Uint8Array) {
-      if (!plaintext.length || plaintext.length % 8 !== 0)
-        throw new Error('invalid plaintext length');
-      // RFC 3394 / NIST SP 800-38F define KW only for >=2 plaintext
-      // semiblocks; the 1-semiblock case belongs to RFC 5649 KWP.
-      if (plaintext.length === 8)
-        throw new Error('8-byte keys not allowed in AESKW, use AESKWP instead');
-      const out = concatBytes(AESKW_IV, plaintext);
-      AESW.encrypt(kek, out);
-      return out;
-    },
-    decrypt(ciphertext: Uint8Array) {
-      // ciphertext must be at least 24 bytes and a multiple of 8 bytes
-      // 24 because should have at least two block (1 iv + 2).
-      // Replace with 16 to enable '8-byte keys'
-      if (ciphertext.length % 8 !== 0 || ciphertext.length < 3 * 8)
-        throw new Error('invalid ciphertext length');
-      // AESW.decrypt() mutates its buffer in place, so keep caller ciphertext
-      // immutable across the unwrap, ICV1 check, and IV scrubbing below.
-      const out = copyBytes(ciphertext);
-      AESW.decrypt(kek, out);
-      if (!equalBytes(out.subarray(0, 8), AESKW_IV)) throw new Error('integrity check failed');
-      out.subarray(0, 8).fill(0); // ciphertext.subarray(0, 8) === IV, but we clean it anyway
-      return out.subarray(8);
-    },
-  })
+  (kek: TArg<Uint8Array>): TRet<Cipher> =>
+    ({
+      encrypt(plaintext: TArg<Uint8Array>): TRet<Uint8Array> {
+        if (!plaintext.length || plaintext.length % 8 !== 0)
+          throw new Error('invalid plaintext length');
+        // RFC 3394 / NIST SP 800-38F define KW only for >=2 plaintext
+        // semiblocks; the 1-semiblock case belongs to RFC 5649 KWP.
+        if (plaintext.length === 8)
+          throw new Error('8-byte keys not allowed in AESKW, use AESKWP instead');
+        const out = concatBytes(AESKW_IV, plaintext);
+        AESW.encrypt(kek, out);
+        return out;
+      },
+      decrypt(ciphertext: TArg<Uint8Array>): TRet<Uint8Array> {
+        // ciphertext must be at least 24 bytes and a multiple of 8 bytes
+        // 24 because should have at least two block (1 iv + 2).
+        // Replace with 16 to enable '8-byte keys'
+        if (ciphertext.length % 8 !== 0 || ciphertext.length < 3 * 8)
+          throw new Error('invalid ciphertext length');
+        // AESW.decrypt() mutates its buffer in place, so keep caller ciphertext
+        // immutable across the unwrap, ICV1 check, and IV scrubbing below.
+        const out = copyBytes(ciphertext);
+        AESW.decrypt(kek, out);
+        if (!equalBytes(out.subarray(0, 8), AESKW_IV)) throw new Error('integrity check failed');
+        out.subarray(0, 8).fill(0); // ciphertext.subarray(0, 8) === IV, but we clean it anyway
+        return out.subarray(8) as TRet<Uint8Array>;
+      },
+    }) as TRet<Cipher>
 );
 
 /*
@@ -1341,68 +1387,71 @@ const AESKWP_IV = 0xa65959a6; // single u32le value
  * wrap.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */
-export const aeskwp: ((kek: Uint8Array) => Cipher) & {
-  blockSize: number;
-} = /* @__PURE__ */ wrapCipher(
+export const aeskwp: TRet<
+  ((kek: TArg<Uint8Array>) => Cipher) & {
+    blockSize: number;
+  }
+> = /* @__PURE__ */ wrapCipher(
   { blockSize: 8 },
-  (kek: Uint8Array): Cipher => ({
-    encrypt(plaintext: Uint8Array) {
-      if (!plaintext.length) throw new Error('invalid plaintext length');
-      const padded = Math.ceil(plaintext.length / 8) * 8;
-      const out = new Uint8Array(8 + padded);
-      out.set(plaintext, 8);
-      const out32 = u32(out);
-      out32[0] = swap8IfBE(AESKWP_IV);
-      // RFC 5649 §3: the low 32 bits of the AIV carry the octet-length MLI in
-      // network order, even though this buffer is addressed through LE u32s.
-      out32[1] = swap8IfBE(byteSwap(plaintext.length));
-      AESW.encrypt(kek, out);
-      return out;
-    },
-    decrypt(ciphertext: Uint8Array) {
-      // 16 because should have at least one block
-      if (ciphertext.length < 16) throw new Error('invalid ciphertext length');
-      // AESW.decrypt() mutates its buffer in place, so keep caller ciphertext
-      // immutable across the unwrap, AIV checks, and IV scrubbing below.
-      const out = copyBytes(ciphertext);
-      const o32 = u32(out);
-      AESW.decrypt(kek, out);
-      const len = byteSwap(swap8IfBE(o32[1])) >>> 0;
-      const padded = Math.ceil(len / 8) * 8;
-      if (swap8IfBE(o32[0]) !== AESKWP_IV || out.length - 8 !== padded)
-        throw new Error('integrity check failed');
-      // RFC 5649 §3 / NIST SP 800-38F Algorithm 6: recovered padding length
-      // must be in [0,7], and every recovered pad octet must be zero.
-      for (let i = len; i < padded; i++)
-        if (out[8 + i] !== 0) throw new Error('integrity check failed');
-      out.subarray(0, 8).fill(0); // ciphertext.subarray(0, 8) === IV, but we clean it anyway
-      return out.subarray(8, 8 + len);
-    },
-  })
+  (kek: TArg<Uint8Array>): TRet<Cipher> =>
+    ({
+      encrypt(plaintext: TArg<Uint8Array>): TRet<Uint8Array> {
+        if (!plaintext.length) throw new Error('invalid plaintext length');
+        const padded = Math.ceil(plaintext.length / 8) * 8;
+        const out = new Uint8Array(8 + padded);
+        out.set(plaintext, 8);
+        const out32 = u32(out);
+        out32[0] = swap8IfBE(AESKWP_IV);
+        // RFC 5649 §3: the low 32 bits of the AIV carry the octet-length MLI in
+        // network order, even though this buffer is addressed through LE u32s.
+        out32[1] = swap8IfBE(byteSwap(plaintext.length));
+        AESW.encrypt(kek, out);
+        return out as TRet<Uint8Array>;
+      },
+      decrypt(ciphertext: TArg<Uint8Array>): TRet<Uint8Array> {
+        // 16 because should have at least one block
+        if (ciphertext.length < 16) throw new Error('invalid ciphertext length');
+        // AESW.decrypt() mutates its buffer in place, so keep caller ciphertext
+        // immutable across the unwrap, AIV checks, and IV scrubbing below.
+        const out = copyBytes(ciphertext);
+        const o32 = u32(out);
+        AESW.decrypt(kek, out);
+        const len = byteSwap(swap8IfBE(o32[1])) >>> 0;
+        const padded = Math.ceil(len / 8) * 8;
+        if (swap8IfBE(o32[0]) !== AESKWP_IV || out.length - 8 !== padded)
+          throw new Error('integrity check failed');
+        // RFC 5649 §3 / NIST SP 800-38F Algorithm 6: recovered padding length
+        // must be in [0,7], and every recovered pad octet must be zero.
+        for (let i = len; i < padded; i++)
+          if (out[8 + i] !== 0) throw new Error('integrity check failed');
+        out.subarray(0, 8).fill(0); // ciphertext.subarray(0, 8) === IV, but we clean it anyway
+        return out.subarray(8, 8 + len) as TRet<Uint8Array>;
+      },
+    }) as TRet<Cipher>
 );
 
 class _AesCtrDRBG implements PRG {
   readonly blockLen: number;
-  private key: Uint8Array;
-  private nonce: Uint8Array;
-  private state: Uint8Array;
+  private key: TRet<Uint8Array>;
+  private nonce: TRet<Uint8Array>;
+  private state: TRet<Uint8Array>;
   private reseedCnt: number;
-  constructor(keyLen: number, seed: Uint8Array, personalization?: Uint8Array) {
+  constructor(keyLen: number, seed: TArg<Uint8Array>, personalization?: TArg<Uint8Array>) {
     this.blockLen = ctr.blockSize;
     const keyLenBytes = keyLen / 8;
     const nonceLen = 16;
     // Store the full seedlen state as key || V so CTR_DRBG_Update-style steps
     // can rewrite the entire internal state in place.
-    this.state = new Uint8Array(keyLenBytes + nonceLen);
-    this.key = this.state.subarray(0, keyLenBytes);
-    this.nonce = this.state.subarray(keyLenBytes, keyLenBytes + nonceLen);
+    this.state = new Uint8Array(keyLenBytes + nonceLen) as TRet<Uint8Array>;
+    this.key = this.state.subarray(0, keyLenBytes) as TRet<Uint8Array>;
+    this.nonce = this.state.subarray(keyLenBytes, keyLenBytes + nonceLen) as TRet<Uint8Array>;
     this.reseedCnt = 1;
     // Keep the stored counter one step ahead of SP 800-90A's formal V so
     // ctr(key, nonce) uses the next counter block directly.
     incBytes(this.nonce, false, 1);
     this.addEntropy(seed, personalization);
   }
-  private update(data?: Uint8Array) {
+  private update(data?: TArg<Uint8Array>) {
     // cannot re-use state here, because we will wipe current key
     ctr(this.key, this.nonce).encrypt(new Uint8Array(this.state.length), this.state);
     if (data) {
@@ -1417,7 +1466,7 @@ class _AesCtrDRBG implements PRG {
   }
   // Optional `info` is additional input XORed into the reseed block and is
   // limited to the internal state width.
-  addEntropy(seed: Uint8Array, info?: Uint8Array): void {
+  addEntropy(seed: TArg<Uint8Array>, info?: TArg<Uint8Array>): void {
     abytes(seed, this.state.length, 'seed');
     // Copy caller entropy before XORing in personalization/additional input,
     // then wipe the mixed seed material after CTR_DRBG_Update consumes it.
@@ -1434,7 +1483,7 @@ class _AesCtrDRBG implements PRG {
   // Optional `info` is additional input for the pre/post-update steps; bytes
   // SP 800-90A Rev. 1 CTR_DRBG without a derivation function limits
   // additional_input to seedlen, which is exactly this internal state width.
-  randomBytes(len: number, info?: Uint8Array): Uint8Array {
+  randomBytes(len: number, info?: TArg<Uint8Array>): TRet<Uint8Array> {
     anumber(len);
     // SP 800-90A Table 3 caps AES CTR_DRBG requests at 2^19 bits = 65536 bytes.
     if (len > 2 ** 16) throw new Error('requested output is too big');
@@ -1450,7 +1499,7 @@ class _AesCtrDRBG implements PRG {
     incBytes(this.nonce, false, Math.ceil(len / this.blockLen));
     this.update(info);
     this.reseedCnt++;
-    return res;
+    return res as TRet<Uint8Array>;
   }
   // Zeroes the current state and resets the counter, but does not make the
   // instance unusable: later calls continue from the zeroed state.
@@ -1468,12 +1517,16 @@ class _AesCtrDRBG implements PRG {
  * @param personalization - Optional personalization string mixed into the state.
  * @returns Seeded AES-CTR DRBG instance.
  */
-export type AesCtrDrbg = (seed: Uint8Array, personalization?: Uint8Array) => _AesCtrDRBG;
+export type AesCtrDrbg = (
+  seed: TArg<Uint8Array>,
+  personalization?: TArg<Uint8Array>
+) => TRet<_AesCtrDRBG>;
 
 // Internal helper for the exported 128-bit and 256-bit aliases; other key
 // lengths are not validated here.
-const createAesDrbg: (keyLen: number) => AesCtrDrbg = (keyLen) => {
-  return (seed, personalization = undefined) => new _AesCtrDRBG(keyLen, seed, personalization);
+const createAesDrbg: (keyLen: number) => TRet<AesCtrDrbg> = (keyLen) => {
+  return (seed, personalization = undefined) =>
+    new _AesCtrDRBG(keyLen, seed, personalization) as TRet<_AesCtrDRBG>;
 };
 
 /**
@@ -1493,7 +1546,7 @@ const createAesDrbg: (keyLen: number) => AesCtrDrbg = (keyLen) => {
  * prg.randomBytes(8);
  * ```
  */
-export const rngAesCtrDrbg128: AesCtrDrbg = /* @__PURE__ */ createAesDrbg(128);
+export const rngAesCtrDrbg128: TRet<AesCtrDrbg> = /* @__PURE__ */ createAesDrbg(128);
 /**
  * AES-CTR DRBG 256-bit - CSPRNG (cryptographically secure pseudorandom number generator).
  * It's best to limit usage to non-production, non-critical cases: for example, test-only.
@@ -1511,7 +1564,7 @@ export const rngAesCtrDrbg128: AesCtrDrbg = /* @__PURE__ */ createAesDrbg(128);
  * prg.randomBytes(8);
  * ```
  */
-export const rngAesCtrDrbg256: AesCtrDrbg = /* @__PURE__ */ createAesDrbg(256);
+export const rngAesCtrDrbg256: TRet<AesCtrDrbg> = /* @__PURE__ */ createAesDrbg(256);
 
 //#region CMAC
 
@@ -1555,7 +1608,7 @@ function dbl<T extends Uint8Array>(block: T): T {
  * @param b right operand
  * @returns `a` (for chaining)
  */
-function xorBlock<T extends Uint8Array>(a: T, b: Uint8Array): T {
+function xorBlock<T extends TArg<Uint8Array>>(a: T, b: TArg<Uint8Array>): T {
   if (a.length !== b.length) throw new Error('xorBlock: blocks must have same length');
   for (let i = 0; i < a.length; i++) {
     a[i] = a[i] ^ b[i];
@@ -1574,7 +1627,7 @@ function xorBlock<T extends Uint8Array>(a: T, b: Uint8Array): T {
  * Mutates `a` in place so the left prefix stays untouched and only the
  * rightmost `len(B)` bytes are xored with `b`.
  */
-function xorend<T extends Uint8Array>(a: T, b: Uint8Array): T {
+function xorend<T extends TArg<Uint8Array>>(a: T, b: TArg<Uint8Array>): T {
   if (b.length > a.length) {
     throw new Error('xorend: len(B) must be less than or equal to len(A)');
   }
@@ -1604,7 +1657,7 @@ class _CMAC implements IHash2 {
   private x: Uint8Array;
   private xk: Uint32Array;
 
-  constructor(key: Uint8Array) {
+  constructor(key: TArg<Uint8Array>) {
     abytes(key);
     validateKeyLength(key);
     this.xk = expandKeyLE(key);
@@ -1623,13 +1676,13 @@ class _CMAC implements IHash2 {
     this.k2 = dbl(new Uint8Array(this.k1));
   }
 
-  private process(data: Uint8Array): void {
+  private process(data: TArg<Uint8Array>): void {
     // RFC 4493 §2.4 step 6 loop body: Y := X XOR M_i; X := AES-128(K, Y).
     xorBlock(this.x, data);
     encryptBlock(this.xk, this.x);
   }
 
-  update(data: Uint8Array): this {
+  update(data: TArg<Uint8Array>): this {
     if (this.destroyed) throw new Error('Hash instance has been destroyed');
     if (this.finished) throw new Error('Hash#digest() has already been called');
     abytes(data);
@@ -1658,7 +1711,7 @@ class _CMAC implements IHash2 {
   }
 
   // See {@link https://www.rfc-editor.org/rfc/rfc4493.html#section-2.4 | RFC 4493 Section 2.4}.
-  digestInto(out: Uint8Array): void {
+  digestInto(out: TArg<Uint8Array>): void {
     if (this.destroyed) throw new Error('Hash instance has been destroyed');
     if (this.finished) throw new Error('Hash#digest() has already been called');
     // `digestInto(out)` is the no-allocation fast path, so AES block re-use below
@@ -1714,7 +1767,6 @@ class _CMAC implements IHash2 {
  * @returns 16-byte authentication tag. `cmac.create(...)` follows the same incremental MAC shape as
  * the other keyed helpers in this repo, including `blockLen`,
  * `outputLen`, `digestInto()` and `destroy()`.
- * @throws If the AES key length is invalid. {@link Error}
  * @example
  * Authenticates a message with AES-CMAC and a fresh key.
  *
@@ -1727,7 +1779,10 @@ class _CMAC implements IHash2 {
  */
 // The 16-byte probe key is only used to read static metadata; runtime CMAC
 // still accepts AES-128/192/256 keys.
-export const cmac: CMac<_CMAC> = /* @__PURE__ */ wrapMacConstructor(16, (key) => new _CMAC(key));
+export const cmac: TRet<CMac<_CMAC>> = /* @__PURE__ */ wrapMacConstructor(
+  16,
+  (key: TArg<Uint8Array>) => new _CMAC(key)
+);
 
 /**
  * S2V (Synthetic Initialization Vector) function as described in
@@ -1758,7 +1813,7 @@ export const cmac: CMac<_CMAC> = /* @__PURE__ */ wrapMacConstructor(16, (key) =>
  * @param strings - Array of byte arrays to process
  * @returns 128-bit synthetic IV
  */
-function s2v(key: Uint8Array, strings: Uint8Array[]): Uint8Array {
+function s2v(key: TArg<Uint8Array>, strings: TArg<Uint8Array[]>): TRet<Uint8Array> {
   validateKeyLength(key);
   const len = strings.length;
   if (len > 127) {
@@ -1848,12 +1903,14 @@ export const siv: () => never = () => {
  * cipher.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */
-export const aessiv: ((key: Uint8Array, ...AAD: Uint8Array[]) => Cipher) & {
-  blockSize: number;
-  tagLength: number;
-} = /* @__PURE__ */ wrapCipher(
+export const aessiv: TRet<
+  ((key: TArg<Uint8Array>, ...AAD: TArg<Uint8Array[]>) => Cipher) & {
+    blockSize: number;
+    tagLength: number;
+  }
+> = /* @__PURE__ */ wrapCipher(
   { blockSize: 16, tagLength: 16 },
-  function aessiv(key: Uint8Array, ...AAD: Uint8Array[]): Cipher {
+  function aessiv(key: TArg<Uint8Array>, ...AAD: TArg<Uint8Array[]>): TRet<Cipher> {
     // From RFC 5297: Section 6.1, 6.2, 6.3:
     const PLAIN_LIMIT = limit('plaintext', 0, 2 ** 132);
     const CIPHER_LIMIT = limit('ciphertext', 16, 2 ** 132 + 16);
@@ -1876,7 +1933,7 @@ export const aessiv: ((key: Uint8Array, ...AAD: Uint8Array[]) => Cipher) & {
 
     return {
       // {@link https://datatracker.ietf.org/doc/html/rfc5297.html#section-2.6 | RFC 5297 Section 2.6}
-      encrypt(plaintext: Uint8Array) {
+      encrypt(plaintext: TArg<Uint8Array>): TRet<Uint8Array> {
         PLAIN_LIMIT(plaintext.length);
 
         const v = s2v(k1, [...AAD, plaintext]);
@@ -1892,7 +1949,7 @@ export const aessiv: ((key: Uint8Array, ...AAD: Uint8Array[]) => Cipher) & {
         return concatBytes(v, c);
       },
       // {@link https://datatracker.ietf.org/doc/html/rfc5297.html#section-2.7 | RFC 5297 Section 2.7}
-      decrypt(ciphertext: Uint8Array) {
+      decrypt(ciphertext: TArg<Uint8Array>): TRet<Uint8Array> {
         CIPHER_LIMIT(ciphertext.length);
         const v = ciphertext.subarray(0, BLOCK_SIZE);
         const c = ciphertext.subarray(BLOCK_SIZE);
@@ -1909,12 +1966,12 @@ export const aessiv: ((key: Uint8Array, ...AAD: Uint8Array[]) => Cipher) & {
         const t = s2v(k1, [...AAD, p]);
 
         if (equalBytes(t, v)) {
-          return p;
+          return p as TRet<Uint8Array>;
         } else {
           throw new Error('invalid siv tag');
         }
       },
-    };
+    } as TRet<Cipher>;
   }
 );
 //#endregion
@@ -1938,7 +1995,7 @@ export const unsafe: {
   xorBlock: typeof xorBlock;
   xorend: typeof xorend;
   s2v: typeof s2v;
-} = {
+} = /* @__PURE__ */ Object.freeze({
   expandKeyLE,
   expandKeyDecLE,
   encrypt,
@@ -1951,6 +2008,8 @@ export const unsafe: {
   xorBlock,
   xorend,
   s2v,
-};
+});
 
-export const __TESTS: { incBytes: typeof incBytes } = { incBytes: incBytes };
+export const __TESTS: { incBytes: typeof incBytes } = /* @__PURE__ */ Object.freeze({
+  incBytes: incBytes,
+});

@@ -23,6 +23,8 @@ import {
   abytes,
   type ARXCipher,
   type CipherWithOutput,
+  type TArg,
+  type TRet,
   clean,
   equalBytes,
   getOutput,
@@ -44,7 +46,7 @@ import {
  */
 
 /** RFC 7914 §3 Salsa20/8 core quarter-round on words a, b, c, d. */
-function salsaQR(x: Uint32Array, a: number, b: number, c: number, d: number) {
+function salsaQR(x: TArg<Uint32Array>, a: number, b: number, c: number, d: number) {
   x[b] ^= rotl((x[a] + x[d]) | 0, 7);
   x[c] ^= rotl((x[b] + x[a]) | 0, 9);
   x[d] ^= rotl((x[c] + x[b]) | 0, 13);
@@ -52,7 +54,7 @@ function salsaQR(x: Uint32Array, a: number, b: number, c: number, d: number) {
 }
 
 /** RFC 7914 §3 double-round schedule: four column rounds, then four row rounds. */
-function salsaRound(x: Uint32Array, rounds = 20) {
+function salsaRound(x: TArg<Uint32Array>, rounds = 20) {
   for (let r = 0; r < rounds; r += 2) {
     salsaQR(x, 0, 4, 8, 12);
     salsaQR(x, 5, 9, 13, 1);
@@ -72,7 +74,7 @@ const stmp = /* @__PURE__ */ new Uint32Array(16);
 /** Small version of salsa without loop unrolling. Unused, provided for auditability. */
 // prettier-ignore
 function salsa(
-  s: Uint32Array, k: Uint32Array, i: Uint32Array, out: Uint32Array,
+  s: TArg<Uint32Array>, k: TArg<Uint32Array>, i: TArg<Uint32Array>, out: TArg<Uint32Array>,
   isHSalsa: boolean = true, rounds: number = 20
 ): void {
   // Create initial array using common pattern
@@ -106,7 +108,7 @@ const hsalsa_small: typeof hsalsa = salsa;
 /** Identical to `salsaCore_small`. Uses only the low 32 bits of Salsa20's 64-bit counter state. */
 // prettier-ignore
 function salsaCore(
-  s: Uint32Array, k: Uint32Array, n: Uint32Array, out: Uint32Array, cnt: number, rounds = 20
+  s: TArg<Uint32Array>, k: TArg<Uint32Array>, n: TArg<Uint32Array>, out: TArg<Uint32Array>, cnt: number, rounds = 20
 ): void {
   // Public wrappers expose only the low 32 bits of Salsa20's 64-bit counter; y09 stays zero.
   // Based on {@link https://cr.yp.to/salsa20.html | the Salsa20 reference page}.
@@ -170,7 +172,7 @@ function salsaCore(
  */
 // prettier-ignore
 export function hsalsa(
-  s: Uint32Array, k: Uint32Array, i: Uint32Array, out: Uint32Array
+  s: TArg<Uint32Array>, k: TArg<Uint32Array>, i: TArg<Uint32Array>, out: TArg<Uint32Array>
 ): void {
   let x00 = swap8IfBE(s[0]), x01 = swap8IfBE(k[0]), x02 = swap8IfBE(k[1]), x03 = swap8IfBE(k[2]),
       x04 = swap8IfBE(k[3]), x05 = swap8IfBE(s[1]), x06 = swap8IfBE(i[0]), x07 = swap8IfBE(i[1]),
@@ -226,7 +228,7 @@ export function hsalsa(
  * salsa20(key, nonce, new Uint8Array([1, 2, 3, 4]));
  * ```
  */
-export const salsa20: XorStream = /* @__PURE__ */ createCipher(salsaCore, {
+export const salsa20: TRet<XorStream> = /* @__PURE__ */ createCipher(salsaCore, {
   allowShortKeys: true,
   counterRight: true,
 });
@@ -252,7 +254,7 @@ export const salsa20: XorStream = /* @__PURE__ */ createCipher(salsaCore, {
  * xsalsa20(key, nonce, new Uint8Array([1, 2, 3, 4]));
  * ```
  */
-export const xsalsa20: XorStream = /* @__PURE__ */ createCipher(salsaCore, {
+export const xsalsa20: TRet<XorStream> = /* @__PURE__ */ createCipher(salsaCore, {
   counterRight: true,
   extendNonceFn: hsalsa,
 });
@@ -266,6 +268,7 @@ export const xsalsa20: XorStream = /* @__PURE__ */ createCipher(salsaCore, {
  * implementation uses a 32-byte leading scratch area before returning `+16`.
  * @param key - 32-byte key.
  * @param nonce - 24-byte nonce.
+ * @param AAD - Must be omitted; XSalsa20-Poly1305 secretbox does not support associated data.
  * @returns AEAD cipher instance.
  * @example
  * Encrypts and authenticates plaintext with XSalsa20-Poly1305.
@@ -279,47 +282,58 @@ export const xsalsa20: XorStream = /* @__PURE__ */ createCipher(salsaCore, {
  * cipher.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */
-export const xsalsa20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
+export const xsalsa20poly1305: TRet<ARXCipher> = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16 },
-  (key: Uint8Array, nonce: Uint8Array): CipherWithOutput => {
+  (key: TArg<Uint8Array>, nonce: TArg<Uint8Array>): TRet<CipherWithOutput> => {
     // This borrows caller key/nonce buffers by reference; mutating them after construction changes
     // later encrypt/decrypt outputs.
     return {
-      encrypt(plaintext: Uint8Array, output?: Uint8Array) {
+      encrypt(plaintext: TArg<Uint8Array>, output?: TArg<Uint8Array>): TRet<Uint8Array> {
         // xsalsa20poly1305 optimizes by calculating auth key during the same call as encryption.
         // Unfortunately, makes it hard to separate tag calculation & encryption itself,
         // because 32 bytes is half-block of 64-byte salsa.
-        output = getOutput(plaintext.length + 32, output, false); // need 32 additional bytes, see above
-        const authKey = output.subarray(0, 32); // output[0..32] = poly1305 auth key
-        const ciphPlaintext = output.subarray(32); // output[32..] = plaintext, then ciphertext
+        // Need 32 extra bytes up front for the auth-key scratch area described above.
+        output = getOutput(plaintext.length + 32, output, false);
+        // output[0..32] = Poly1305 auth key, output[32..] = plaintext then ciphertext.
+        const authKey = output.subarray(0, 32);
+        const ciphPlaintext = output.subarray(32);
         output.set(plaintext, 32);
-        clean(authKey); // authKey is produced by xoring with zeros
-        xsalsa20(key, nonce, output, output); // output = stream ^ output; authKey = stream ^ zeros(32)
-        const tag = poly1305(ciphPlaintext, authKey); // calculate tag over ciphertext
-        output.set(tag, 16); // output[16..32] = tag
-        clean(output.subarray(0, 16), tag); // clean-up authKey remnants & copy of tag
-        return output.subarray(16); // return output[16..]
+        // authKey is produced by xoring the first 32 bytes with zeros.
+        clean(authKey);
+        // output = stream ^ output; authKey = stream ^ zeros(32)
+        xsalsa20(key, nonce, output, output);
+        const tag = poly1305(ciphPlaintext, authKey);
+        output.set(tag, 16);
+        // Clean up auth-key remnants and the temporary tag copy.
+        clean(output.subarray(0, 16), tag);
+        // Return output[16..].
+        return output.subarray(16) as TRet<Uint8Array>;
       },
-      decrypt(ciphertext: Uint8Array, output?: Uint8Array) {
+      decrypt(ciphertext: TArg<Uint8Array>, output?: TArg<Uint8Array>): TRet<Uint8Array> {
         // tmp part     passed tag    ciphertext
         // [0..32]      [32..48]      [48..]
         // Authenticate the ciphertext before decrypting it; on tag failure the scratch/output
         // buffer may already contain copied ciphertext and derived auth-key material.
         abytes(ciphertext);
         output = getOutput(ciphertext.length + 32, output, false);
-        const tmp = output.subarray(0, 32); // output[0..32] is used to calc authKey
-        const passedTag = output.subarray(32, 48); // output[32..48] = passed tag
-        const ciphPlaintext = output.subarray(48); // output[48..] = ciphertext, then plaintext
-        output.set(ciphertext, 32); // copy ciphertext into output
-        clean(tmp); // authKey is produced by xoring with zeros
-        const authKey = xsalsa20(key, nonce, tmp, tmp); // authKey = stream ^ zeros(32)
-        const tag = poly1305(ciphPlaintext, authKey); // calculate tag over ciphertext
+        // output[0..32] is auth-key scratch, output[32..48] is passed tag,
+        // output[48..] is ciphertext then plaintext.
+        const tmp = output.subarray(0, 32);
+        const passedTag = output.subarray(32, 48);
+        const ciphPlaintext = output.subarray(48);
+        output.set(ciphertext, 32);
+        // authKey is produced by xoring the scratch area with zeros.
+        clean(tmp);
+        const authKey = xsalsa20(key, nonce, tmp, tmp);
+        const tag = poly1305(ciphPlaintext, authKey);
         if (!equalBytes(passedTag, tag)) throw new Error('invalid tag');
-        xsalsa20(key, nonce, output.subarray(16), output.subarray(16)); // output = stream ^ output[16..]
+        // output = stream ^ output[16..]
+        xsalsa20(key, nonce, output.subarray(16), output.subarray(16));
         clean(tmp, passedTag, tag);
-        return ciphPlaintext; // return output[48..], skipping zeroized output[0..48]
+        // Return output[48..], skipping zeroized output[0..48].
+        return ciphPlaintext as TRet<Uint8Array>;
       },
-    };
+    } as TRet<CipherWithOutput>;
   }
 );
 
@@ -343,12 +357,15 @@ export const xsalsa20poly1305: ARXCipher = /* @__PURE__ */ wrapCipher(
  * ```
  */
 export function secretbox(
-  key: Uint8Array,
-  nonce: Uint8Array
-): {
-  seal: (plaintext: Uint8Array, output?: Uint8Array) => Uint8Array;
-  open: (ciphertext: Uint8Array, output?: Uint8Array) => Uint8Array;
-} {
+  key: TArg<Uint8Array>,
+  nonce: TArg<Uint8Array>
+): TRet<{
+  seal: (plaintext: TArg<Uint8Array>, output?: TArg<Uint8Array>) => TRet<Uint8Array>;
+  open: (ciphertext: TArg<Uint8Array>, output?: TArg<Uint8Array>) => TRet<Uint8Array>;
+}> {
   const xs = xsalsa20poly1305(key, nonce);
-  return { seal: xs.encrypt, open: xs.decrypt };
+  return { seal: xs.encrypt, open: xs.decrypt } as TRet<{
+    seal: (plaintext: TArg<Uint8Array>, output?: TArg<Uint8Array>) => TRet<Uint8Array>;
+    open: (ciphertext: TArg<Uint8Array>, output?: TArg<Uint8Array>) => TRet<Uint8Array>;
+  }>;
 }

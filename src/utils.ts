@@ -5,6 +5,112 @@
 /*! noble-ciphers - MIT License (c) 2023 Paul Miller (paulmillr.com) */
 
 /**
+ * Bytes API type helpers for old + new TypeScript.
+ *
+ * TS 5.6 has `Uint8Array`, while TS 5.9+ made it generic `Uint8Array<ArrayBuffer>`.
+ * We can't use specific return type, because TS 5.6 will error.
+ * We can't use generic return type, because most TS 5.9 software will expect specific type.
+ *
+ * Maps typed-array input leaves to broad forms.
+ * These are compatibility adapters, not ownership guarantees.
+ *
+ * - `TArg` keeps byte inputs broad.
+ * - `TRet` marks byte outputs for TS 5.6 and TS 5.9+ compatibility.
+ */
+export type TypedArg<T> = T extends BigInt64Array
+  ? BigInt64Array
+  : T extends BigUint64Array
+    ? BigUint64Array
+    : T extends Float32Array
+      ? Float32Array
+      : T extends Float64Array
+        ? Float64Array
+        : T extends Int16Array
+          ? Int16Array
+          : T extends Int32Array
+            ? Int32Array
+            : T extends Int8Array
+              ? Int8Array
+              : T extends Uint16Array
+                ? Uint16Array
+                : T extends Uint32Array
+                  ? Uint32Array
+                  : T extends Uint8ClampedArray
+                    ? Uint8ClampedArray
+                    : T extends Uint8Array
+                      ? Uint8Array
+                      : never;
+/** Maps typed-array output leaves to narrow TS-compatible forms. */
+export type TypedRet<T> = T extends BigInt64Array
+  ? ReturnType<typeof BigInt64Array.of>
+  : T extends BigUint64Array
+    ? ReturnType<typeof BigUint64Array.of>
+    : T extends Float32Array
+      ? ReturnType<typeof Float32Array.of>
+      : T extends Float64Array
+        ? ReturnType<typeof Float64Array.of>
+        : T extends Int16Array
+          ? ReturnType<typeof Int16Array.of>
+          : T extends Int32Array
+            ? ReturnType<typeof Int32Array.of>
+            : T extends Int8Array
+              ? ReturnType<typeof Int8Array.of>
+              : T extends Uint16Array
+                ? ReturnType<typeof Uint16Array.of>
+                : T extends Uint32Array
+                  ? ReturnType<typeof Uint32Array.of>
+                  : T extends Uint8ClampedArray
+                    ? ReturnType<typeof Uint8ClampedArray.of>
+                    : T extends Uint8Array
+                      ? ReturnType<typeof Uint8Array.of>
+                      : never;
+/** Recursively adapts byte-carrying API input types. See {@link TypedArg}. */
+export type TArg<T> =
+  | T
+  | ([TypedArg<T>] extends [never]
+      ? T extends (...args: infer A) => infer R
+        ? ((...args: { [K in keyof A]: TRet<A[K]> }) => TArg<R>) & {
+            [K in keyof T]: T[K] extends (...args: any) => any ? T[K] : TArg<T[K]>;
+          }
+        : T extends [infer A, ...infer R]
+          ? [TArg<A>, ...{ [K in keyof R]: TArg<R[K]> }]
+          : T extends readonly [infer A, ...infer R]
+            ? readonly [TArg<A>, ...{ [K in keyof R]: TArg<R[K]> }]
+            : T extends (infer A)[]
+              ? TArg<A>[]
+              : T extends readonly (infer A)[]
+                ? readonly TArg<A>[]
+                : T extends Promise<infer A>
+                  ? Promise<TArg<A>>
+                  : T extends object
+                    ? { [K in keyof T]: TArg<T[K]> }
+                    : T
+      : TypedArg<T>);
+/** Recursively adapts byte-carrying API output types. See {@link TypedArg}. */
+export type TRet<T> = T extends unknown
+  ? T &
+      ([TypedRet<T>] extends [never]
+        ? T extends (...args: infer A) => infer R
+          ? ((...args: { [K in keyof A]: TArg<A[K]> }) => TRet<R>) & {
+              [K in keyof T]: T[K] extends (...args: any) => any ? T[K] : TRet<T[K]>;
+            }
+          : T extends [infer A, ...infer R]
+            ? [TRet<A>, ...{ [K in keyof R]: TRet<R[K]> }]
+            : T extends readonly [infer A, ...infer R]
+              ? readonly [TRet<A>, ...{ [K in keyof R]: TRet<R[K]> }]
+              : T extends (infer A)[]
+                ? TRet<A>[]
+                : T extends readonly (infer A)[]
+                  ? readonly TRet<A>[]
+                  : T extends Promise<infer A>
+                    ? Promise<TRet<A>>
+                    : T extends object
+                      ? { [K in keyof T]: TRet<T[K]> }
+                      : T
+        : TypedRet<T>)
+  : never;
+
+/**
  * Checks if something is Uint8Array. Be careful: nodejs Buffer will return true.
  * @param a - Value to inspect.
  * @returns `true` when the value is a Uint8Array view, including Node's `Buffer`.
@@ -78,7 +184,11 @@ export function anumber(n: number): void {
  * abytes(new Uint8Array([1, 2]), 2);
  * ```
  */
-export function abytes(value: Uint8Array, length?: number, title: string = ''): Uint8Array {
+export function abytes(
+  value: TArg<Uint8Array>,
+  length?: number,
+  title: string = ''
+): TRet<Uint8Array> {
   const bytes = isBytes(value);
   const len = value?.length;
   const needsLen = length !== undefined;
@@ -90,7 +200,7 @@ export function abytes(value: Uint8Array, length?: number, title: string = ''): 
     if (!bytes) throw new TypeError(message);
     throw new RangeError(message);
   }
-  return value;
+  return value as TRet<Uint8Array>;
 }
 
 /**
@@ -139,7 +249,7 @@ export function aoutput(out: any, instance: any, onlyAligned = false): void {
 
 /** One-shot hash helper with `.create()`. */
 export type IHash = {
-  (data: string | Uint8Array): Uint8Array;
+  (data: string | TArg<Uint8Array>): TRet<Uint8Array>;
   /** Input block size in bytes. */
   blockLen: number;
   /** Digest size in bytes. */
@@ -150,13 +260,18 @@ export type IHash = {
 
 /** One-shot MAC helper with `.create()`. */
 export type CMac<H extends IHash2 = IHash2, A extends any[] = []> = {
-  (msg: Uint8Array, key: Uint8Array): Uint8Array;
+  (msg: TArg<Uint8Array>, key: TArg<Uint8Array>): TRet<Uint8Array>;
   /** Input block size in bytes. */
   blockLen: number;
   /** Digest size in bytes. */
   outputLen: number;
-  /** Creates a fresh incremental MAC instance of the same algorithm. */
-  create(key: Uint8Array, ...args: A): H;
+  /**
+   * Creates a fresh incremental MAC instance of the same algorithm.
+   * @param key - MAC key bytes.
+   * @param args - Additional constructor arguments, when the MAC wrapper needs them.
+   * @returns Fresh incremental MAC instance.
+   */
+  create(key: TArg<Uint8Array>, ...args: A): H;
 };
 
 /** Generic type encompassing 8/16/32-bit typed arrays, but not 64-bit. */
@@ -175,8 +290,8 @@ export type TypedArray = Int8Array | Uint8ClampedArray | Uint8Array |
  * u8(new Uint32Array([1]));
  * ```
  */
-export function u8(arr: TypedArray): Uint8Array {
-  return new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
+export function u8(arr: TArg<TypedArray>): TRet<Uint8Array> {
+  return new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength) as TRet<Uint8Array>;
 }
 
 /**
@@ -191,8 +306,12 @@ export function u8(arr: TypedArray): Uint8Array {
  * u32(new Uint8Array(4));
  * ```
  */
-export function u32(arr: TypedArray): Uint32Array {
-  return new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
+export function u32(arr: TArg<TypedArray>): TRet<Uint32Array> {
+  return new Uint32Array(
+    arr.buffer,
+    arr.byteOffset,
+    Math.floor(arr.byteLength / 4)
+  ) as TRet<Uint32Array>;
 }
 
 /**
@@ -207,7 +326,7 @@ export function u32(arr: TypedArray): Uint32Array {
  * clean(bytes);
  * ```
  */
-export function clean(...arrays: TypedArray[]): void {
+export function clean(...arrays: TArg<TypedArray[]>): void {
   for (let i = 0; i < arrays.length; i++) {
     arrays[i].fill(0);
   }
@@ -224,7 +343,7 @@ export function clean(...arrays: TypedArray[]): void {
  * createView(new Uint8Array(4));
  * ```
  */
-export function createView(arr: TypedArray): DataView {
+export function createView(arr: TArg<TypedArray>): DataView {
   return new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
 }
 
@@ -235,28 +354,67 @@ export function createView(arr: TypedArray): DataView {
 export const isLE: boolean = /* @__PURE__ */ (() =>
   new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44)();
 
-/** Reverses byte order of one 32-bit word. */
+/**
+ * Reverses byte order of one 32-bit word.
+ * @param word - Unsigned 32-bit word to swap.
+ * @returns The same word with bytes reversed.
+ * @example
+ * Swaps a big-endian word into little-endian byte order.
+ *
+ * ```ts
+ * byteSwap(0x11223344);
+ * ```
+ */
 export const byteSwap = (word: number): number =>
   ((word << 24) & 0xff000000) |
   ((word << 8) & 0xff0000) |
   ((word >>> 8) & 0xff00) |
   ((word >>> 24) & 0xff);
 
-/** Normalizes one 32-bit word to the little-endian representation expected by
- * cipher cores as an unsigned u32. */
+/**
+ * Normalizes one 32-bit word to the little-endian representation expected by cipher cores.
+ * @param n - Unsigned 32-bit word to normalize.
+ * @returns Little-endian normalized word on big-endian hosts, else the input word unchanged.
+ * @example
+ * Normalizes a host-endian word before passing it into an ARX/AES core.
+ *
+ * ```ts
+ * swap8IfBE(0x11223344);
+ * ```
+ */
 export const swap8IfBE: (n: number) => number = isLE
   ? (n: number) => n
   : (n: number) => byteSwap(n) >>> 0;
 
-/** Byte-swaps every word of a Uint32Array in place. */
-export const byteSwap32 = (arr: Uint32Array): Uint32Array => {
+/**
+ * Byte-swaps every word of a Uint32Array in place.
+ * @param arr - Uint32Array whose words should be swapped.
+ * @returns The same array after in-place byte swapping.
+ * @example
+ * Swaps every 32-bit word in a word-view buffer.
+ *
+ * ```ts
+ * byteSwap32(new Uint32Array([0x11223344]));
+ * ```
+ */
+export const byteSwap32 = (arr: TArg<Uint32Array>): TRet<Uint32Array> => {
   for (let i = 0; i < arr.length; i++) arr[i] = byteSwap(arr[i]);
-  return arr;
+  return arr as TRet<Uint32Array>;
 };
 
-/** Normalizes a Uint32Array view to the little-endian representation expected by cipher cores. */
-export const swap32IfBE: (u: Uint32Array) => Uint32Array = isLE
-  ? (u: Uint32Array) => u
+/**
+ * Normalizes a Uint32Array view to the little-endian representation expected by cipher cores.
+ * @param u - Word view to normalize in place.
+ * @returns Little-endian normalized word view.
+ * @example
+ * Normalizes a word-view buffer before block processing.
+ *
+ * ```ts
+ * swap32IfBE(new Uint32Array([0x11223344]));
+ * ```
+ */
+export const swap32IfBE: (u: TArg<Uint32Array>) => TRet<Uint32Array> = isLE
+  ? (u: TArg<Uint32Array>) => u as TRet<Uint32Array>
   : byteSwap32;
 
 // Built-in hex conversion:
@@ -282,7 +440,7 @@ const hexes = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) =>
  * bytesToHex(Uint8Array.from([0xca, 0xfe, 0x01, 0x23])); // 'cafe0123'
  * ```
  */
-export function bytesToHex(bytes: Uint8Array): string {
+export function bytesToHex(bytes: TArg<Uint8Array>): string {
   abytes(bytes);
   // @ts-ignore
   if (hasHexBuiltin) return bytes.toHex();
@@ -316,7 +474,7 @@ function asciiToBase16(ch: number): number | undefined {
  * hexToBytes('cafe0123'); // Uint8Array.from([0xca, 0xfe, 0x01, 0x23])
  * ```
  */
-export function hexToBytes(hex: string): Uint8Array {
+export function hexToBytes(hex: string): TRet<Uint8Array> {
   if (typeof hex !== 'string') throw new TypeError('hex string expected, got ' + typeof hex);
   if (hasHexBuiltin) {
     try {
@@ -341,7 +499,7 @@ export function hexToBytes(hex: string): Uint8Array {
     }
     array[ai] = n1 * 16 + n2; // multiply first octet, e.g. 'a3' => 10*16+3 => 160 + 3 => 163
   }
-  return array;
+  return array as TRet<Uint8Array>;
 }
 
 // Used in micro
@@ -376,7 +534,7 @@ export function hexToNumber(hex: string): bigint {
  * bytesToNumberBE(new Uint8Array([1, 0]));
  * ```
  */
-export function bytesToNumberBE(bytes: Uint8Array): bigint {
+export function bytesToNumberBE(bytes: TArg<Uint8Array>): bigint {
   return hexToNumber(bytesToHex(bytes));
 }
 
@@ -398,7 +556,7 @@ export function bytesToNumberBE(bytes: Uint8Array): bigint {
  * numberToBytesBE(1, 2);
  * ```
  */
-export function numberToBytesBE(n: number | bigint, len: number): Uint8Array {
+export function numberToBytesBE(n: number | bigint, len: number): TRet<Uint8Array> {
   // Reject coercible non-numeric inputs before string/hex conversion changes behavior.
   if (typeof n === 'number') anumber(n);
   else if (typeof n !== 'bigint') throw new TypeError(`number or bigint expected, got ${typeof n}`);
@@ -423,9 +581,9 @@ declare const TextDecoder: any;
  * utf8ToBytes('abc'); // new Uint8Array([97, 98, 99])
  * ```
  */
-export function utf8ToBytes(str: string): Uint8Array {
+export function utf8ToBytes(str: string): TRet<Uint8Array> {
   if (typeof str !== 'string') throw new TypeError('string expected');
-  return new Uint8Array(new TextEncoder().encode(str)); // {@link https://bugzil.la/1681809 | Firefox bug 1681809}
+  return new Uint8Array(new TextEncoder().encode(str)) as TRet<Uint8Array>; // {@link https://bugzil.la/1681809 | Firefox bug 1681809}
 }
 
 /**
@@ -440,7 +598,7 @@ export function utf8ToBytes(str: string): Uint8Array {
  * bytesToUtf8(new Uint8Array([97, 98, 99])); // 'abc'
  * ```
  */
-export function bytesToUtf8(bytes: Uint8Array): string {
+export function bytesToUtf8(bytes: TArg<Uint8Array>): string {
   return new TextDecoder().decode(bytes);
 }
 
@@ -457,7 +615,7 @@ export function bytesToUtf8(bytes: Uint8Array): string {
  * overlapBytes(new Uint8Array(4), new Uint8Array(4));
  * ```
  */
-export function overlapBytes(a: Uint8Array, b: Uint8Array): boolean {
+export function overlapBytes(a: TArg<Uint8Array>, b: TArg<Uint8Array>): boolean {
   // Zero-length views cannot overwrite anything, even if their offset sits inside another range.
   if (!a.byteLength || !b.byteLength) return false;
   return (
@@ -481,7 +639,7 @@ export function overlapBytes(a: Uint8Array, b: Uint8Array): boolean {
  * complexOverlapBytes(new Uint8Array(4), new Uint8Array(4));
  * ```
  */
-export function complexOverlapBytes(input: Uint8Array, output: Uint8Array): void {
+export function complexOverlapBytes(input: TArg<Uint8Array>, output: TArg<Uint8Array>): void {
   // This is very cursed. It works somehow, but I'm completely unsure,
   // reasoning about overlapping aligned windows is very hard.
   if (overlapBytes(input, output) && input.byteOffset < output.byteOffset)
@@ -500,7 +658,7 @@ export function complexOverlapBytes(input: Uint8Array, output: Uint8Array): void
  * concatBytes(new Uint8Array([1]), new Uint8Array([2]));
  * ```
  */
-export function concatBytes(...arrays: Uint8Array[]): Uint8Array {
+export function concatBytes(...arrays: TArg<Uint8Array[]>): TRet<Uint8Array> {
   let sum = 0;
   for (let i = 0; i < arrays.length; i++) {
     const a = arrays[i];
@@ -513,7 +671,7 @@ export function concatBytes(...arrays: Uint8Array[]): Uint8Array {
     res.set(a, pad);
     pad += a.length;
   }
-  return res;
+  return res as TRet<Uint8Array>;
 }
 
 // Used in ARX only
@@ -553,7 +711,7 @@ export function checkOpts<T1 extends EmptyObj, T2 extends EmptyObj>(
  * equalBytes(new Uint8Array([1]), new Uint8Array([1]));
  * ```
  */
-export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
+export function equalBytes(a: TArg<Uint8Array>, b: TArg<Uint8Array>): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
@@ -572,18 +730,18 @@ export interface IHash2 {
    * @param buf - Data chunk to hash.
    * @returns The same hash instance for chaining.
    */
-  update(buf: string | Uint8Array): this;
+  update(buf: string | TArg<Uint8Array>): this;
   /**
    * Writes the final digest into a caller-provided buffer.
    * @param buf - Destination buffer for the digest bytes.
    * @returns Nothing. Implementations write into `buf` in place.
    */
-  digestInto(buf: Uint8Array): void;
+  digestInto(buf: TArg<Uint8Array>): void;
   /**
    * Finalizes the hash and returns a fresh digest buffer.
    * @returns Digest bytes.
    */
-  digest(): Uint8Array;
+  digest(): TRet<Uint8Array>;
   /**
    * Resets internal state. Makes Hash instance unusable.
    * Reset is impossible for keyed hashes if key is consumed into state. If digest is not consumed
@@ -603,19 +761,20 @@ export interface IHash2 {
  */
 export function wrapMacConstructor<H extends IHash2, A extends any[] = []>(
   keyLen: number,
-  macCons: (key: Uint8Array, ...args: A) => H,
-  fromMsg?: (msg: Uint8Array) => A
-): CMac<H, A> {
-  const getArgs = fromMsg || (() => [] as unknown as A);
-  const macC: any = (msg: Uint8Array, key: Uint8Array): Uint8Array =>
-    macCons(key, ...getArgs(msg))
+  macCons: TArg<(key: Uint8Array, ...args: A) => H>,
+  fromMsg?: TArg<(msg: Uint8Array) => A>
+): TRet<CMac<H, A>> {
+  const mac = macCons as (key: TArg<Uint8Array>, ...args: A) => H;
+  const getArgs = (fromMsg || (() => [] as unknown as A)) as (msg: TArg<Uint8Array>) => A;
+  const macC: any = (msg: TArg<Uint8Array>, key: TArg<Uint8Array>): TRet<Uint8Array> =>
+    mac(key, ...getArgs(msg))
       .update(msg)
       .digest();
-  const tmp = macCons(new Uint8Array(keyLen), ...getArgs(new Uint8Array(0)));
+  const tmp = mac(new Uint8Array(keyLen), ...getArgs(new Uint8Array(0)));
   macC.outputLen = tmp.outputLen;
   macC.blockLen = tmp.blockLen;
-  macC.create = (key: Uint8Array, ...args: A) => macCons(key, ...args);
-  return macC;
+  macC.create = (key: TArg<Uint8Array>, ...args: A) => mac(key, ...args);
+  return macC as TRet<CMac<H, A>>;
 }
 
 // This will allow to re-use with composable things like packed & base encoders
@@ -628,13 +787,13 @@ export type Cipher = {
    * @param plaintext - Data to encrypt.
    * @returns Ciphertext bytes.
    */
-  encrypt(plaintext: Uint8Array): Uint8Array;
+  encrypt(plaintext: TArg<Uint8Array>): TRet<Uint8Array>;
   /**
    * Decrypts ciphertext bytes.
    * @param ciphertext - Data to decrypt.
    * @returns Plaintext bytes.
    */
-  decrypt(ciphertext: Uint8Array): Uint8Array;
+  decrypt(ciphertext: TArg<Uint8Array>): TRet<Uint8Array>;
 };
 
 /** Async cipher e.g. from built-in WebCrypto. */
@@ -644,13 +803,13 @@ export type AsyncCipher = {
    * @param plaintext - Data to encrypt.
    * @returns Promise resolving to ciphertext bytes.
    */
-  encrypt(plaintext: Uint8Array): Promise<Uint8Array>;
+  encrypt(plaintext: TArg<Uint8Array>): Promise<TRet<Uint8Array>>;
   /**
    * Decrypts ciphertext bytes.
    * @param ciphertext - Data to decrypt.
    * @returns Promise resolving to plaintext bytes.
    */
-  decrypt(ciphertext: Uint8Array): Promise<Uint8Array>;
+  decrypt(ciphertext: TArg<Uint8Array>): Promise<TRet<Uint8Array>>;
 };
 
 /** Cipher with `output` argument which can optimize by doing 1 less allocation. */
@@ -661,14 +820,14 @@ export type CipherWithOutput = Cipher & {
    * @param output - Optional destination buffer.
    * @returns Ciphertext bytes.
    */
-  encrypt(plaintext: Uint8Array, output?: Uint8Array): Uint8Array;
+  encrypt(plaintext: TArg<Uint8Array>, output?: TArg<Uint8Array>): TRet<Uint8Array>;
   /**
    * Decrypts ciphertext bytes into an optional caller-provided buffer.
    * @param ciphertext - Data to decrypt.
    * @param output - Optional destination buffer.
    * @returns Plaintext bytes.
    */
-  decrypt(ciphertext: Uint8Array, output?: Uint8Array): Uint8Array;
+  decrypt(ciphertext: TArg<Uint8Array>, output?: TArg<Uint8Array>): TRet<Uint8Array>;
 };
 
 /**
@@ -693,9 +852,9 @@ export type CipherParams = {
  * @returns Cipher instance with caller-managed output buffers.
  */
 export type ARXCipher = ((
-  key: Uint8Array,
-  nonce: Uint8Array,
-  AAD?: Uint8Array
+  key: TArg<Uint8Array>,
+  nonce: TArg<Uint8Array>,
+  AAD?: TArg<Uint8Array>
 ) => CipherWithOutput) & {
   blockSize: number;
   nonceLength: number;
@@ -707,7 +866,7 @@ export type ARXCipher = ((
  * @param args - Additional constructor arguments, such as nonce or IV.
  * @returns Cipher instance.
  */
-export type CipherCons<T extends any[]> = (key: Uint8Array, ...args: T) => Cipher;
+export type CipherCons<T extends any[]> = (key: TArg<Uint8Array>, ...args: T) => Cipher;
 /**
  * Wraps a cipher: validates args, ensures encrypt() can only be called once.
  * Used internally by the exported cipher constructors.
@@ -723,7 +882,7 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
   params: P,
   constructor: C
 ): C & P => {
-  function wrappedCipher(key: Uint8Array, ...args: any[]): CipherWithOutput {
+  function wrappedCipher(key: TArg<Uint8Array>, ...args: any[]): TRet<CipherWithOutput> {
     // Validate key
     abytes(key, undefined, 'key');
 
@@ -738,7 +897,7 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
     if (tagl && args[1] !== undefined) abytes(args[1], undefined, 'AAD');
 
     const cipher = constructor(key, ...args);
-    const checkOutput = (fnLength: number, output?: Uint8Array) => {
+    const checkOutput = (fnLength: number, output?: TArg<Uint8Array>) => {
       if (output !== undefined) {
         if (fnLength !== 2) throw new Error('cipher output not supported');
         abytes(output, undefined, 'output');
@@ -747,14 +906,14 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
     // Create wrapped cipher with validation and single-use encryption
     let called = false;
     const wrCipher = {
-      encrypt(data: Uint8Array, output?: Uint8Array) {
+      encrypt(data: TArg<Uint8Array>, output?: TArg<Uint8Array>) {
         if (called) throw new Error('cannot encrypt() twice with same key + nonce');
         called = true;
         abytes(data);
         checkOutput(cipher.encrypt.length, output);
         return (cipher as CipherWithOutput).encrypt(data, output);
       },
-      decrypt(data: Uint8Array, output?: Uint8Array) {
+      decrypt(data: TArg<Uint8Array>, output?: TArg<Uint8Array>) {
         abytes(data);
         if (tagl && data.length < tagl)
           throw new Error('"ciphertext" expected length bigger than tagLength=' + tagl);
@@ -763,7 +922,7 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
       },
     };
 
-    return wrCipher;
+    return wrCipher as TRet<CipherWithOutput>;
   }
 
   Object.assign(wrappedCipher, params);
@@ -780,12 +939,12 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
  * @returns Output bytes.
  */
 export type XorStream = (
-  key: Uint8Array,
-  nonce: Uint8Array,
-  data: Uint8Array,
-  output?: Uint8Array,
+  key: TArg<Uint8Array>,
+  nonce: TArg<Uint8Array>,
+  data: TArg<Uint8Array>,
+  output?: TArg<Uint8Array>,
   counter?: number
-) => Uint8Array;
+) => TRet<Uint8Array>;
 
 /**
  * By default, returns u8a of length.
@@ -794,6 +953,7 @@ export type XorStream = (
  * @param out - Optional destination buffer.
  * @param onlyAligned - Whether `out` must be 4-byte aligned.
  * @returns Output buffer ready for writing.
+ * @throws On wrong argument types. {@link TypeError}
  * @throws If the provided output buffer has the wrong size or alignment. {@link Error}
  * @example
  * Reuses a caller-provided output buffer when lengths match.
@@ -804,10 +964,10 @@ export type XorStream = (
  */
 export function getOutput(
   expectedLength: number,
-  out?: Uint8Array,
+  out?: TArg<Uint8Array>,
   onlyAligned = true
-): Uint8Array {
-  if (out === undefined) return new Uint8Array(expectedLength);
+): TRet<Uint8Array> {
+  if (out === undefined) return new Uint8Array(expectedLength) as TRet<Uint8Array>;
   // Keep Buffer/cross-realm Uint8Array support here instead of trusting a shape-compatible object.
   abytes(out, undefined, 'output');
   if (out.length !== expectedLength)
@@ -815,7 +975,7 @@ export function getOutput(
       '"output" expected Uint8Array of length ' + expectedLength + ', got: ' + out.length
     );
   if (onlyAligned && !isAligned32(out)) throw new Error('invalid output, must be aligned');
-  return out;
+  return out as TRet<Uint8Array>;
 }
 
 /**
@@ -827,6 +987,7 @@ export function getOutput(
  * @param isLE - Whether to encode lengths as little-endian.
  * @returns 16-byte length block.
  * @throws On wrong argument types passed to the endian validator. {@link TypeError}
+ * @throws On wrong argument ranges or values. {@link RangeError}
  * @example
  * Builds the length block appended by GCM and Poly1305.
  *
@@ -834,7 +995,7 @@ export function getOutput(
  * u64Lengths(16, 8, true);
  * ```
  */
-export function u64Lengths(dataLength: number, aadLength: number, isLE: boolean): Uint8Array {
+export function u64Lengths(dataLength: number, aadLength: number, isLE: boolean): TRet<Uint8Array> {
   // Reject coercible non-number lengths like '10' and true before BigInt(...) accepts them.
   anumber(dataLength);
   anumber(aadLength);
@@ -843,7 +1004,7 @@ export function u64Lengths(dataLength: number, aadLength: number, isLE: boolean)
   const view = createView(num);
   view.setBigUint64(0, BigInt(aadLength), isLE);
   view.setBigUint64(8, BigInt(dataLength), isLE);
-  return num;
+  return num as TRet<Uint8Array>;
 }
 
 /**
@@ -857,7 +1018,7 @@ export function u64Lengths(dataLength: number, aadLength: number, isLE: boolean)
  * isAligned32(new Uint8Array(4));
  * ```
  */
-export function isAligned32(bytes: Uint8Array): boolean {
+export function isAligned32(bytes: TArg<Uint8Array>): boolean {
   return bytes.byteOffset % 4 === 0;
 }
 
@@ -865,6 +1026,7 @@ export function isAligned32(bytes: Uint8Array): boolean {
  * Copies bytes into a new Uint8Array.
  * @param bytes - Bytes to copy.
  * @returns Copied byte array.
+ * @throws On wrong argument types. {@link TypeError}
  * @example
  * Copies input into an aligned Uint8Array before block processing.
  *
@@ -872,10 +1034,10 @@ export function isAligned32(bytes: Uint8Array): boolean {
  * copyBytes(new Uint8Array([1, 2]));
  * ```
  */
-export function copyBytes(bytes: Uint8Array): Uint8Array {
-  // Uint8Array.from() would coerce arbitrary iterables; validate via isBytes()/abytes first.
-  abytes(bytes);
-  return Uint8Array.from(bytes);
+export function copyBytes(bytes: TArg<Uint8Array>): TRet<Uint8Array> {
+  // `Uint8Array.from(...)` would also accept arrays / other typed arrays. Keep this helper strict
+  // because callers use it at byte-validation boundaries before mutating the detached copy.
+  return Uint8Array.from(abytes(bytes)) as TRet<Uint8Array>;
 }
 
 /**
@@ -885,6 +1047,8 @@ export function copyBytes(bytes: Uint8Array): Uint8Array {
  * Validation is delegated to `Uint8Array(bytesLength)` and `getRandomValues`, so
  * non-integers, negative lengths, and oversize requests surface backend/runtime errors.
  * @returns Random byte array.
+ * @throws On wrong argument types. {@link TypeError}
+ * @throws On wrong argument ranges or values. {@link RangeError}
  * @throws If the runtime does not expose `crypto.getRandomValues`. {@link Error}
  * @example
  * Generates a fresh nonce or key.
@@ -893,14 +1057,14 @@ export function copyBytes(bytes: Uint8Array): Uint8Array {
  * randomBytes(16);
  * ```
  */
-export function randomBytes(bytesLength = 32): Uint8Array {
+export function randomBytes(bytesLength = 32): TRet<Uint8Array> {
   // Validate upfront so fractional / coercible lengths do not silently
   // truncate through Uint8Array().
   anumber(bytesLength);
   const cr = typeof globalThis === 'object' ? (globalThis as any).crypto : null;
   if (typeof cr?.getRandomValues !== 'function')
     throw new Error('crypto.getRandomValues must be defined');
-  return cr.getRandomValues(new Uint8Array(bytesLength));
+  return cr.getRandomValues(new Uint8Array(bytesLength)) as TRet<Uint8Array>;
 }
 
 /**
@@ -914,30 +1078,25 @@ export interface PRG {
    * Mixes fresh entropy into the current generator state.
    * @param seed - Entropy bytes to absorb.
    */
-  addEntropy(seed: Uint8Array): void;
+  addEntropy(seed: TArg<Uint8Array>): void;
   /**
    * Produces a requested number of pseudorandom bytes.
-   * @param length - Number of bytes to generate.
+   * @param bytesLength - Number of bytes to generate.
    * @returns Random byte array.
    */
-  randomBytes(length: number): Uint8Array;
+  randomBytes(bytesLength: number): TRet<Uint8Array>;
   /** Destroys the generator state. */
   clean(): void;
 }
 
-type RemoveNonceInner<T extends any[], Ret> = ((...args: T) => Ret) extends (
+/** Removes the nonce argument from a cipher constructor type. */
+export type RemoveNonce<T extends (...args: any) => any> = T extends (
   arg0: any,
   arg1: any,
   ...rest: infer R
-) => any
-  ? (key: Uint8Array, ...args: R) => Ret
+) => infer Ret
+  ? (key: TArg<Uint8Array>, ...args: R) => Ret
   : never;
-
-/** Removes the nonce argument from a cipher constructor type. */
-export type RemoveNonce<T extends (...args: any) => any> = RemoveNonceInner<
-  Parameters<T>,
-  ReturnType<T>
->;
 /**
  * Cipher constructor that requires a nonce argument.
  * @param key - Secret key bytes.
@@ -946,8 +1105,8 @@ export type RemoveNonce<T extends (...args: any) => any> = RemoveNonceInner<
  * @returns Cipher instance.
  */
 export type CipherWithNonce = ((
-  key: Uint8Array,
-  nonce: Uint8Array,
+  key: TArg<Uint8Array>,
+  nonce: TArg<Uint8Array>,
   ...args: any[]
 ) => Cipher | AsyncCipher) & {
   nonceLength: number;
@@ -986,10 +1145,14 @@ export type CipherWithNonce = ((
 export function managedNonce<T extends CipherWithNonce>(
   fn: T,
   randomBytes_: typeof randomBytes = randomBytes
-): RemoveNonce<T> {
+): TRet<RemoveNonce<T>> {
   const { nonceLength } = fn;
   anumber(nonceLength);
-  const addNonce = (nonce: Uint8Array, ciphertext: Uint8Array, plaintext: Uint8Array) => {
+  const addNonce = (
+    nonce: TArg<Uint8Array>,
+    ciphertext: TArg<Uint8Array>,
+    plaintext: TArg<Uint8Array>
+  ) => {
     const out = concatBytes(nonce, ciphertext);
     // Wrapped ciphers may alias caller plaintext on encrypt(); never zero
     // caller-owned buffers here.
@@ -1001,8 +1164,8 @@ export function managedNonce<T extends CipherWithNonce>(
   // - nonce may unalign dst and break everything
   // - we create new u8a anyway (concatBytes)
   // - previously we passed all args to cipher, but that was mistake!
-  const res = ((key: Uint8Array, ...args: any[]): any => ({
-    encrypt(plaintext: Uint8Array) {
+  const res = ((key: TArg<Uint8Array>, ...args: any[]): any => ({
+    encrypt(plaintext: TArg<Uint8Array>) {
       abytes(plaintext);
       const nonce = randomBytes_(nonceLength);
       const encrypted = fn(key, nonce, ...args).encrypt(plaintext);
@@ -1011,7 +1174,7 @@ export function managedNonce<T extends CipherWithNonce>(
         return encrypted.then((ct) => addNonce(nonce, ct, plaintext));
       return addNonce(nonce, encrypted, plaintext);
     },
-    decrypt(ciphertext: Uint8Array) {
+    decrypt(ciphertext: TArg<Uint8Array>) {
       abytes(ciphertext);
       const nonce = ciphertext.subarray(0, nonceLength);
       const decrypted = ciphertext.subarray(nonceLength);
@@ -1021,8 +1184,8 @@ export function managedNonce<T extends CipherWithNonce>(
   // Auto-nonce wrappers still preserve the wrapped payload geometry.
   if ('blockSize' in fn) res.blockSize = (fn as any).blockSize;
   if ('tagLength' in fn) res.tagLength = (fn as any).tagLength;
-  return res;
+  return res as TRet<RemoveNonce<T>>;
 }
 
 /** `Uint8Array.of()` return type helper for TS 5.9. */
-export type Uint8ArrayBuffer = ReturnType<typeof Uint8Array.of>;
+export type Uint8ArrayBuffer = TRet<Uint8Array>;

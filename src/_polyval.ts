@@ -25,6 +25,8 @@ import {
   type CMac,
   u32,
   type IHash2,
+  type TArg,
+  type TRet,
 } from './utils.ts';
 
 const BLOCK_SIZE = 16;
@@ -68,7 +70,7 @@ const swap8IfLE = (n: number) => swap8IfBE(swapLE(n));
  * `mulX_GHASH(ByteReverse(H))` from RFC 8452 Appendix A.
  * @param k mutated in place
  */
-export function _toGHASHKey(k: Uint8Array): Uint8Array {
+export function _toGHASHKey(k: TArg<Uint8Array>): TRet<Uint8Array> {
   // The input is the original POLYVAL key H; reverse() materializes
   // RFC 8452's `ByteReverse(H)` before the GHASH mulX step.
   k.reverse();
@@ -81,7 +83,7 @@ export function _toGHASHKey(k: Uint8Array): Uint8Array {
     carry = (t & 1) << 7;
   }
   k[0] ^= -hiBit & 0xe1; // if (hiBit) n ^= 0xe1000000000000000000000000000000;
-  return k;
+  return k as TRet<Uint8Array>;
 }
 
 type Value = { s0: number; s1: number; s2: number; s3: number };
@@ -126,7 +128,7 @@ export class GHASH implements IHash2 {
   private W: number;
   private windowSize: number;
   // We select bits per window adaptively based on expectedLength
-  constructor(key: Uint8Array, expectedLength?: number) {
+  constructor(key: TArg<Uint8Array>, expectedLength?: number) {
     abytes(key, 16, 'key');
     key = copyBytes(key);
     const kView = createView(key);
@@ -191,7 +193,7 @@ export class GHASH implements IHash2 {
     this.s2 = o2;
     this.s3 = o3;
   }
-  update(data: Uint8Array): this {
+  update(data: TArg<Uint8Array>): this {
     aexists(this);
     abytes(data);
     data = copyBytes(data);
@@ -231,7 +233,7 @@ export class GHASH implements IHash2 {
       ((elm.s0 = 0), (elm.s1 = 0), (elm.s2 = 0), (elm.s3 = 0));
     }
   }
-  digestInto(out: Uint8Array): void {
+  digestInto(out: TArg<Uint8Array>): void {
     aexists(this);
     // `digestInto(out)` is the no-allocation fast path, so callers must pass a
     // 32-bit-aligned buffer before we reinterpret it with `u32(out)`.
@@ -248,12 +250,12 @@ export class GHASH implements IHash2 {
     o32[3] = s3;
     swap32IfBE(o32);
   }
-  digest(): Uint8Array {
+  digest(): TRet<Uint8Array> {
     const res = new Uint8Array(BLOCK_SIZE);
     this.digestInto(res);
     // `res` is independent of internal state, so it stays valid after destroy() wipes the table.
     this.destroy();
-    return res;
+    return res as TRet<Uint8Array>;
   }
 }
 
@@ -276,7 +278,7 @@ export class GHASH implements IHash2 {
  * ```
  */
 export class Polyval extends GHASH {
-  constructor(key: Uint8Array, expectedLength?: number) {
+  constructor(key: TArg<Uint8Array>, expectedLength?: number) {
     abytes(key);
     // RFC 8452 Appendix A converts the POLYVAL key with
     // `mulX_GHASH(ByteReverse(H))`; copy first because `_toGHASHKey(...)`
@@ -285,7 +287,7 @@ export class Polyval extends GHASH {
     super(ghKey, expectedLength);
     clean(ghKey);
   }
-  update(data: Uint8Array): this {
+  update(data: TArg<Uint8Array>): this {
     aexists(this);
     abytes(data);
     data = copyBytes(data);
@@ -314,7 +316,7 @@ export class Polyval extends GHASH {
     }
     return this;
   }
-  digestInto(out: Uint8Array): void {
+  digestInto(out: TArg<Uint8Array>): void {
     aexists(this);
     // `digestInto(out)` is the no-allocation fast path, so callers must pass a
     // 32-bit-aligned buffer before we reinterpret the output prefix with `u32(view)`.
@@ -349,11 +351,12 @@ export class Polyval extends GHASH {
  * ghash(new Uint8Array(), key);
  * ```
  */
-export const ghash: CMac<GHASH, [expectedLength?: number]> = /* @__PURE__ */ wrapMacConstructor(
-  16,
-  (key, expectedLength?) => new GHASH(key, expectedLength),
-  (msg): [expectedLength?: number] => [msg.length]
-);
+export const ghash: TRet<CMac<GHASH, [expectedLength?: number]>> =
+  /* @__PURE__ */ wrapMacConstructor(
+    16,
+    (key: TArg<Uint8Array>, expectedLength?: number) => new GHASH(key, expectedLength),
+    (msg: TArg<Uint8Array>): [expectedLength?: number] => [msg.length]
+  );
 
 /**
  * POLYVAL MAC for AES-SIV.
@@ -370,8 +373,9 @@ export const ghash: CMac<GHASH, [expectedLength?: number]> = /* @__PURE__ */ wra
  * polyval(new Uint8Array(), key);
  * ```
  */
-export const polyval: CMac<Polyval, [expectedLength?: number]> = /* @__PURE__ */ wrapMacConstructor(
-  16,
-  (key, expectedLength?) => new Polyval(key, expectedLength),
-  (msg): [expectedLength?: number] => [msg.length]
-);
+export const polyval: TRet<CMac<Polyval, [expectedLength?: number]>> =
+  /* @__PURE__ */ wrapMacConstructor(
+    16,
+    (key: TArg<Uint8Array>, expectedLength?: number) => new Polyval(key, expectedLength),
+    (msg: TArg<Uint8Array>): [expectedLength?: number] => [msg.length]
+  );

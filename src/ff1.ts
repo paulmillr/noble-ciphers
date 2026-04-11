@@ -4,7 +4,16 @@
  * @module
  */
 import { unsafe } from './aes.ts';
-import { type Cipher, abytes, anumber, bytesToNumberBE, clean, numberToBytesBE } from './utils.ts';
+import {
+  type Cipher,
+  abytes,
+  anumber,
+  bytesToNumberBE,
+  clean,
+  numberToBytesBE,
+  type TArg,
+  type TRet,
+} from './utils.ts';
 
 // NIST SP 800-38G §4.3 / §5.1 Algorithm 7: FF1's designated CIPH_K here is AES, so this file
 // reuses the reviewed AES key schedule and single-block encryption helpers.
@@ -31,7 +40,7 @@ function NUMradix(radix: number, data: number[]): bigint {
   return res;
 }
 
-function getRound(radix: number, key: Uint8Array, tweak: Uint8Array, x: number[]) {
+function getRound(radix: number, key: TArg<Uint8Array>, tweak: TArg<Uint8Array>, x: number[]) {
   if (radix > 2 ** 16 - 1) throw new Error('invalid radix ' + radix);
   // radix**minlen ≥ 100
   const minLen = Math.ceil(Math.log(100) / Math.log(radix));
@@ -124,8 +133,8 @@ const EMPTY_BUF = /* @__PURE__ */ Uint8Array.of();
  */
 export function FF1(
   radix: number,
-  key: Uint8Array,
-  tweak: Uint8Array = EMPTY_BUF
+  key: TArg<Uint8Array>,
+  tweak: TArg<Uint8Array> = EMPTY_BUF
 ): { encrypt(x: number[]): number[]; decrypt(x: number[]): number[] } {
   anumber(radix);
   abytes(key);
@@ -164,21 +173,21 @@ export function FF1(
 // Binary wrapper uses little-endian bit order within each byte so bit 0 stays
 // in the first numeral slot for this library-defined byte-array surface.
 const binLE = {
-  encode(bytes: Uint8Array): number[] {
+  encode(bytes: TArg<Uint8Array>): number[] {
     const x = [];
     for (let i = 0; i < bytes.length; i++) {
       for (let j = 0, tmp = bytes[i]; j < 8; j++, tmp >>= 1) x.push(tmp & 1);
     }
     return x;
   },
-  decode(b: number[]): Uint8Array {
+  decode(b: number[]): TRet<Uint8Array> {
     if (!Array.isArray(b) || b.length % 8) throw new Error('Invalid binary string');
     const res = new Uint8Array(b.length / 8);
     for (let i = 0, j = 0; i < res.length; i++) {
       res[i] = b[j++] | (b[j++] << 1) | (b[j++] << 2) | (b[j++] << 3);
       res[i] |= (b[j++] << 4) | (b[j++] << 5) | (b[j++] << 6) | (b[j++] << 7);
     }
-    return res;
+    return res as TRet<Uint8Array>;
   },
 };
 
@@ -198,10 +207,15 @@ const binLE = {
  * ff1.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */
-export function BinaryFF1(key: Uint8Array, tweak: Uint8Array = EMPTY_BUF): Cipher {
+export function BinaryFF1(
+  key: TArg<Uint8Array>,
+  tweak: TArg<Uint8Array> = EMPTY_BUF
+): TRet<Cipher> {
   const ff1 = FF1(2, key, tweak);
   return {
-    encrypt: (x: Uint8Array) => binLE.decode(ff1.encrypt(binLE.encode(x))),
-    decrypt: (x: Uint8Array) => binLE.decode(ff1.decrypt(binLE.encode(x))),
-  };
+    encrypt: (x: TArg<Uint8Array>): TRet<Uint8Array> =>
+      binLE.decode(ff1.encrypt(binLE.encode(x))) as TRet<Uint8Array>,
+    decrypt: (x: TArg<Uint8Array>): TRet<Uint8Array> =>
+      binLE.decode(ff1.decrypt(binLE.encode(x))) as TRet<Uint8Array>,
+  } as TRet<Cipher>;
 }

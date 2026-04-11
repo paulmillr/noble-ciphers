@@ -3,7 +3,7 @@
  * We use WebCrypto aka globalThis.crypto, which exists in browsers and node.js 16+.
  * @module
  */
-import { abytes, anumber, type AsyncCipher } from './utils.ts';
+import { abytes, anumber, type AsyncCipher, type TArg, type TRet } from './utils.ts';
 
 function getWebcryptoSubtle(): any {
   const cr = typeof globalThis !== 'undefined' && (globalThis as any).crypto;
@@ -11,37 +11,48 @@ function getWebcryptoSubtle(): any {
   throw new Error('crypto.subtle must be defined');
 }
 
+type WebcryptoUtils = {
+  encrypt(
+    key: TArg<Uint8Array>,
+    keyParams: unknown,
+    cryptParams: unknown,
+    plaintext: TArg<Uint8Array>
+  ): Promise<TRet<Uint8Array>>;
+  decrypt(
+    key: TArg<Uint8Array>,
+    keyParams: unknown,
+    cryptParams: unknown,
+    ciphertext: TArg<Uint8Array>
+  ): Promise<TRet<Uint8Array>>;
+};
 /**
- * Internal webcrypto utils. Can be overridden of crypto.subtle is not present,
+ * Internal webcrypto utils. Can be overridden if crypto.subtle is not present,
  * for example in React Native.
  * Raw keys are re-imported on every call; this wrapper intentionally does not
  * cache `CryptoKey` objects between operations.
  */
-export const utils: {
-  encrypt: (key: Uint8Array, ...all: any[]) => Promise<Uint8Array>;
-  decrypt: (key: Uint8Array, ...all: any[]) => Promise<Uint8Array>;
-} = {
+export const utils: TRet<WebcryptoUtils> = {
   async encrypt(
-    key: Uint8Array,
+    key: TArg<Uint8Array>,
     keyParams: any,
     cryptParams: any,
-    plaintext: Uint8Array
-  ): Promise<Uint8Array> {
+    plaintext: TArg<Uint8Array>
+  ): Promise<TRet<Uint8Array>> {
     const cr = getWebcryptoSubtle();
     const iKey = await cr.importKey('raw', key, keyParams, true, ['encrypt']);
     const ciphertext = await cr.encrypt(cryptParams, iKey, plaintext);
-    return new Uint8Array(ciphertext);
+    return new Uint8Array(ciphertext) as TRet<Uint8Array>;
   },
   async decrypt(
-    key: Uint8Array,
+    key: TArg<Uint8Array>,
     keyParams: any,
     cryptParams: any,
-    ciphertext: Uint8Array
-  ): Promise<Uint8Array> {
+    ciphertext: TArg<Uint8Array>
+  ): Promise<TRet<Uint8Array>> {
     const cr = getWebcryptoSubtle();
     const iKey = await cr.importKey('raw', key, keyParams, true, ['decrypt']);
     const plaintext = await cr.decrypt(cryptParams, iKey, ciphertext);
-    return new Uint8Array(plaintext);
+    return new Uint8Array(plaintext) as TRet<Uint8Array>;
   },
 };
 
@@ -52,7 +63,7 @@ const mode = {
 } as const;
 type BlockMode = (typeof mode)[keyof typeof mode];
 
-function getCryptParams(algo: BlockMode, nonce: Uint8Array, AAD?: Uint8Array) {
+function getCryptParams(algo: BlockMode, nonce: TArg<Uint8Array>, AAD?: TArg<Uint8Array>) {
   if (algo === mode.CBC) return { name: mode.CBC, iv: nonce };
   // WebCrypto allows 1..128 counter bits; use the full block to match sync ctr() / Node CTR wrap.
   if (algo === mode.CTR) return { name: mode.CTR, counter: nonce, length: 128 };
@@ -65,9 +76,21 @@ function getCryptParams(algo: BlockMode, nonce: Uint8Array, AAD?: Uint8Array) {
   throw new Error('unknown aes block mode');
 }
 
-function generate(algo: BlockMode, nonceLength: number) {
+function generate(
+  algo: BlockMode,
+  nonceLength: number
+): TRet<
+  ((key: TArg<Uint8Array>, nonce: TArg<Uint8Array>, AAD?: TArg<Uint8Array>) => AsyncCipher) & {
+    blockSize: number;
+    nonceLength: number;
+  }
+> {
   anumber(nonceLength);
-  const res = (key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array): AsyncCipher => {
+  const res = (
+    key: TArg<Uint8Array>,
+    nonce: TArg<Uint8Array>,
+    AAD?: TArg<Uint8Array>
+  ): TRet<AsyncCipher> => {
     abytes(key);
     abytes(nonce);
     // Reject falsy non-byte AAD locally; otherwise false/0/''/null silently become "no AAD".
@@ -81,21 +104,26 @@ function generate(algo: BlockMode, nonceLength: number) {
     let consumed = false;
     return {
       // keyLength,
-      encrypt(plaintext: Uint8Array) {
+      encrypt(plaintext: TArg<Uint8Array>): Promise<TRet<Uint8Array>> {
         abytes(plaintext);
         if (consumed) throw new Error('Cannot encrypt() twice with same key / nonce');
         consumed = true;
         return utils.encrypt(key, keyParams, cryptParams, plaintext);
       },
-      decrypt(ciphertext: Uint8Array) {
+      decrypt(ciphertext: TArg<Uint8Array>): Promise<TRet<Uint8Array>> {
         abytes(ciphertext);
         return utils.decrypt(key, keyParams, cryptParams, ciphertext);
       },
-    };
+    } as TRet<AsyncCipher>;
   };
   res.nonceLength = nonceLength;
   res.blockSize = 16; // always for AES
-  return res;
+  return res as TRet<
+    ((key: TArg<Uint8Array>, nonce: TArg<Uint8Array>, AAD?: TArg<Uint8Array>) => AsyncCipher) & {
+      blockSize: number;
+      nonceLength: number;
+    }
+  >;
 }
 
 /**
@@ -117,10 +145,12 @@ function generate(algo: BlockMode, nonceLength: number) {
  * await cipher.encrypt(new Uint8Array(16));
  * ```
  */
-export const cbc: ((key: Uint8Array, iv: Uint8Array) => AsyncCipher) & {
-  blockSize: number;
-  nonceLength: number;
-} = /* @__PURE__ */ (() => generate(mode.CBC, 16))();
+export const cbc: TRet<
+  ((key: TArg<Uint8Array>, iv: TArg<Uint8Array>) => AsyncCipher) & {
+    blockSize: number;
+    nonceLength: number;
+  }
+> = /* @__PURE__ */ (() => generate(mode.CBC, 16))();
 /**
  * AES-CTR implemented with WebCrypto.
  * Uses WebCrypto's full 128-bit counter-length setting so the whole
@@ -140,10 +170,12 @@ export const cbc: ((key: Uint8Array, iv: Uint8Array) => AsyncCipher) & {
  * await cipher.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */
-export const ctr: ((key: Uint8Array, nonce: Uint8Array) => AsyncCipher) & {
-  blockSize: number;
-  nonceLength: number;
-} = /* @__PURE__ */ (() => generate(mode.CTR, 16))();
+export const ctr: TRet<
+  ((key: TArg<Uint8Array>, nonce: TArg<Uint8Array>) => AsyncCipher) & {
+    blockSize: number;
+    nonceLength: number;
+  }
+> = /* @__PURE__ */ (() => generate(mode.CTR, 16))();
 /**
  * AES-GCM implemented with WebCrypto.
  * AAD type normalization and nonce-shape enforcement beyond raw bytes are left
@@ -164,10 +196,12 @@ export const ctr: ((key: Uint8Array, nonce: Uint8Array) => AsyncCipher) & {
  * await cipher.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */
-export const gcm: ((key: Uint8Array, nonce: Uint8Array, AAD?: Uint8Array) => AsyncCipher) & {
-  blockSize: number;
-  nonceLength: number;
-} = /* @__PURE__ */ (() => generate(mode.GCM, 12))();
+export const gcm: TRet<
+  ((key: TArg<Uint8Array>, nonce: TArg<Uint8Array>, AAD?: TArg<Uint8Array>) => AsyncCipher) & {
+    blockSize: number;
+    nonceLength: number;
+  }
+> = /* @__PURE__ */ (() => generate(mode.GCM, 12))();
 
 // // Type tests
 // import { siv, gcm, ctr, ecb, cbc } from '../aes.ts';
