@@ -30,11 +30,11 @@ import {
   overlapBytes,
   swap32IfBE,
   swap8IfBE,
-	  u32, u64Lengths, u8, wrapCipher, wrapMacConstructor,
-	  type Cipher, type CipherWithOutput,
-	  type CMac, type IHash2,
-	  type PRG, type TArg, type TRet, type Uint8ArrayBuffer
-	} from './utils.ts';
+  u32, u64Lengths, u8, wrapCipher, wrapMacConstructor,
+  type Cipher, type CipherWithOutput,
+  type CMac, type IHash2,
+  type PRG, type TArg, type TRet, type Uint8ArrayBuffer
+} from './utils.ts';
 
 const BLOCK_SIZE = 16;
 // AES operates on 16-byte blocks, i.e. 4 32-bit words.
@@ -1485,7 +1485,7 @@ class _AesCtrDRBG implements PRG {
   // additional_input to seedlen, which is exactly this internal state width.
   randomBytes(len: number, info?: TArg<Uint8Array>): TRet<Uint8Array> {
     anumber(len);
-    // SP 800-90A Table 3 caps AES CTR_DRBG requests at 2^19 bits = 65536 bytes.
+    // SP 800-90A Table 3 caps AES CTR_DRBG requests at 2^16 bits = 65536 bytes.
     if (len > 2 ** 16) throw new Error('requested output is too big');
     // The spec allows generate while reseed_counter == reseed_interval and increments afterwards.
     if (this.reseedCnt > 2 ** 48) throw new Error('entropy exhausted');

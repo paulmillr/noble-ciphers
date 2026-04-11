@@ -21,16 +21,16 @@ import { createCipher, rotl } from './_arx.ts';
 import { poly1305 } from './_poly1305.ts';
 import {
   abytes,
+  clean,
+  equalBytes,
+  getOutput,
+  swap32IfBE,
+  swap8IfBE,
+  wrapCipher,
   type ARXCipher,
   type CipherWithOutput,
   type TArg,
   type TRet,
-  clean,
-  equalBytes,
-  getOutput,
-  swap8IfBE,
-  swap32IfBE,
-  wrapCipher,
   type XorStream,
 } from './utils.ts';
 

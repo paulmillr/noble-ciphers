@@ -5,12 +5,12 @@
  */
 import { unsafe } from './aes.ts';
 import {
-  type Cipher,
   abytes,
   anumber,
   bytesToNumberBE,
   clean,
   numberToBytesBE,
+  type Cipher,
   type TArg,
   type TRet,
 } from './utils.ts';
