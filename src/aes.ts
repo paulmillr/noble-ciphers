@@ -972,7 +972,10 @@ export const gcm: TRet<
         toClean.push(tag);
         // NIST SP 800-38D §7.2 permits equivalent step orderings; verify the
         // tag before CTR so unauthenticated plaintext is never materialized.
-        if (!equalBytes(tag, passedTag)) throw new Error('aes/gcm: invalid ghash tag');
+        if (!equalBytes(tag, passedTag)) {
+          clean(...toClean);
+          throw new Error('aes/gcm: invalid ghash tag');
+        }
         const out = ctr32(xk, false, counter, data);
         clean(...toClean);
         return out as TRet<Uint8Array>;
