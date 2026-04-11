@@ -327,7 +327,7 @@ export const xsalsa20poly1305: TRet<ARXCipher> = /* @__PURE__ */ wrapCipher(
         const authKey = xsalsa20(key, nonce, tmp, tmp);
         const tag = poly1305(ciphPlaintext, authKey);
         if (!equalBytes(passedTag, tag)) {
-          clean(tmp, passedTag, tag);
+          clean(output);
           throw new Error('invalid tag');
         }
         // output = stream ^ output[16..]
