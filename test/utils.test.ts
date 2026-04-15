@@ -131,9 +131,14 @@ export function test({ describe, should } = BT) {
     });
     should('numberToBytesBE', () => {
       eql(u.numberToBytesBE(1, 2), Uint8Array.of(0, 1));
+      eql(u.numberToBytesBE(0xffn, 1), Uint8Array.of(0xff));
       throws(() => u.numberToBytesBE('1' as any, 2), TypeError);
       throws(() => u.numberToBytesBE(true as any, 2), TypeError);
       throws(() => u.numberToBytesBE(1, '2' as any), TypeError);
+      // value exceeds requested byte length
+      throws(() => u.numberToBytesBE(0xffffn, 1), RangeError);
+      throws(() => u.numberToBytesBE(0xffffffffn, 2), RangeError);
+      throws(() => u.numberToBytesBE(256, 1), RangeError);
     });
     should('utf8ToBytes', () => {
       eql(u.utf8ToBytes('abc'), new Uint8Array([97, 98, 99]));

@@ -561,7 +561,10 @@ export function numberToBytesBE(n: number | bigint, len: number): TRet<Uint8Arra
   if (typeof n === 'number') anumber(n);
   else if (typeof n !== 'bigint') throw new TypeError(`number or bigint expected, got ${typeof n}`);
   anumber(len);
-  return hexToBytes(n.toString(16).padStart(len * 2, '0'));
+  const hex = n.toString(16).padStart(len * 2, '0');
+  if (hex.length > len * 2)
+    throw new RangeError('number ' + n + ' does not fit in ' + len + ' bytes');
+  return hexToBytes(hex);
 }
 
 // Global symbols, but ts doesn't see them:
