@@ -173,6 +173,17 @@ export function test(
         throws(() => gcmsiv(new Uint8Array(32), new Uint8Array(11), new Uint8Array(12))); // nonce
         throws(() => gcmsiv(new Uint8Array(33), new Uint8Array(12), new Uint8Array(12))); // key
       });
+      should('cleanup plaintext on tag mismatch', () => {
+        const key = new Uint8Array(32);
+        key[0] = 1;
+        const nonce = new Uint8Array(12);
+        const cipher = gcmsiv(key, nonce);
+        const plaintext = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
+        const ct = cipher.encrypt(plaintext);
+        // Corrupt the tag (last 16 bytes)
+        ct[ct.length - 1] ^= 1;
+        throws(() => gcmsiv(key, nonce).decrypt(ct), /invalid polyval tag/);
+      });
     });
 
     describe('Wycheproof', () => {

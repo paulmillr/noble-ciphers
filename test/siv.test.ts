@@ -130,6 +130,15 @@ export function test(
         const aadArray = ['not bytes'];
         throws(() => siv(key, ...aadArray));
       });
+      should('cleanup plaintext on tag mismatch', () => {
+        const key = hexToBytes('fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff');
+        const ad = hexToBytes('101112131415161718191a1b1c1d1e1f2021222324252627');
+        const plaintext = hexToBytes('112233445566778899aabbccddee');
+        const ct = siv(key, ad).encrypt(plaintext);
+        // Corrupt the SIV tag (first 16 bytes)
+        ct[0] ^= 1;
+        throws(() => siv(key, ad).decrypt(ct), /invalid siv tag/);
+      });
     });
 
     describe('Wycheproof', () => {
