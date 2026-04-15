@@ -563,7 +563,7 @@ export function numberToBytesBE(n: number | bigint, len: number): TRet<Uint8Arra
   anumber(len);
   const hex = n.toString(16).padStart(len * 2, '0');
   if (hex.length > len * 2)
-    throw new RangeError('number ' + n + ' does not fit in ' + len + ' bytes');
+    throw new RangeError('number does not fit in ' + len + ' bytes');
   return hexToBytes(hex);
 }
 
