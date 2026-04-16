@@ -1138,7 +1138,7 @@ export const gcmsiv: TRet<
         // RFC 8452 §5: plaintext is unauthenticated here and MUST NOT be
         // returned until the expected-tag check completes successfully.
         if (!equalBytes(tag, expectedTag)) {
-          clean(...toClean);
+          clean(plaintext, ...toClean);
           throw new Error('invalid polyval tag');
         }
         // Cleanup
@@ -1971,6 +1971,7 @@ export const aessiv: TRet<
         if (equalBytes(t, v)) {
           return p as TRet<Uint8Array>;
         } else {
+          clean(p);
           throw new Error('invalid siv tag');
         }
       },
