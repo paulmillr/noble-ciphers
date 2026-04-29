@@ -11,9 +11,6 @@ Audited & minimal JS implementation of Salsa20, ChaCha and AES.
 - 🥈 Two AES implementations: pure JS or friendly WebCrypto wrapper
 - 🪶 11KB (gzipped) for everything, 3KB for ChaCha-only build
 
-Use [awasm-noble](https://github.com/paulmillr/awasm-noble) if you need an even faster (WASM) alternative. Check out [Upgrading](#upgrading) for information about upgrading from previous versions.
-Take a glance at [GitHub Discussions](https://github.com/paulmillr/noble-ciphers/discussions) for questions and support.
-
 ### This library belongs to _noble_ cryptography
 
 > **noble cryptography** — high-security, easily auditable set of contained cryptographic libraries and tools.
@@ -28,6 +25,7 @@ Take a glance at [GitHub Discussions](https://github.com/paulmillr/noble-ciphers
   [post-quantum](https://github.com/paulmillr/noble-post-quantum),
   5kb [secp256k1](https://github.com/paulmillr/noble-secp256k1) /
   [ed25519](https://github.com/paulmillr/noble-ed25519)
+- WASM version: [awasm-noble](https://github.com/paulmillr/awasm-noble)
 - [Check out the homepage](https://paulmillr.com/noble/)
   for reading resources, documentation, and apps built with noble
 
