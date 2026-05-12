@@ -95,6 +95,8 @@ function generate(
     abytes(nonce);
     // Reject falsy non-byte AAD locally; otherwise false/0/''/null silently become "no AAD".
     if (AAD !== undefined) abytes(AAD, undefined, 'AAD');
+    // Only GCM consumes AAD. CBC/CTR wrappers are typed without it; any runtime
+    // third argument is outside their API and is not passed to WebCrypto params.
     // Exact nonce-length enforcement and WebCrypto-specific AAD normalization are
     // delegated to the backend; locally we only require byte-array inputs here.
     // Keep caller key/nonce/AAD by reference; mutating them after

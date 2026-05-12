@@ -1,7 +1,7 @@
 import { describe, should } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual as eql, throws } from 'node:assert';
 import { createCipheriv, createDecipheriv } from 'node:crypto';
-import { __TESTS, aeskw, aeskwp, cbc, ctr, ecb, gcm, gcmsiv, unsafe } from '../src/aes.ts';
+import { __TESTS, aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv, unsafe } from '../src/aes.ts';
 import { pathToFileURL } from 'node:url';
 import { bytesToHex, concatBytes, hexToBytes } from '../src/utils.ts';
 import * as web from '../src/webcrypto.ts';
@@ -23,10 +23,10 @@ const BT = { describe, should };
 
 export function test(
   variant = 'noble',
-  platform = { __TESTS, unsafe, aeskw, aeskwp, cbc, ctr, ecb, gcm, gcmsiv, web },
+  platform = { __TESTS, unsafe, aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv, web },
   { describe, should } = BT
 ) {
-  const { __TESTS, unsafe, aeskw, aeskwp, cbc, ctr, ecb, gcm, gcmsiv, web } = platform;
+  const { __TESTS, unsafe, aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv, web } = platform;
   const CIPHERS = { ecb, cbc, ctr, siv: gcmsiv, gcm };
   describe(`AES (${variant})`, () => {
     if (__TESTS?.incBytes)
@@ -36,6 +36,8 @@ export function test(
         eql(out, hex.decode('000000000000000000000000ffffff00'));
         const before = out.slice();
         throws(() => __TESTS.incBytes(out, false, 0xffffff01), /incBytes: wrong carry/);
+        eql(out, before);
+        throws(() => __TESTS.incBytes(out, false, -1), /incBytes: wrong carry/);
         eql(out, before);
       });
     if (unsafe?.ctrCounter)
@@ -126,6 +128,30 @@ export function test(
         eql(c.encrypt(msg), nodeVal);
         eql(c.decrypt(nodeVal), msg);
       }
+    });
+    should('CFB final short segment matches byte-stream vector', () => {
+      const key = hex.decode('000102030405060708090a0b0c0d0e0f');
+      const iv = hex.decode('101112131415161718191a1b1c1d1e1f');
+      // A 15-byte input has only a byte tail; BE output normalization must not rewrite it.
+      const msg = hex.decode('a0a1a2a3a4a5a6a7a8a9aaabacadae');
+      const ct = hex.decode('a75f4dd74570a5c938a744ba22393c');
+      eql(
+        {
+          encrypted: bytesToHex(cfb(key, iv).encrypt(msg)),
+          decrypted: bytesToHex(cfb(key, iv).decrypt(ct)),
+        },
+        {
+          encrypted: bytesToHex(ct),
+          decrypted: bytesToHex(msg),
+        }
+      );
+    });
+    should('CBC reports invalid PKCS padding as bad decrypt', () => {
+      const key = new Uint8Array(16);
+      const iv = new Uint8Array(16);
+      const ct = cbc(key, iv).encrypt(hex.decode('68656c6c6f'));
+      ct[ct.length - 1] ^= 1;
+      throws(() => cbc(key, iv).decrypt(ct), /bad decrypt/);
     });
     describe('NIST 800-38a', () => {
       for (const t of NIST_VECTORS) {

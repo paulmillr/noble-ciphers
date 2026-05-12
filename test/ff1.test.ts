@@ -89,6 +89,28 @@ describe('FF1', () => {
       eql(ff1.decrypt(v.AB), v.X);
     });
   }
+  should('support high radices within the current 16-bit encoding bound', () => {
+    for (const v of [
+      {
+        radix: 256,
+        key: 'ad65778960d778c614e2673dee073acb',
+        tweak: '4505f45a8fa30b90',
+        msg: [138, 147],
+        ct: [134, 221],
+      },
+      {
+        radix: 65535,
+        key: 'ad65778960d778c614e2673dee073acb',
+        tweak: '4505f45a8fa30b90',
+        msg: [8180, 50027],
+        ct: [21511, 48399],
+      },
+    ]) {
+      const ff1 = FF1(v.radix, fromHex(v.key), fromHex(v.tweak));
+      eql(ff1.encrypt(v.msg), v.ct);
+      eql(ff1.decrypt(v.ct), v.msg);
+    }
+  });
 
   should(`Binary FF1 encrypt`, () => {
     const BIN_VECTORS = json('./vectors/ff1.json').v;

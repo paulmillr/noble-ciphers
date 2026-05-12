@@ -92,9 +92,10 @@ const incBytes: (data: TArg<Uint8Array>, isLE: boolean, carry?: number) => void 
   isLE: boolean,
   carry: number = 1
 ): void => {
+  // Carry is an increment count, not a signed delta; negatives would wrap through `| 0`.
   // Keep `carry + byte <= 0xffffffff` so the `| 0` / `>>> 8` path below
   // never truncates a real carry bit.
-  if (!Number.isSafeInteger(carry) || carry > 0xffffff00)
+  if (!Number.isSafeInteger(carry) || carry < 0 || carry > 0xffffff00)
     throw new Error('incBytes: wrong carry ' + carry);
   abytes(data);
   for (let i = 0; i < data.length; i++) {
@@ -568,7 +569,9 @@ function validatePKCS(data: TArg<Uint8Array>, pkcs5: boolean): TRet<Uint8Array> 
   }
 
   // if (invalidLen) throw new Error('aes/pkcs7: ciphertext length must be multiple of 16');
-  if (!valid) throw new Error('aes/pkcs7: wrong padding');
+  // Padding rejection is observable as a decrypt failure; authenticate CBC/ECB
+  // ciphertexts before decrypting or use `disablePadding` in a higher-level protocol.
+  if (!valid) throw new Error('aes: bad decrypt');
   return data.subarray(0, len - lastByte) as TRet<Uint8Array>;
 }
 
@@ -587,7 +590,10 @@ function padPCKS(left: TArg<Uint8Array>): TRet<Uint32Array> {
 
 /** Options for ECB and CBC. */
 export type BlockOpts = {
-  /** Disable the library's PKCS#7 padding/unpadding layer and require exact-block inputs. */
+  /**
+   * Disable the library's PKCS#7 padding/unpadding layer and require exact-block inputs.
+   * Use this when a higher-level authenticated protocol handles padding itself.
+   */
   disablePadding?: boolean;
 };
 
@@ -664,6 +670,7 @@ export const ecb: TRet<
  * **CBC** (Cipher Block Chaining): Each plaintext block is XORed with the
  * previous block of ciphertext before encryption.
  * Hard to use: requires proper padding and an unpredictable IV. Unauthenticated: needs MAC.
+ * Bad padding is reported as decrypt failure, which can be a padding oracle if exposed.
  * @param key - AES key bytes.
  * @param iv - 16-byte unpredictable initialization vector.
  * @param opts - Padding options. See {@link BlockOpts}.
@@ -825,6 +832,8 @@ export const cfb: TRet<
       // leftovers (less than block)
       const start = BLOCK_SIZE * Math.floor(src32.length / BLOCK_SIZE32);
       if (start < srcLen) {
+        // The byte tail loop reads `src` directly; restore any BE-swapped tail words first.
+        if (!isLE) swap32IfBE(src32.subarray(start / 4));
         // Byte-oriented API: for a final short tail, reuse the next CFB-128
         // output block and XOR only the needed prefix. RFC 3826 §3.1.3 /
         // §3.1.4 describes the same no-padding rule at bit granularity for a
@@ -836,7 +845,7 @@ export const cfb: TRet<
         for (let i = start, pos = 0; i < srcLen; i++, pos++) dst[i] = src[i] ^ buf[pos];
         clean(buf);
       }
-      swap32IfBE(dst32);
+      if (!isLE) swap32IfBE(dst32.subarray(0, start / 4));
       clean(...toClean);
       return dst as TRet<Uint8Array>;
     }

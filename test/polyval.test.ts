@@ -69,10 +69,16 @@ export function test(
         hex.decode('4f4f95668c83dfb6401762bb2d01a262'),
         hex.decode('d1a24ddd2721d006bbe45f20d3c9f362')
       );
-      const out = new Uint8Array(20).fill(0xaa);
-      const mac = new Polyval(key).update(msg);
-      mac.digestInto(out);
-      eql(out, new Uint8Array([...polyval(msg, key), 0xaa, 0xaa, 0xaa, 0xaa]));
+      // Non-repeating tail bytes make BE word-swaps past the tag observable.
+      const tail = new Uint8Array([0xa0, 0xa1, 0xa2, 0xa3]);
+      const gOut = new Uint8Array(20);
+      const pOut = new Uint8Array(20);
+      gOut.set(tail, 16);
+      pOut.set(tail, 16);
+      ghash.create(key).update(msg).digestInto(gOut);
+      new Polyval(key).update(msg).digestInto(pOut);
+      eql(gOut, new Uint8Array([...ghash(msg, key), ...tail]));
+      eql(pOut, new Uint8Array([...polyval(msg, key), ...tail]));
     });
 
     should(

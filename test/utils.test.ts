@@ -134,6 +134,7 @@ export function test({ describe, should } = BT) {
       throws(() => u.numberToBytesBE('1' as any, 2), TypeError);
       throws(() => u.numberToBytesBE(true as any, 2), TypeError);
       throws(() => u.numberToBytesBE(1, '2' as any), TypeError);
+      throws(() => u.numberToBytesBE(-1n, 1), /positive bigint expected, got -1/);
     });
     should('utf8ToBytes', () => {
       eql(u.utf8ToBytes('abc'), new Uint8Array([97, 98, 99]));

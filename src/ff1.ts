@@ -41,9 +41,11 @@ function NUMradix(radix: number, data: number[]): bigint {
 }
 
 function getRound(radix: number, key: TArg<Uint8Array>, tweak: TArg<Uint8Array>, x: number[]) {
+  // This implementation writes [radix]3 as 0x00 || uint16_be(radix), so radix=2^16
+  // needs a real 24-bit encoder before it can be supported.
   if (radix > 2 ** 16 - 1) throw new Error('invalid radix ' + radix);
-  // radix**minlen ≥ 100
-  const minLen = Math.ceil(Math.log(100) / Math.log(radix));
+  // minLen must satisfy both radix**minlen ≥ 100 and minlen ≥ 2.
+  const minLen = Math.max(2, Math.ceil(Math.log(100) / Math.log(radix)));
   const maxLen = 2 ** 32 - 1;
   // 2 ≤ minlen ≤ maxlen < 2**32
   if (2 > minLen || minLen > maxLen || maxLen >= 2 ** 32)
@@ -64,8 +66,7 @@ function getRound(radix: number, key: TArg<Uint8Array>, tweak: TArg<Uint8Array>,
   // P = [1]1 || [2]1 || [1]1 || [radix]3 || [10]1 || [u mod 256]1 || [n]4 || [t]4.
   const P = Uint8Array.from([1, 2, 1, 0, 0, 0, 10, u, 0, 0, 0, 0, 0, 0, 0, 0]);
   const view = new DataView(P.buffer);
-  // NIST SP 800-38G §5.1 bounds radix <= 2^16, so the 24-bit [radix]3 field is encoded here as
-  // 0x00 || uint16_be(radix).
+  // The radix guard above keeps [radix]3's high byte zero, so a 16-bit write is enough.
   view.setUint16(4, radix, false);
   view.setUint32(8, x.length, false);
   view.setUint32(12, tweak.length, false);

@@ -264,7 +264,13 @@ const PASSWORD = 'correct-horse-battery-staple';
 const APP_SPECIFIC_SECRET = 'salt-12345678-secret';
 const SECURITY_LEVEL = 2 ** 20; // requires 1GB of RAM to calculate
 // sync, but scryptAsync is also available
-const key = scrypt(PASSWORD, APP_SPECIFIC_SECRET, { N: SECURITY_LEVEL, r: 8, p: 1, dkLen: 32 });
+const key = scrypt(PASSWORD, APP_SPECIFIC_SECRET, {
+  N: SECURITY_LEVEL,
+  r: 8,
+  p: 1,
+  dkLen: 32,
+  maxmem: 2 ** 30 + 4096,
+});
 
 // Use random, managed nonce
 const chacha = managedNonce(xchacha20poly1305)(key);

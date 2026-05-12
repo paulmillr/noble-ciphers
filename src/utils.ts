@@ -517,6 +517,8 @@ export function hexToBytes(hex: string): TRet<Uint8Array> {
  */
 export function hexToNumber(hex: string): bigint {
   if (typeof hex !== 'string') throw new TypeError('hex string expected, got ' + typeof hex);
+  // Numeric parser, not byte-hex decoder: odd-length forms like 'f' are valid,
+  // and malformed syntax follows BigInt's native error behavior.
   return BigInt(hex === '' ? '0' : '0x' + hex); // Big Endian
 }
 
@@ -544,11 +546,11 @@ export function bytesToNumberBE(bytes: TArg<Uint8Array>): bigint {
  * @param n - Number to encode.
  * @param len - Output length in bytes.
  * @returns Big-endian bytes padded to `len`.
- * Validation is indirect through `hexToBytes(...)`, so negative values, `len = 0`,
- * and values that do not fit surface through the downstream hex parser instead of a
- * dedicated range guard here.
+ * Negative values, `len = 0`, and values that do not fit are rejected before
+ * downstream hex parsing.
  * @throws On wrong argument types. {@link TypeError}
  * @throws If the requested output length cannot represent the encoded value. {@link RangeError}
+ * @throws If a documented runtime validation or state check fails. {@link Error}
  * @example
  * Encodes a counter as fixed-width big-endian bytes.
  *
@@ -559,7 +561,9 @@ export function bytesToNumberBE(bytes: TArg<Uint8Array>): bigint {
 export function numberToBytesBE(n: number | bigint, len: number): TRet<Uint8Array> {
   // Reject coercible non-numeric inputs before string/hex conversion changes behavior.
   if (typeof n === 'number') anumber(n);
-  else if (typeof n !== 'bigint') throw new TypeError(`number or bigint expected, got ${typeof n}`);
+  else if (typeof n === 'bigint') {
+    if (n < 0n) throw new RangeError('positive bigint expected, got ' + n);
+  } else throw new TypeError(`number or bigint expected, got ${typeof n}`);
   anumber(len);
   if (len === 0) throw new Error('zero output length is invalid');
   const expectedLen = len * 2;
@@ -685,7 +689,10 @@ type EmptyObj = {};
  * @param defaults - Default option values.
  * @param opts - User-provided overrides.
  * @returns Combined options object.
- * The merge mutates `defaults` in place and returns the same object.
+ * `defaults` is a library-owned mutable object; user-provided `opts` only need to be
+ * object-shaped, since "plain object" checks reject valid proxy/cross-realm containers.
+ * The merge mutates `defaults` in place and returns the same object, so direct callers
+ * should pass a fresh defaults object unless they intentionally want shared state updated.
  * @throws If options are missing or not an object. {@link Error}
  * @example
  * Applies user overrides to the default cipher options.
@@ -699,6 +706,8 @@ export function checkOpts<T1 extends EmptyObj, T2 extends EmptyObj>(
   opts: T2
 ): T1 & T2 {
   if (opts == null || typeof opts !== 'object') throw new Error('options must be defined');
+  // Mutates defaults by design. __proto__ follows Object.assign semantics here and can only
+  // affect this local option object; callers already control this low-level options surface.
   const merged = Object.assign(defaults, opts);
   return merged as T1 & T2;
 }
@@ -875,8 +884,10 @@ export type CipherCons<T extends any[]> = (key: TArg<Uint8Array>, ...args: T) =>
  * Wraps a cipher: validates args, ensures encrypt() can only be called once.
  * Used internally by the exported cipher constructors.
  * Output-buffer support is inferred from the wrapped `encrypt` / `decrypt`
- * arity (`fn.length === 2`), and tag-bearing constructors are expected to use
- * `args[1]` for optional AAD.
+ * arity (`fn.length === 2`), so wrapped output-capable methods must use a normal
+ * second parameter, not a default/rest parameter. Tag-bearing constructors are
+ * expected to use `(key, nonce, AAD)`, so `args[1]` is optional AAD. If a future
+ * tag-bearing constructor has no nonce, this internal helper contract should change with it.
  * @__NO_SIDE_EFFECTS__
  * @param params - Static cipher metadata. See {@link CipherParams}.
  * @param constructor - Cipher constructor.
@@ -912,6 +923,7 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
     const wrCipher = {
       encrypt(data: TArg<Uint8Array>, output?: TArg<Uint8Array>) {
         if (called) throw new Error('cannot encrypt() twice with same key + nonce');
+        // Any encrypt attempt consumes the instance, even if validation rejects below.
         called = true;
         abytes(data);
         checkOutput(cipher.encrypt.length, output);

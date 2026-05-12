@@ -19,6 +19,7 @@ import {
   clean,
   copyBytes,
   createView,
+  isLE,
   swap32IfBE,
   swap8IfBE,
   u32,
@@ -248,7 +249,8 @@ export class GHASH implements IHash2 {
     o32[1] = s1;
     o32[2] = s2;
     o32[3] = s3;
-    swap32IfBE(o32);
+    // Only the tag words need host-endian normalization; oversized output tails are caller-owned.
+    if (!isLE) swap32IfBE(o32.subarray(0, BLOCK_SIZE / 4));
   }
   digest(): TRet<Uint8Array> {
     const res = new Uint8Array(BLOCK_SIZE);
