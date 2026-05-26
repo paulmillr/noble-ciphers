@@ -4,7 +4,7 @@ import { aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv } from '../src/aes.ts';
 import { chacha20poly1305, xchacha20poly1305 } from '../src/chacha.ts';
 import { pathToFileURL } from 'node:url';
 import { xsalsa20poly1305 } from '../src/salsa.ts';
-import { managedNonce, randomBytes } from '../src/utils.ts';
+import { managedNonce, randomBytes, wrapCipher } from '../src/utils.ts';
 import { TYPE_TEST, unalign } from './utils.ts';
 const BT = { describe, should };
 
@@ -40,13 +40,27 @@ export function test(
   } = platform;
   const CIPHERS = {
     xsalsa20poly1305: { fn: xsalsa20poly1305, keyLen: 32, withNonce: true },
-    chacha20poly1305: { fn: chacha20poly1305, keyLen: 32, withNonce: true, withDST: true },
-    xchacha20poly1305: { fn: xchacha20poly1305, keyLen: 32, withNonce: true, withDST: true },
+    chacha20poly1305: {
+      fn: chacha20poly1305,
+      keyLen: 32,
+      withNonce: true,
+      withDST: true,
+      withAAD: true,
+    },
+    xchacha20poly1305: {
+      fn: xchacha20poly1305,
+      keyLen: 32,
+      withNonce: true,
+      withDST: true,
+      withAAD: true,
+    },
   };
 
   for (const keyLen of [16, 24, 32]) {
-    for (const [name, fn] of Object.entries({ cbc, ctr, gcm, gcmsiv, cfb }))
+    for (const [name, fn] of Object.entries({ cbc, ctr, cfb }))
       CIPHERS[`${name}_${keyLen * 8}`] = { fn, keyLen, withNonce: true };
+    for (const [name, fn] of Object.entries({ gcm, gcmsiv }))
+      CIPHERS[`${name}_${keyLen * 8}`] = { fn, keyLen, withNonce: true, withAAD: true };
     CIPHERS[`ecb_${keyLen * 8}`] = { fn: ecb, keyLen, withNonce: false };
     CIPHERS[`aeskw_${keyLen * 8}`] = {
       fn: aeskw,
@@ -81,7 +95,7 @@ export function test(
     const { fn, withNonce } = opts;
     const args = [key];
     if (withNonce) args.push(nonce);
-    if (AAD !== undefined && (withNonce || fn.tagLength)) args.push(AAD);
+    if (AAD !== undefined && opts.withAAD) args.push(AAD);
     return fn(...args, ...(opts.args || []));
   };
 
@@ -469,10 +483,53 @@ export function test(
     }
   });
 
-  // In basic.test.js, add after existing tests:
-
   describe(`input validation (${variant})`, () => {
     const INVALID_BYTE_ARRAYS = TYPE_TEST.bytes;
+
+    should('advertise AAD support explicitly', () => {
+      const meta = {
+        xsalsa20poly1305: (xsalsa20poly1305 as any).withAAD,
+        chacha20poly1305: (chacha20poly1305 as any).withAAD,
+        xchacha20poly1305: (xchacha20poly1305 as any).withAAD,
+        cbc: (cbc as any).withAAD,
+        gcm: (gcm as any).withAAD,
+        gcmsiv: (gcmsiv as any).withAAD,
+      };
+      eql(meta, {
+        xsalsa20poly1305: undefined,
+        chacha20poly1305: true,
+        xchacha20poly1305: true,
+        cbc: undefined,
+        gcm: true,
+        gcmsiv: true,
+      });
+    });
+
+    should('wrapCipher accepts explicit AAD support with rest args', () => {
+      const seen = [];
+      const cipher = wrapCipher(
+        { blockSize: 1, nonceLength: 1, tagLength: 1, withAAD: true },
+        (key, nonce, ...AAD) => {
+          seen.push(AAD);
+          return {
+            encrypt: (data) => data,
+            decrypt: (data) => data,
+          };
+        }
+      );
+      const aad = new Uint8Array([3]);
+      cipher(new Uint8Array(1), new Uint8Array(1), aad);
+      eql(seen, [[aad]]);
+      eql(cipher.withAAD, true);
+    });
+
+    should('reject AAD after no-AAD options', () => {
+      const key = new Uint8Array(16);
+      const nonce = new Uint8Array(16);
+      const aad = new Uint8Array(16);
+      throws(() => (cbc as any)(key, nonce, { disablePadding: true }, aad));
+      throws(() => (ecb as any)(key, { disablePadding: true }, aad));
+    });
 
     for (const k in CIPHERS) {
       const opts = CIPHERS[k];
@@ -521,6 +578,16 @@ export function test(
               if (invalid == null) return;
               throws(() => fn(key, nonce, invalid));
             }
+          });
+        }
+
+        if (!opts.withAAD) {
+          should('reject AAD', () => {
+            const key = new Uint8Array(keyLen);
+            const nonce = fn.nonceLength ? new Uint8Array(fn.nonceLength) : undefined;
+            const aad = new Uint8Array(16);
+            if (fn.nonceLength) throws(() => fn(key, nonce, aad));
+            else throws(() => fn(key, aad));
           });
         }
 

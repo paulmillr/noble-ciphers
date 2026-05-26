@@ -216,27 +216,26 @@ export function test(
               const ct = concatBytes(hex.decode(t.ct), hex.decode(t.tag || ''));
               const msg = hex.decode(t.msg);
               const cipher = CIPHERS[c.cipher];
+              const key = hex.decode(t.key);
+              const iv = hex.decode(t.iv);
+              const aad = hex.decode(t.aad || '');
+              // CBC vectors share the AEAD-shaped Wycheproof schema, but CBC has no AAD slot.
+              const init = (fn) => (c.cipher === 'cbc' ? fn(key, iv) : fn(key, iv, aad));
               if (t.result === 'valid') {
                 if (t.flags.includes('SmallIv')) return; // skip test, we don't support iv < 8b
-                const a = cipher(hex.decode(t.key), hex.decode(t.iv), hex.decode(t.aad || ''));
+                const a = init(cipher);
                 const ct = concatBytes(hex.decode(t.ct), hex.decode(t.tag || ''));
                 eql(a.decrypt(ct), msg);
                 eql(a.encrypt(msg), ct);
                 // Webcrypto has different limits
                 if (c.webcipher && t.iv.length !== 16 && t.iv.length % 16 === 0) {
-                  const wc = c.webcipher(
-                    hex.decode(t.key),
-                    hex.decode(t.iv),
-                    hex.decode(t.aad || '')
-                  );
+                  const wc = init(c.webcipher);
                   if (isDeno) return;
                   eql(await wc.decrypt(ct), msg);
                   eql(await wc.encrypt(msg), ct);
                 }
               } else {
-                throws(() =>
-                  cipher(hex.decode(t.key), hex.decode(t.iv), hex.decode(t.aad || '')).decrypt(ct)
-                );
+                throws(() => init(cipher).decrypt(ct));
               }
             });
           }

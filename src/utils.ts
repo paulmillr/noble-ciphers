@@ -854,6 +854,8 @@ export type CipherParams = {
   nonceLength?: number;
   /** Authentication-tag length in bytes for AEAD modes. */
   tagLength?: number;
+  /** Whether constructor accepts associated data after nonce/options args. */
+  withAAD?: true;
   /** Whether nonce length is variable at runtime. */
   varSizeNonce?: boolean;
 };
@@ -885,9 +887,8 @@ export type CipherCons<T extends any[]> = (key: TArg<Uint8Array>, ...args: T) =>
  * Used internally by the exported cipher constructors.
  * Output-buffer support is inferred from the wrapped `encrypt` / `decrypt`
  * arity (`fn.length === 2`), so wrapped output-capable methods must use a normal
- * second parameter, not a default/rest parameter. Tag-bearing constructors are
- * expected to use `(key, nonce, AAD)`, so `args[1]` is optional AAD. If a future
- * tag-bearing constructor has no nonce, this internal helper contract should change with it.
+ * second parameter, not a default/rest parameter. AAD support is explicit in
+ * `params.withAAD`; optional AAD starts after the nonce slot when one is present.
  * @__NO_SIDE_EFFECTS__
  * @param params - Static cipher metadata. See {@link CipherParams}.
  * @param constructor - Cipher constructor.
@@ -907,9 +908,17 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
       abytes(nonce, params.varSizeNonce ? undefined : params.nonceLength, 'nonce');
     }
 
-    // Validate AAD if tagLength present
+    // Keep tag length available for decrypt-size checks after constructor validation.
     const tagl = params.tagLength;
-    if (tagl && args[1] !== undefined) abytes(args[1], undefined, 'AAD');
+    const aadStart = params.nonceLength !== undefined ? 1 : 0;
+    // No-AAD constructors otherwise silently ignore byte args meant as AAD.
+    if (!params.withAAD) {
+      for (let i = aadStart; i < args.length; i++)
+        if (isBytes(args[i])) throw new Error('AAD not supported');
+    }
+
+    // Validate the first AAD slot early; rest-arg AAD constructors validate the tail themselves.
+    if (params.withAAD && args[aadStart] !== undefined) abytes(args[aadStart], undefined, 'AAD');
 
     const cipher = constructor(key, ...args);
     const checkOutput = (fnLength: number, output?: TArg<Uint8Array>) => {
@@ -1196,10 +1205,11 @@ export function managedNonce<T extends CipherWithNonce>(
       const decrypted = ciphertext.subarray(nonceLength);
       return fn(key, nonce, ...args).decrypt(decrypted);
     },
-  })) as RemoveNonce<T> & { blockSize?: number; tagLength?: number };
+  })) as RemoveNonce<T> & { blockSize?: number; tagLength?: number; withAAD?: true };
   // Auto-nonce wrappers still preserve the wrapped payload geometry.
   if ('blockSize' in fn) res.blockSize = (fn as any).blockSize;
   if ('tagLength' in fn) res.tagLength = (fn as any).tagLength;
+  if ('withAAD' in fn) res.withAAD = (fn as any).withAAD;
   return res as TRet<RemoveNonce<T>>;
 }
 

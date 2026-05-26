@@ -78,11 +78,13 @@ function getCryptParams(algo: BlockMode, nonce: TArg<Uint8Array>, AAD?: TArg<Uin
 
 function generate(
   algo: BlockMode,
-  nonceLength: number
+  nonceLength: number,
+  withAAD = false
 ): TRet<
   ((key: TArg<Uint8Array>, nonce: TArg<Uint8Array>, AAD?: TArg<Uint8Array>) => AsyncCipher) & {
     blockSize: number;
     nonceLength: number;
+    withAAD?: true;
   }
 > {
   anumber(nonceLength);
@@ -94,7 +96,10 @@ function generate(
     abytes(key);
     abytes(nonce);
     // Reject falsy non-byte AAD locally; otherwise false/0/''/null silently become "no AAD".
-    if (AAD !== undefined) abytes(AAD, undefined, 'AAD');
+    if (AAD !== undefined) {
+      if (!withAAD) throw new Error('AAD not supported');
+      abytes(AAD, undefined, 'AAD');
+    }
     // Only GCM consumes AAD. CBC/CTR wrappers are typed without it; any runtime
     // third argument is outside their API and is not passed to WebCrypto params.
     // Exact nonce-length enforcement and WebCrypto-specific AAD normalization are
@@ -120,10 +125,12 @@ function generate(
   };
   res.nonceLength = nonceLength;
   res.blockSize = 16; // always for AES
+  if (withAAD) res.withAAD = true;
   return res as TRet<
     ((key: TArg<Uint8Array>, nonce: TArg<Uint8Array>, AAD?: TArg<Uint8Array>) => AsyncCipher) & {
       blockSize: number;
       nonceLength: number;
+      withAAD?: true;
     }
   >;
 }
@@ -202,8 +209,16 @@ export const gcm: TRet<
   ((key: TArg<Uint8Array>, nonce: TArg<Uint8Array>, AAD?: TArg<Uint8Array>) => AsyncCipher) & {
     blockSize: number;
     nonceLength: number;
+    withAAD: true;
   }
-> = /* @__PURE__ */ (() => generate(mode.GCM, 12))();
+> = /* @__PURE__ */ (() =>
+  generate(mode.GCM, 12, true) as TRet<
+    ((key: TArg<Uint8Array>, nonce: TArg<Uint8Array>, AAD?: TArg<Uint8Array>) => AsyncCipher) & {
+      blockSize: number;
+      nonceLength: number;
+      withAAD: true;
+    }
+  >)();
 
 // // Type tests
 // import { siv, gcm, ctr, ecb, cbc } from '../aes.ts';

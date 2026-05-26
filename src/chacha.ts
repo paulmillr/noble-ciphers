@@ -509,8 +509,8 @@ export const _poly1305_aead =
  * cipher.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */
-export const chacha20poly1305: TRet<ARXCipher> = /* @__PURE__ */ wrapCipher(
-  { blockSize: 64, nonceLength: 12, tagLength: 16 },
+export const chacha20poly1305: TRet<ARXCipher & { withAAD: true }> = /* @__PURE__ */ wrapCipher(
+  { blockSize: 64, nonceLength: 12, tagLength: 16, withAAD: true },
   /* @__PURE__ */ _poly1305_aead(chacha20)
 );
 /**
@@ -534,8 +534,8 @@ export const chacha20poly1305: TRet<ARXCipher> = /* @__PURE__ */ wrapCipher(
  * cipher.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */
-export const xchacha20poly1305: TRet<ARXCipher> = /* @__PURE__ */ wrapCipher(
-  { blockSize: 64, nonceLength: 24, tagLength: 16 },
+export const xchacha20poly1305: TRet<ARXCipher & { withAAD: true }> = /* @__PURE__ */ wrapCipher(
+  { blockSize: 64, nonceLength: 24, tagLength: 16, withAAD: true },
   /* @__PURE__ */ _poly1305_aead(xchacha20)
 );
 

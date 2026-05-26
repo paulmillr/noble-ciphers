@@ -910,10 +910,11 @@ export const gcm: TRet<
     blockSize: number;
     nonceLength: number;
     tagLength: number;
+    withAAD: true;
     varSizeNonce: true;
   }
 > = /* @__PURE__ */ wrapCipher(
-  { blockSize: 16, nonceLength: 12, tagLength: 16, varSizeNonce: true },
+  { blockSize: 16, nonceLength: 12, tagLength: 16, withAAD: true, varSizeNonce: true },
   function aesgcm(
     key: TArg<Uint8Array>,
     nonce: TArg<Uint8Array>,
@@ -1034,10 +1035,11 @@ export const gcmsiv: TRet<
     blockSize: number;
     nonceLength: number;
     tagLength: number;
+    withAAD: true;
     varSizeNonce: true;
   }
 > = /* @__PURE__ */ wrapCipher(
-  { blockSize: 16, nonceLength: 12, tagLength: 16, varSizeNonce: true },
+  { blockSize: 16, nonceLength: 12, tagLength: 16, withAAD: true, varSizeNonce: true },
   function aessiv(
     key: TArg<Uint8Array>,
     nonce: TArg<Uint8Array>,
@@ -1919,9 +1921,10 @@ export const aessiv: TRet<
   ((key: TArg<Uint8Array>, ...AAD: TArg<Uint8Array[]>) => Cipher) & {
     blockSize: number;
     tagLength: number;
+    withAAD: true;
   }
 > = /* @__PURE__ */ wrapCipher(
-  { blockSize: 16, tagLength: 16 },
+  { blockSize: 16, tagLength: 16, withAAD: true },
   function aessiv(key: TArg<Uint8Array>, ...AAD: TArg<Uint8Array[]>): TRet<Cipher> {
     // From RFC 5297: Section 6.1, 6.2, 6.3:
     const PLAIN_LIMIT = limit('plaintext', 0, 2 ** 132);

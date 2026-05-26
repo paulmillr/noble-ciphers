@@ -70,6 +70,19 @@ export function test(
       for (const bad of [false, 0, '', null])
         throws(() => web.gcm(key, nonce, bad as any), TypeError);
     });
+    should('advertise AAD support explicitly', () => {
+      eql(
+        { cbc: (web.cbc as any).withAAD, ctr: (web.ctr as any).withAAD, gcm: web.gcm.withAAD },
+        { cbc: undefined, ctr: undefined, gcm: true }
+      );
+    });
+    should('reject AAD for no-AAD ciphers', () => {
+      const key = randomBytes(32);
+      const nonce = randomBytes(16);
+      const aad = randomBytes(16);
+      throws(() => (web.cbc as any)(key, nonce, aad));
+      throws(() => (web.ctr as any)(key, nonce, aad));
+    });
   });
 }
 

@@ -79,6 +79,10 @@ export function test(
   });
 
   describe(`AES-SIV (${variant})`, () => {
+    should('advertises AAD support explicitly', () => {
+      deepStrictEqual((siv as any).withAAD, true);
+    });
+
     describe('RFC 5297 test vectors', () => {
       should('Example A.1', () => {
         const key = hexToBytes('fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff');
