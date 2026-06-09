@@ -901,7 +901,8 @@ function computeTag(
  * import { randomBytes } from '@noble/ciphers/utils.js';
  * const key = randomBytes(16);
  * const nonce = randomBytes(12);
- * const cipher = gcm(key, nonce);
+ * const aad = new TextEncoder().encode('session metadata');
+ * const cipher = gcm(key, nonce, aad);
  * cipher.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */
@@ -1026,7 +1027,8 @@ const limit = (name: string, min: number, max: number) => (value: number) => {
  * import { randomBytes } from '@noble/ciphers/utils.js';
  * const key = randomBytes(16);
  * const nonce = randomBytes(12);
- * const cipher = gcmsiv(key, nonce);
+ * const aad = new TextEncoder().encode('session metadata');
+ * const cipher = gcmsiv(key, nonce, aad);
  * cipher.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */

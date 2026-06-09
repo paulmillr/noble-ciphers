@@ -110,6 +110,17 @@ export type TRet<T> = T extends unknown
         : TypedRet<T>)
   : never;
 
+export function aarray<T>(
+  item: unknown,
+  title: string,
+  inner: (elm: T, title: string) => void = () => {}
+): T[] {
+  if (!Array.isArray(item))
+    throw new TypeError(`"${title}" expected array, got type=${typeof item}`);
+  for (let i = 0; i < item.length; i++) inner(item[i], `${title}[${i}]`);
+  return item;
+}
+
 /**
  * Checks if something is Uint8Array. Be careful: nodejs Buffer will return true.
  * @param a - Value to inspect.
@@ -146,8 +157,11 @@ export function isBytes(a: unknown): a is Uint8Array {
  * abool(true);
  * ```
  */
-export function abool(b: boolean): void {
-  if (typeof b !== 'boolean') throw new TypeError(`boolean expected, not ${b}`);
+export function abool(b: boolean, title: string = ''): void {
+  if (typeof b !== 'boolean') {
+    const prefix = title && `"${title}" `;
+    throw new TypeError(`${prefix}expected boolean, got type=${typeof b}`);
+  }
 }
 
 /**
@@ -162,10 +176,13 @@ export function abool(b: boolean): void {
  * anumber(1);
  * ```
  */
-export function anumber(n: number): void {
-  if (typeof n !== 'number') throw new TypeError('number expected, got ' + typeof n);
+export function anumber(n: number, title: string = ''): void {
+  if (typeof n !== 'number') {
+    const prefix = title && `"${title}" `;
+    throw new TypeError(`${prefix}expected number, got ${typeof n}`);
+  }
   if (!Number.isSafeInteger(n) || n < 0)
-    throw new RangeError('positive integer expected, got ' + n);
+    throw new RangeError(`${title ? `"${title}" ` : ''}expected integer >= 0, got ${n}`);
 }
 
 /**
@@ -192,6 +209,7 @@ export function abytes(
   const bytes = isBytes(value);
   const len = value?.length;
   const needsLen = length !== undefined;
+  if (needsLen) anumber(length, 'length');
   if (!bytes || (needsLen && len !== length)) {
     const prefix = title && `"${title}" `;
     const ofLen = needsLen ? ` of length ${length}` : '';
@@ -201,6 +219,45 @@ export function abytes(
     throw new RangeError(message);
   }
   return value as TRet<Uint8Array>;
+}
+
+function validateObject(
+  object: Record<string, any>,
+  fields: Record<string, string> = {},
+  optFields: Record<string, string> = {},
+  title = 'object'
+): void {
+  const checkObject = (value: Record<string, any>, label: string) => {
+    if (value === null || typeof value !== 'object' || Array.isArray(value))
+      throw new TypeError(
+        label === 'object'
+          ? 'expected valid options object'
+          : `"${label}" expected object, got type=${typeof value}`
+      );
+  };
+  checkObject(object, title);
+  checkObject(fields, 'fields');
+  checkObject(optFields, 'optFields');
+  type Item = keyof typeof object;
+  function checkField(fieldName: Item, expectedType: string, isOpt: boolean) {
+    const label =
+      title === 'object' ? `param "${String(fieldName)}"` : `"${title}.${String(fieldName)}"`;
+    const val = object[fieldName];
+    if (
+      !Object.hasOwn(object, fieldName) &&
+      (isOpt ? val !== undefined : expectedType !== 'function')
+    ) {
+      throw new TypeError(`${label} is invalid: expected own property`);
+    }
+    if (isOpt && val === undefined) return;
+    const current = typeof val;
+    if (current !== expectedType || val === null)
+      throw new TypeError(`${label} is invalid: expected ${expectedType}, got ${current}`);
+  }
+  const iter = (f: typeof fields, isOpt: boolean) =>
+    Object.entries(f).forEach(([k, v]) => checkField(k, v, isOpt));
+  iter(fields, false);
+  iter(optFields, true);
 }
 
 /**
@@ -217,6 +274,7 @@ export function abytes(
  * ```
  */
 export function aexists(instance: any, checkFinished = true): void {
+  validateObject(instance, {}, { destroyed: 'boolean', finished: 'boolean' }, 'instance');
   if (instance.destroyed) throw new Error('Hash instance has been destroyed');
   if (checkFinished && instance.finished) throw new Error('Hash#digest() has already been called');
 }
@@ -240,6 +298,8 @@ export function aexists(instance: any, checkFinished = true): void {
  */
 export function aoutput(out: any, instance: any, onlyAligned = false): void {
   abytes(out, undefined, 'output');
+  validateObject(instance, { outputLen: 'number' }, {}, 'instance');
+  anumber(instance.outputLen, 'instance.outputLen');
   const min = instance.outputLen;
   if (out.length < min) {
     throw new RangeError('digestInto() expects output buffer of length at least ' + min);
@@ -705,7 +765,8 @@ export function checkOpts<T1 extends EmptyObj, T2 extends EmptyObj>(
   defaults: T1,
   opts: T2
 ): T1 & T2 {
-  if (opts == null || typeof opts !== 'object') throw new Error('options must be defined');
+  validateObject(defaults, {}, {}, 'defaults');
+  validateObject(opts, {}, {}, 'opts');
   // Mutates defaults by design. __proto__ follows Object.assign semantics here and can only
   // affect this local option object; callers already control this low-level options surface.
   const merged = Object.assign(defaults, opts);
@@ -934,12 +995,12 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
         if (called) throw new Error('cannot encrypt() twice with same key + nonce');
         // Any encrypt attempt consumes the instance, even if validation rejects below.
         called = true;
-        abytes(data);
+        abytes(data, undefined, 'data');
         checkOutput(cipher.encrypt.length, output);
         return (cipher as CipherWithOutput).encrypt(data, output);
       },
       decrypt(data: TArg<Uint8Array>, output?: TArg<Uint8Array>) {
-        abytes(data);
+        abytes(data, undefined, 'data');
         if (tagl && data.length < tagl)
           throw new Error('"ciphertext" expected length bigger than tagLength=' + tagl);
         checkOutput(cipher.decrypt.length, output);
@@ -1171,8 +1232,12 @@ export function managedNonce<T extends CipherWithNonce>(
   fn: T,
   randomBytes_: typeof randomBytes = randomBytes
 ): TRet<RemoveNonce<T>> {
+  if (typeof fn !== 'function')
+    throw new TypeError('"fn" expected cipher constructor, got type=' + typeof fn);
+  if (typeof randomBytes_ !== 'function')
+    throw new TypeError('"randomBytes_" expected function, got type=' + typeof randomBytes_);
   const { nonceLength } = fn;
-  anumber(nonceLength);
+  anumber(nonceLength, 'fn.nonceLength');
   const addNonce = (
     nonce: TArg<Uint8Array>,
     ciphertext: TArg<Uint8Array>,
@@ -1191,7 +1256,7 @@ export function managedNonce<T extends CipherWithNonce>(
   // - previously we passed all args to cipher, but that was mistake!
   const res = ((key: TArg<Uint8Array>, ...args: any[]): any => ({
     encrypt(plaintext: TArg<Uint8Array>) {
-      abytes(plaintext);
+      abytes(plaintext, undefined, 'data');
       const nonce = randomBytes_(nonceLength);
       const encrypted = fn(key, nonce, ...args).encrypt(plaintext);
       // @ts-ignore
@@ -1200,7 +1265,7 @@ export function managedNonce<T extends CipherWithNonce>(
       return addNonce(nonce, encrypted, plaintext);
     },
     decrypt(ciphertext: TArg<Uint8Array>) {
-      abytes(ciphertext);
+      abytes(ciphertext, undefined, 'data');
       const nonce = ciphertext.subarray(0, nonceLength);
       const decrypted = ciphertext.subarray(nonceLength);
       return fn(key, nonce, ...args).decrypt(decrypted);

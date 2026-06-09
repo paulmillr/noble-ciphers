@@ -10,7 +10,6 @@ import { test as polyval } from './polyval.test.ts';
 import { test as siv } from './siv.test.ts';
 import { test as utils } from './utils.test.ts';
 import { test as webcrypto } from './webcrypto.test.ts';
-// import './errors.test.ts';
 
 aes();
 arx();

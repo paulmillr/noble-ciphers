@@ -505,7 +505,8 @@ export const _poly1305_aead =
  * import { randomBytes } from '@noble/ciphers/utils.js';
  * const key = randomBytes(32);
  * const nonce = randomBytes(12);
- * const cipher = chacha20poly1305(key, nonce);
+ * const aad = new TextEncoder().encode('session metadata');
+ * const cipher = chacha20poly1305(key, nonce, aad);
  * cipher.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */
@@ -530,7 +531,8 @@ export const chacha20poly1305: TRet<ARXCipher & { withAAD: true }> = /* @__PURE_
  * import { randomBytes } from '@noble/ciphers/utils.js';
  * const key = randomBytes(32);
  * const nonce = randomBytes(24);
- * const cipher = xchacha20poly1305(key, nonce);
+ * const aad = new TextEncoder().encode('session metadata');
+ * const cipher = xchacha20poly1305(key, nonce, aad);
  * cipher.encrypt(new Uint8Array([1, 2, 3]));
  * ```
  */

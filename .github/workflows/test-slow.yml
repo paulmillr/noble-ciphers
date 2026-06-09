@@ -6,6 +6,6 @@ on:
 jobs:
   slow:
     name: Slow large input tests
-    uses: paulmillr/jsbt/.github/workflows/test-custom.yml@231cc389fe2f825b6531285ad8c275584bf76588
+    uses: paulmillr/jsbt/.github/workflows/test-custom.yml@9a270529fbbc31451aee938da7dad227ba87f828
     with:
       npm-task: test:slow

@@ -93,8 +93,8 @@ function generate(
     nonce: TArg<Uint8Array>,
     AAD?: TArg<Uint8Array>
   ): TRet<AsyncCipher> => {
-    abytes(key);
-    abytes(nonce);
+    abytes(key, undefined, 'key');
+    abytes(nonce, undefined, 'nonce');
     // Reject falsy non-byte AAD locally; otherwise false/0/''/null silently become "no AAD".
     if (AAD !== undefined) {
       if (!withAAD) throw new Error('AAD not supported');
@@ -112,13 +112,13 @@ function generate(
     return {
       // keyLength,
       encrypt(plaintext: TArg<Uint8Array>): Promise<TRet<Uint8Array>> {
-        abytes(plaintext);
+        abytes(plaintext, undefined, 'data');
         if (consumed) throw new Error('Cannot encrypt() twice with same key / nonce');
         consumed = true;
         return utils.encrypt(key, keyParams, cryptParams, plaintext);
       },
       decrypt(ciphertext: TArg<Uint8Array>): Promise<TRet<Uint8Array>> {
-        abytes(ciphertext);
+        abytes(ciphertext, undefined, 'data');
         return utils.decrypt(key, keyParams, cryptParams, ciphertext);
       },
     } as TRet<AsyncCipher>;

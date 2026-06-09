@@ -5,6 +5,7 @@
  */
 import { unsafe } from './aes.ts';
 import {
+  aarray,
   abytes,
   anumber,
   bytesToNumberBE,
@@ -137,9 +138,9 @@ export function FF1(
   key: TArg<Uint8Array>,
   tweak: TArg<Uint8Array> = EMPTY_BUF
 ): { encrypt(x: number[]): number[]; decrypt(x: number[]): number[] } {
-  anumber(radix);
-  abytes(key);
-  abytes(tweak);
+  anumber(radix, 'radix');
+  abytes(key, undefined, 'key');
+  abytes(tweak, undefined, 'tweak');
   // This borrows caller key/tweak buffers by reference through the bound closure; mutating them
   // after construction changes later encrypt/decrypt outputs.
   const PQ = getRound.bind(null, radix, key, tweak);
@@ -174,7 +175,7 @@ export function FF1(
 // Binary wrapper uses little-endian bit order within each byte so bit 0 stays
 // in the first numeral slot for this library-defined byte-array surface.
 const binLE = {
-  encode(bytes: TArg<Uint8Array>): number[] {
+  encode(bytes: TArg<Uint8Array> | number[]): number[] {
     const x = [];
     for (let i = 0; i < bytes.length; i++) {
       for (let j = 0, tmp = bytes[i]; j < 8; j++, tmp >>= 1) x.push(tmp & 1);
@@ -214,9 +215,27 @@ export function BinaryFF1(
 ): TRet<Cipher> {
   const ff1 = FF1(2, key, tweak);
   return {
-    encrypt: (x: TArg<Uint8Array>): TRet<Uint8Array> =>
-      binLE.decode(ff1.encrypt(binLE.encode(x))) as TRet<Uint8Array>,
-    decrypt: (x: TArg<Uint8Array>): TRet<Uint8Array> =>
-      binLE.decode(ff1.decrypt(binLE.encode(x))) as TRet<Uint8Array>,
+    encrypt: (x: TArg<Uint8Array> | number[]): TRet<Uint8Array> => {
+      if (Array.isArray(x)) {
+        aarray<number>(x, 'x', (elm, title) => {
+          anumber(elm, title);
+          if (elm > 255) throw new RangeError(`"${title}" expected byte`);
+        });
+      } else {
+        x = abytes(x, undefined, 'x');
+      }
+      return binLE.decode(ff1.encrypt(binLE.encode(x))) as TRet<Uint8Array>;
+    },
+    decrypt: (x: TArg<Uint8Array> | number[]): TRet<Uint8Array> => {
+      if (Array.isArray(x)) {
+        aarray<number>(x, 'x', (elm, title) => {
+          anumber(elm, title);
+          if (elm > 255) throw new RangeError(`"${title}" expected byte`);
+        });
+      } else {
+        x = abytes(x, undefined, 'x');
+      }
+      return binLE.decode(ff1.decrypt(binLE.encode(x))) as TRet<Uint8Array>;
+    },
   } as TRet<Cipher>;
 }

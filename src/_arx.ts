@@ -370,7 +370,7 @@ export class _XorStreamPRG implements PRG {
     this.nonce = this.state.subarray(this.keyLen) as TRet<Uint8Array>;
   }
   private reseed(seed: TArg<Uint8Array>) {
-    abytes(seed);
+    abytes(seed, undefined, 'seed');
     if (!seed || seed.length === 0) throw new Error('entropy required');
     // Mix variable-length entropy cyclically across the whole key||nonce state, then restart the
     // keystream so buffered leftovers from the previous state are never reused.
@@ -380,7 +380,7 @@ export class _XorStreamPRG implements PRG {
   }
   addEntropy(seed: TArg<Uint8Array>): void {
     // Reject empty entropy before re-keying, otherwise a throwing call would still advance state.
-    abytes(seed);
+    abytes(seed, undefined, 'seed');
     if (seed.length === 0) throw new Error('entropy required');
     // Re-key from the current stream first, then mix external entropy into the fresh key||nonce
     // state through reseed() so stale buffered bytes are discarded.

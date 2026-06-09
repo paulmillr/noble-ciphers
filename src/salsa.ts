@@ -314,7 +314,7 @@ export const xsalsa20poly1305: TRet<ARXCipher> = /* @__PURE__ */ wrapCipher(
         // [0..32]      [32..48]      [48..]
         // Authenticate the ciphertext before decrypting it; on tag failure the scratch/output
         // buffer may already contain copied ciphertext and derived auth-key material.
-        abytes(ciphertext);
+        abytes(ciphertext, undefined, 'data');
         output = getOutput(ciphertext.length + 32, output, false);
         // output[0..32] is auth-key scratch, output[32..48] is passed tag,
         // output[48..] is ciphertext then plaintext.
