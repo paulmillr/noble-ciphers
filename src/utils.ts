@@ -149,6 +149,7 @@ export function isBytes(a: unknown): a is Uint8Array {
 /**
  * Asserts something is boolean.
  * @param b - Value to validate.
+ * @returns The validated boolean.
  * @throws On wrong argument types. {@link TypeError}
  * @example
  * Validates a boolean option before branching on it.
@@ -157,16 +158,18 @@ export function isBytes(a: unknown): a is Uint8Array {
  * abool(true);
  * ```
  */
-export function abool(b: boolean, title: string = ''): void {
+export function abool(b: boolean, title: string = ''): boolean {
   if (typeof b !== 'boolean') {
     const prefix = title && `"${title}" `;
     throw new TypeError(`${prefix}expected boolean, got type=${typeof b}`);
   }
+  return b;
 }
 
 /**
  * Asserts something is a non-negative safe integer.
  * @param n - Value to validate.
+ * @returns The validated number.
  * @throws On wrong argument types. {@link TypeError}
  * @throws On wrong argument ranges or values. {@link RangeError}
  * @example
@@ -176,13 +179,14 @@ export function abool(b: boolean, title: string = ''): void {
  * anumber(1);
  * ```
  */
-export function anumber(n: number, title: string = ''): void {
+export function anumber(n: number, title: string = ''): number {
   if (typeof n !== 'number') {
     const prefix = title && `"${title}" `;
     throw new TypeError(`${prefix}expected number, got ${typeof n}`);
   }
   if (!Number.isSafeInteger(n) || n < 0)
     throw new RangeError(`${title ? `"${title}" ` : ''}expected integer >= 0, got ${n}`);
+  return n;
 }
 
 /**
@@ -209,6 +213,7 @@ export function abytes(
   const bytes = isBytes(value);
   const len = value?.length;
   const needsLen = length !== undefined;
+  if (bytes && (!needsLen || len === length)) return value as TRet<Uint8Array>;
   if (needsLen) anumber(length, 'length');
   if (!bytes || (needsLen && len !== length)) {
     const prefix = title && `"${title}" `;
@@ -221,44 +226,14 @@ export function abytes(
   return value as TRet<Uint8Array>;
 }
 
-function validateObject(
-  object: Record<string, any>,
-  fields: Record<string, string> = {},
-  optFields: Record<string, string> = {},
-  title = 'object'
-): void {
-  const checkObject = (value: Record<string, any>, label: string) => {
-    if (value === null || typeof value !== 'object' || Array.isArray(value))
-      throw new TypeError(
-        label === 'object'
-          ? 'expected valid options object'
-          : `"${label}" expected object, got type=${typeof value}`
-      );
-  };
-  checkObject(object, title);
-  checkObject(fields, 'fields');
-  checkObject(optFields, 'optFields');
-  type Item = keyof typeof object;
-  function checkField(fieldName: Item, expectedType: string, isOpt: boolean) {
-    const label =
-      title === 'object' ? `param "${String(fieldName)}"` : `"${title}.${String(fieldName)}"`;
-    const val = object[fieldName];
-    if (
-      !Object.hasOwn(object, fieldName) &&
-      (isOpt ? val !== undefined : expectedType !== 'function')
-    ) {
-      throw new TypeError(`${label} is invalid: expected own property`);
-    }
-    if (isOpt && val === undefined) return;
-    const current = typeof val;
-    if (current !== expectedType || val === null)
-      throw new TypeError(`${label} is invalid: expected ${expectedType}, got ${current}`);
-  }
-  const iter = (f: typeof fields, isOpt: boolean) =>
-    Object.entries(f).forEach(([k, v]) => checkField(k, v, isOpt));
-  iter(fields, false);
-  iter(optFields, true);
-}
+const aobject = (value: Record<string, any>, label: string) => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value))
+    throw new TypeError(
+      label === 'object'
+        ? 'expected valid options object'
+        : `"${label}" expected object, got type=${typeof value}`
+    );
+};
 
 /**
  * Asserts a hash- or MAC-like instance has not been destroyed or finished.
@@ -274,9 +249,13 @@ function validateObject(
  * ```
  */
 export function aexists(instance: any, checkFinished = true): void {
-  validateObject(instance, {}, { destroyed: 'boolean', finished: 'boolean' }, 'instance');
-  if (instance.destroyed) throw new Error('Hash instance has been destroyed');
-  if (checkFinished && instance.finished) throw new Error('Hash#digest() has already been called');
+  aobject(instance, 'instance');
+  const destroyed =
+    instance.destroyed === undefined ? false : abool(instance.destroyed, 'instance.destroyed');
+  const finished =
+    instance.finished === undefined ? false : abool(instance.finished, 'instance.finished');
+  if (destroyed) throw new Error('Hash instance has been destroyed');
+  if (checkFinished && finished) throw new Error('Hash#digest() has already been called');
 }
 
 /**
@@ -298,9 +277,8 @@ export function aexists(instance: any, checkFinished = true): void {
  */
 export function aoutput(out: any, instance: any, onlyAligned = false): void {
   abytes(out, undefined, 'output');
-  validateObject(instance, { outputLen: 'number' }, {}, 'instance');
-  anumber(instance.outputLen, 'instance.outputLen');
-  const min = instance.outputLen;
+  aobject(instance, 'instance');
+  const min = anumber(instance.outputLen, 'instance.outputLen');
   if (out.length < min) {
     throw new RangeError('digestInto() expects output buffer of length at least ' + min);
   }
@@ -765,8 +743,8 @@ export function checkOpts<T1 extends EmptyObj, T2 extends EmptyObj>(
   defaults: T1,
   opts: T2
 ): T1 & T2 {
-  validateObject(defaults, {}, {}, 'defaults');
-  validateObject(opts, {}, {}, 'opts');
+  aobject(defaults as Record<string, any>, 'defaults');
+  aobject(opts as Record<string, any>, 'opts');
   // Mutates defaults by design. __proto__ follows Object.assign semantics here and can only
   // affect this local option object; callers already control this low-level options surface.
   const merged = Object.assign(defaults, opts);

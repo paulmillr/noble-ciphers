@@ -169,12 +169,12 @@ export function test({ describe, should } = BT) {
 
   describe('assert', () => {
     should('abool', () => {
-      eql(u.abool(true), undefined);
+      eql(u.abool(true), true);
       throws(() => u.abool('1' as any), TypeError);
       throws(() => u.abool(1 as any), TypeError);
     });
     should('anumber', () => {
-      eql(u.anumber(10), undefined);
+      eql(u.anumber(10), 10);
       throws(() => u.anumber(1.2), RangeError);
       throws(() => u.anumber('1' as any), TypeError);
       throws(() => u.anumber(true as any), TypeError);
