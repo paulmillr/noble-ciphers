@@ -181,19 +181,18 @@ export function test(
       }
     });
     describe('GCM-SIV', () => {
-      for (const flavor of ['aes128', 'aes256', 'counterWrap']) {
-        for (let i = 0; i < VECTORS[flavor].length; i++) {
-          const v = VECTORS[flavor][i];
-          should(`${flavor}(${i}).encrypt`, () => {
+      should('vectors', () => {
+        for (const flavor of ['aes128', 'aes256', 'counterWrap']) {
+          for (let i = 0; i < VECTORS[flavor].length; i++) {
+            const v = VECTORS[flavor][i];
+            const label = `${flavor}(${i})`;
             let a = gcmsiv(hex.decode(v.key), hex.decode(v.nonce), hex.decode(v.AAD));
-            eql(a.encrypt(hex.decode(v.plaintext)), hex.decode(v.result));
-          });
-          should(`${flavor}(${i}).decrypt`, () => {
-            let a = gcmsiv(hex.decode(v.key), hex.decode(v.nonce), hex.decode(v.AAD));
-            eql(a.decrypt(hex.decode(v.result)), hex.decode(v.plaintext));
-          });
+            eql(a.encrypt(hex.decode(v.plaintext)), hex.decode(v.result), `${label}.encrypt`);
+            a = gcmsiv(hex.decode(v.key), hex.decode(v.nonce), hex.decode(v.AAD));
+            eql(a.decrypt(hex.decode(v.result)), hex.decode(v.plaintext), `${label}.decrypt`);
+          }
         }
-      }
+      });
       should(`throws on lengths`, () => {
         gcmsiv(new Uint8Array(32), new Uint8Array(12), new Uint8Array(12));
         throws(() => gcmsiv(new Uint8Array(32), new Uint8Array(11), new Uint8Array(12))); // nonce
@@ -202,45 +201,51 @@ export function test(
     });
 
     describe('Wycheproof', () => {
-      const cases = [
-        { name: 'GCM-SIV', groups: aes_gcm_siv_test.testGroups, cipher: 'siv' },
-        { name: 'GCM', groups: aes_gcm_test.testGroups, cipher: 'gcm', webcipher: web.gcm },
-        { name: 'CBC', groups: aes_cbc_test.testGroups, cipher: 'cbc', webcipher: web.cbc }, // PCKS5 is enabled by default
-      ];
-      for (const c of cases) {
-        for (const g of c.groups) {
-          const name = `Wycheproof/${c.name}/${g.ivSize}/${g.keySize}/${g.tagSize}/${g.type}`;
-          for (let i = 0; i < g.tests.length; i++) {
-            const t = g.tests[i];
-            should(`${name}: ${i}`, async () => {
-              const ct = concatBytes(hex.decode(t.ct), hex.decode(t.tag || ''));
-              const msg = hex.decode(t.msg);
-              const cipher = CIPHERS[c.cipher];
-              const key = hex.decode(t.key);
-              const iv = hex.decode(t.iv);
-              const aad = hex.decode(t.aad || '');
-              // CBC vectors share the AEAD-shaped Wycheproof schema, but CBC has no AAD slot.
-              const init = (fn) => (c.cipher === 'cbc' ? fn(key, iv) : fn(key, iv, aad));
-              if (t.result === 'valid') {
-                if (t.flags.includes('SmallIv')) return; // skip test, we don't support iv < 8b
-                const a = init(cipher);
+      should('vectors', async () => {
+        const cases = [
+          { name: 'GCM-SIV', groups: aes_gcm_siv_test.testGroups, cipher: 'siv' },
+          { name: 'GCM', groups: aes_gcm_test.testGroups, cipher: 'gcm', webcipher: web.gcm },
+          { name: 'CBC', groups: aes_cbc_test.testGroups, cipher: 'cbc', webcipher: web.cbc }, // PCKS5 is enabled by default
+        ];
+        for (const c of cases) {
+          for (const g of c.groups) {
+            const name = `Wycheproof/${c.name}/${g.ivSize}/${g.keySize}/${g.tagSize}/${g.type}`;
+            for (let i = 0; i < g.tests.length; i++) {
+              const t = g.tests[i];
+              const label = `${name}: ${i}`;
+              try {
                 const ct = concatBytes(hex.decode(t.ct), hex.decode(t.tag || ''));
-                eql(a.decrypt(ct), msg);
-                eql(a.encrypt(msg), ct);
-                // Webcrypto has different limits
-                if (c.webcipher && t.iv.length !== 16 && t.iv.length % 16 === 0) {
-                  const wc = init(c.webcipher);
-                  if (isDeno) return;
-                  eql(await wc.decrypt(ct), msg);
-                  eql(await wc.encrypt(msg), ct);
+                const msg = hex.decode(t.msg);
+                const cipher = CIPHERS[c.cipher];
+                const key = hex.decode(t.key);
+                const iv = hex.decode(t.iv);
+                const aad = hex.decode(t.aad || '');
+                // CBC vectors share the AEAD-shaped Wycheproof schema, but CBC has no AAD slot.
+                const init = (fn) => (c.cipher === 'cbc' ? fn(key, iv) : fn(key, iv, aad));
+                if (t.result === 'valid') {
+                  if (t.flags.includes('SmallIv')) continue; // skip test, we don't support iv < 8b
+                  const a = init(cipher);
+                  const ct = concatBytes(hex.decode(t.ct), hex.decode(t.tag || ''));
+                  eql(a.decrypt(ct), msg, `${label}: decrypt`);
+                  eql(a.encrypt(msg), ct, `${label}: encrypt`);
+                  // Webcrypto has different limits
+                  if (c.webcipher && t.iv.length !== 16 && t.iv.length % 16 === 0) {
+                    const wc = init(c.webcipher);
+                    if (isDeno) continue;
+                    eql(await wc.decrypt(ct), msg, `${label}: web decrypt`);
+                    eql(await wc.encrypt(msg), ct, `${label}: web encrypt`);
+                  }
+                } else {
+                  throws(() => init(cipher).decrypt(ct), `${label}: decrypt invalid`);
                 }
-              } else {
-                throws(() => init(cipher).decrypt(ct));
+              } catch (error) {
+                if (error instanceof Error) error.message = `${label}: ${error.message}`;
+                throw error;
               }
-            });
+            }
           }
         }
-      }
+      });
     });
     describe('AESKW', () => {
       should('RFC3394', () => {

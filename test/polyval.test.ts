@@ -123,17 +123,18 @@ export function test(
       }
     );
 
-    for (const flavor of ['aes128', 'aes256', 'counterWrap']) {
-      for (let i = 0; i < VECTORS[flavor].length; i++) {
-        const v = VECTORS[flavor][i];
-        should(`${flavor}(${i}): polyval`, () => {
+    should('SIV vectors', () => {
+      for (const flavor of ['aes128', 'aes256', 'counterWrap']) {
+        for (let i = 0; i < VECTORS[flavor].length; i++) {
+          const v = VECTORS[flavor][i];
           eql(
             hex.encode(polyval(hex.decode(v.polyvalInput), hex.decode(v.authKey))),
-            v.polyvalResult
+            v.polyvalResult,
+            `${flavor}(${i}): polyval`
           );
-        });
+        }
       }
-    }
+    });
   });
 }
 if (import.meta.url === pathToFileURL(process.argv[1]).href) test();

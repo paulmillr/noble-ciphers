@@ -137,23 +137,30 @@ export function test(
     });
 
     describe('Wycheproof', () => {
-      const aes_siv_test = json('./vectors/wycheproof/aes_siv_cmac_test.json');
-      for (const group of aes_siv_test.testGroups) {
-        describe(`Key size: ${group.keySize}`, () => {
+      should('vectors', () => {
+        const aes_siv_test = json('./vectors/wycheproof/aes_siv_cmac_test.json');
+        for (const group of aes_siv_test.testGroups) {
           for (const t of group.tests) {
-            should(`TCID ${t.tcId} - ${t.comment}`, () => {
+            const label = `Key size ${group.keySize}/TCID ${t.tcId} - ${t.comment}`;
+            try {
               const aessiv = siv(hexToBytes(t.key), hexToBytes(t.aad));
               if (t.result === 'valid' || t.result === 'acceptable') {
-                deepStrictEqual(bytesToHex(aessiv.encrypt(hexToBytes(t.msg))), t.ct);
-                deepStrictEqual(bytesToHex(aessiv.decrypt(hexToBytes(t.ct))), t.msg);
+                deepStrictEqual(bytesToHex(aessiv.encrypt(hexToBytes(t.msg))), t.ct, label);
+                deepStrictEqual(bytesToHex(aessiv.decrypt(hexToBytes(t.ct))), t.msg, label);
               } else {
-                throws(() => aessiv.decrypt(hexToBytes(t.ct)), 'decrypt');
-                throws(() => deepStrictEqual(aessiv.encrypt(hexToBytes(t.msg)), hexToBytes(t.ct)));
+                throws(() => aessiv.decrypt(hexToBytes(t.ct)), `${label}: decrypt`);
+                throws(
+                  () => deepStrictEqual(aessiv.encrypt(hexToBytes(t.msg)), hexToBytes(t.ct)),
+                  `${label}: encrypt`
+                );
               }
-            });
+            } catch (error) {
+              if (error instanceof Error) error.message = `${label}: ${error.message}`;
+              throw error;
+            }
           }
-        });
-      }
+        }
+      });
     });
   });
 }
