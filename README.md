@@ -595,7 +595,7 @@ Changelog of v2, when upgrading from ciphers v1:
 - `npm install && npm run build && npm test` will build the code and run tests.
 - `npm run lint` / `npm run format` will run linter / fix linter issues.
 - `npm run bench` will run benchmarks
-- `npm run build:release` will build single file
+- `npm run bundle` will build single file
 
 See [paulmillr.com/noble](https://paulmillr.com/noble/)
 for useful resources, articles, documentation and demos
