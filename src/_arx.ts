@@ -270,9 +270,9 @@ export function createCipher(core: TArg<CipherCoreFn>, opts: TArg<CipherOpts>): 
     let k: Uint8Array;
     let sigma: Uint32Array;
     if (l === 32) {
-      // Copy caller keys too: big-endian normalization, extended-nonce subkey derivation, and
-      // final clean(...) all mutate or wipe the temporary buffer in place.
-      toClean.push((k = copyBytes(key)));
+      // Copy caller keys only when the path mutates key material or needs an aligned word view.
+      if (!isLE || !isAligned32(key) || extendNonceFn) toClean.push((k = copyBytes(key)));
+      else k = key as TRet<Uint8Array>;
       sigma = sigma32_32;
     } else if (l === 16 && allowShortKeys) {
       k = new Uint8Array(32);

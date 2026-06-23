@@ -1114,13 +1114,14 @@ export const gcmsiv: TRet<
     function processSiv(
       encKey: TArg<Uint32Array>,
       tag: TArg<Uint8Array>,
-      input: TArg<Uint8Array>
+      input: TArg<Uint8Array>,
+      output?: TArg<Uint8Array>
     ): TRet<Uint8Array> {
       let block = copyBytes(tag);
       // RFC 8452 §4 / §5 use the tag with the highest bit of the last byte
       // forced to one as the initial AES-CTR counter block.
       block[15] |= 0x80; // Force highest bit
-      const res = ctr32(encKey, true, block, input);
+      const res = ctr32(encKey, true, block, input, output);
       // Cleanup
       clean(block);
       return res;
@@ -1134,7 +1135,7 @@ export const gcmsiv: TRet<
         if (!isAligned32(plaintext)) toClean.push((plaintext = copyBytes(plaintext)));
         const out = new Uint8Array(plaintext.length + tagLength);
         out.set(tag, plaintext.length);
-        out.set(processSiv(encKey, tag, plaintext));
+        processSiv(encKey, tag, plaintext, out.subarray(0, plaintext.length));
         // Cleanup
         clean(...toClean);
         return out as TRet<Uint8Array>;
@@ -1856,23 +1857,36 @@ function s2v(key: TArg<Uint8Array>, strings: TArg<Uint8Array[]>): TRet<Uint8Arra
   // Earlier components are validated through cmac(...); validate the final one explicitly because
   // the Uint8Array.from()/set() paths below would otherwise coerce array-like inputs silently.
   abytes(s_n);
-  let t: Uint8Array;
 
   // if len(Sn) >= 128 then
   if (s_n.byteLength >= BLOCK_SIZE) {
+    if (s_n.byteLength <= 1024) {
+      // T = Sn xorend D
+      const t = xorend(Uint8Array.from(s_n), d);
+      const result = cmac(t, key);
+      clean(d, t);
+      return result;
+    }
+    const h = cmac.create(key);
+    const last = new Uint8Array(BLOCK_SIZE);
+    if (s_n.length > BLOCK_SIZE) h.update(s_n.subarray(0, s_n.length - BLOCK_SIZE));
+    last.set(s_n.subarray(s_n.length - BLOCK_SIZE));
     // T = Sn xorend D
-    t = xorend(Uint8Array.from(s_n), d);
-  } else {
-    // pad(Sn):
-    const paddedSn = new Uint8Array(BLOCK_SIZE);
-    paddedSn.set(s_n);
-    paddedSn[s_n.length] = 0x80; // padding: 0x80 followed by zeros
-
-    // T = dbl(D) xor pad(Sn)
-    t = xorBlock(dbl(d), paddedSn);
-    clean(paddedSn);
+    xorBlock(last, d);
+    h.update(last);
+    const result = h.digest();
+    clean(d, last);
+    return result;
   }
 
+  // pad(Sn):
+  const paddedSn = new Uint8Array(BLOCK_SIZE);
+  paddedSn.set(s_n);
+  paddedSn[s_n.length] = 0x80; // padding: 0x80 followed by zeros
+
+  // T = dbl(D) xor pad(Sn)
+  const t = xorBlock(dbl(d), paddedSn);
+  clean(paddedSn);
   // V = AES-CMAC(K, T)
   const result = cmac(t, key);
   clean(d, t);
@@ -1961,9 +1975,17 @@ export const aessiv: TRet<
         q[12] &= 0x7f;
 
         // encrypt:
-        const c = ctr(k2, q).encrypt(plaintext);
-
-        return concatBytes(v, c);
+        if (plaintext.length <= 1024) {
+          const c = ctr(k2, q).encrypt(plaintext);
+          const out = concatBytes(v, c);
+          clean(q, v);
+          return out;
+        }
+        const out = new Uint8Array(BLOCK_SIZE + plaintext.length);
+        out.set(v);
+        ctr(k2, q).encrypt(plaintext, out.subarray(BLOCK_SIZE));
+        clean(q, v);
+        return out as TRet<Uint8Array>;
       },
       // {@link https://datatracker.ietf.org/doc/html/rfc5297.html#section-2.7 | RFC 5297 Section 2.7}
       decrypt(ciphertext: TArg<Uint8Array>): TRet<Uint8Array> {
@@ -1983,9 +2005,10 @@ export const aessiv: TRet<
         const t = s2v(k1, [...AAD, p]);
 
         if (equalBytes(t, v)) {
+          clean(q, t);
           return p as TRet<Uint8Array>;
         } else {
-          clean(p);
+          clean(p, q, t);
           throw new Error('invalid siv tag');
         }
       },

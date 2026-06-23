@@ -19,6 +19,7 @@ import {
   clean,
   copyBytes,
   createView,
+  isAligned32,
   isLE,
   swap32IfBE,
   swap8IfBE,
@@ -87,8 +88,6 @@ export function _toGHASHKey(k: TArg<Uint8Array>): TRet<Uint8Array> {
   return k as TRet<Uint8Array>;
 }
 
-type Value = { s0: number; s1: number; s2: number; s3: number };
-
 // Precompute-window heuristic only: larger inputs trade memory for fewer table lookups.
 // Any caller-provided length hint still collapses to one of the supported windows {2, 4, 8}.
 const estimateWindow = (bytes: number) => {
@@ -96,6 +95,8 @@ const estimateWindow = (bytes: number) => {
   if (bytes > 1024) return 4;
   return 2;
 };
+
+type Value = { s0: number; s1: number; s2: number; s3: number };
 
 /**
  * Incremental GHASH state for AES-GCM.
@@ -137,6 +138,7 @@ export class GHASH implements IHash2 {
     let k1 = kView.getUint32(4, false);
     let k2 = kView.getUint32(8, false);
     let k3 = kView.getUint32(12, false);
+    clean(key);
     // generate table of doubled keys (half of montgomery ladder)
     const doubles: Value[] = [];
     for (let i = 0; i < 128; i++) {
@@ -197,7 +199,7 @@ export class GHASH implements IHash2 {
   update(data: TArg<Uint8Array>): this {
     aexists(this);
     abytes(data);
-    data = copyBytes(data);
+    if (!isAligned32(data)) data = copyBytes(data);
     const b32 = u32(data);
     const blocks = Math.floor(data.length / BLOCK_SIZE);
     const left = data.length % BLOCK_SIZE;
@@ -292,7 +294,7 @@ export class Polyval extends GHASH {
   update(data: TArg<Uint8Array>): this {
     aexists(this);
     abytes(data);
-    data = copyBytes(data);
+    if (!isAligned32(data)) data = copyBytes(data);
     const b32 = u32(data);
     const left = data.length % BLOCK_SIZE;
     const blocks = Math.floor(data.length / BLOCK_SIZE);

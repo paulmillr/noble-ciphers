@@ -20,7 +20,7 @@
 // prettier-ignore
 import {
   abytes, aexists, aoutput, bytesToHex,
-  clean, concatBytes, copyBytes, hexToNumber, numberToBytesBE,
+  clean, concatBytes, hexToNumber, numberToBytesBE,
   wrapMacConstructor, type CMac, type IHash2, type TArg, type TRet
 } from './utils.ts';
 
@@ -110,7 +110,7 @@ export class Poly1305 implements IHash2 {
 
   // Can be speed-up using BigUint64Array, at the cost of complexity
   constructor(key: TArg<Uint8Array>) {
-    key = copyBytes(abytes(key, 32, 'key'));
+    key = abytes(key, 32, 'key');
     const t0 = u8to16(key, 0);
     const t1 = u8to16(key, 2);
     const t2 = u8to16(key, 4);
@@ -318,7 +318,6 @@ export class Poly1305 implements IHash2 {
   update(data: TArg<Uint8Array>): this {
     aexists(this);
     abytes(data);
-    data = copyBytes(data);
     const { buffer, blockLen } = this;
     const len = data.length;
 
