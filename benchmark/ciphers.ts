@@ -1,5 +1,5 @@
-import mark from '@paulmillr/jsbt/bench.js';
-import { aessiv, cbc, ctr, ecb, gcm, gcmsiv, rngAesCtrDrbg128 } from '../../src/aes.ts';
+import bench from '@paulmillr/jsbt/bench.js';
+import { aessiv, cbc, ctr, ecb, gcm, gcmsiv, rngAesCtrDrbg128 } from '../src/aes.ts';
 import {
   chacha12,
   chacha20,
@@ -9,18 +9,14 @@ import {
   rngChacha8,
   xchacha20,
   xchacha20poly1305,
-} from '../../src/chacha.ts';
-import { salsa20, xsalsa20, xsalsa20poly1305 } from '../../src/salsa.ts';
-import { randomBytes } from '../../src/utils.ts';
-import * as aesw from '../../src/webcrypto.ts';
+} from '../src/chacha.ts';
+import { salsa20, xsalsa20, xsalsa20poly1305 } from '../src/salsa.ts';
+import { randomBytes } from '../src/utils.ts';
+import * as aesw from '../src/webcrypto.ts';
 import { buf } from './_utils.ts';
 
 const buffers = [
-  // { size: '16B', data: buf(16) }, // common block size
-  // { size: '32B', data: buf(32) },
   { size: '64B', data: buf(64) },
-  // { size: '1KB', data: buf(1024) },
-  // { size: '8KB', data: buf(1024 * 8) },
   { size: '1MB', data: buf(1024 * 1024) },
 ];
 
@@ -31,13 +27,13 @@ async function main() {
   const nonce8 = buf(8);
   const nonce16 = buf(16);
   const nonce24 = buf(24);
-  const rng8 = rngChacha8();
-  const rng20 = rngChacha20();
 
   // Do we need this at all?
   for (let i = 0; i < 100_000; i++) xsalsa20poly1305(key, nonce24).encrypt(buf(64)); // warm-up
   for (const { size, data: buf } of buffers) {
-    console.log(size);
+    console.log('# ' + size);
+    const size2 = buf.byteLength;
+    const mark = (title, fn) => bench(title, fn, { bytes: size2 });
     await mark('xsalsa20poly1305', () => xsalsa20poly1305(key, nonce24).encrypt(buf));
     await mark('chacha20poly1305', () => chacha20poly1305(key, nonce).encrypt(buf));
     await mark('xchacha20poly1305', () => xchacha20poly1305(key, nonce24).encrypt(buf));
@@ -46,7 +42,7 @@ async function main() {
     await mark('aes-siv-256', () => aessiv(key, nonce, nonce16, nonce24).encrypt(buf));
     await mark('aes-siv-512', () => aessiv(key64, nonce, nonce16, nonce24).encrypt(buf));
 
-    console.log('# Unauthenticated encryption');
+    console.log('## Unauthenticated encryption');
     await mark('salsa20', () => salsa20(key, nonce8, buf));
     await mark('xsalsa20', () => xsalsa20(key, nonce24, buf));
     await mark('chacha20', () => chacha20(key, nonce, buf));
@@ -57,7 +53,7 @@ async function main() {
     await mark('aes-cbc-256', () => cbc(key, nonce16).encrypt(buf));
     await mark('aes-ctr-256', () => ctr(key, nonce16).encrypt(buf));
 
-    console.log('# Random number generator');
+    console.log('## Random number generator');
     const rng8 = rngChacha8();
     const rng20 = rngChacha20();
     const rngCtr = rngAesCtrDrbg128(randomBytes(32));
@@ -73,7 +69,7 @@ async function main() {
     }
 
     if (size === '1MB') {
-      console.log('# Wrapper over built-in webcrypto');
+      console.log('## Wrapper over built-in webcrypto');
       await mark('webcrypto ctr-256', () => aesw.ctr(key, nonce16).encrypt(buf));
       await mark('webcrypto cbc-256', () => aesw.cbc(key, nonce16).encrypt(buf));
       await mark('webcrypto gcm-256', () => aesw.gcm(key, nonce).encrypt(buf));

@@ -16,7 +16,7 @@ import { chacha20poly1305, xchacha20poly1305 } from '../../src/chacha.ts';
 import { xsalsa20poly1305 } from '../../src/salsa.ts';
 import { concatBytes } from '../../src/utils.ts';
 import * as webcrypto from '../../src/webcrypto.ts';
-import { buf, crossValidate } from './_utils.ts';
+import { buf, crossValidate } from '../_utils.ts';
 // ciphers.js
 import { streamXOR as stableChacha } from '@stablelib/chacha';
 import { streamXOR as stableSalsa } from '@stablelib/salsa20';
@@ -575,23 +575,16 @@ export async function main() {
       }
     }
   }
-  console.log('Libraries cross-validated against each other correctly');
+  console.log('### Libraries cross-validated against each other correctly');
 
   await compare('Ciphers', { buffer: BUFFERS }, CIPHERS, {
-    // type: Basic/Same/AEAD
-    // 'Algorithm', Padding, keySize, direction (encrypt/decrypt)
-    libDims: ['type', 'algorithm', 'padding', 'key size', 'library', 'direction'],
+    libraryDimensions: ['type', 'algorithm', 'padding', 'key size', 'library', 'direction'],
     defaults: {
       buffer: '64B',
       library: 'noble',
       direction: 'encrypt',
       'key size': '256',
       padding: 'padding',
-    },
-    samples: (buf) => {
-      if (buf.length <= 64) return 1_000_000;
-      if (buf.length <= 8 * 1024) return 50_000;
-      return 100;
     },
     patchArgs: (args, obj) => {
       // Replace buffer with "encrypted" version
@@ -602,21 +595,7 @@ export async function main() {
       }
       return args;
     },
-    metrics: {
-      'MiB/s': {
-        rev: true, // Bigger = better (green +%, red -%)
-        width: 7,
-        diff: true,
-        compute: (_obj, stats, perSec, buffer) => {
-          const MiB = 1024 * 1024;
-          const ns = 1e9;
-          const bytesPerOp = 1 * buffer.length;
-          if (stats.mean === 0n) return 0; // Edge: infinite speed
-          const speed = (bytesPerOp * ns) / (Number(stats.mean) * MiB);
-          return +`${speed.toFixed(0)}`;
-        },
-      },
-    },
+    bytes: ({ args }) => args[0].length,
   });
 }
 
