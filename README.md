@@ -117,7 +117,7 @@ const data_ = aes.decrypt(ciphertext); // new TextDecoder().decode(data_) === da
 
 We provide API that manages nonce internally instead of exposing them to library's user.
 
-For `encrypt`: a `nonceBytes`-length buffer is fetched from CSPRNG and prenended to encrypted ciphertext.
+For `encrypt`: a `nonceBytes`-length buffer is fetched from CSPRNG and prepended to encrypted ciphertext.
 
 For `decrypt`: first `nonceBytes` of ciphertext are treated as nonce.
 
@@ -316,7 +316,7 @@ We suggest to use **XChaCha20-Poly1305** because it's very fast and allows rando
 
 ### Nonces
 
-Most ciphers need a key and a nonce (aka initialization vector / IV) to encrypt a data.
+Most ciphers need a key and a nonce (aka initialization vector / IV) to encrypt data.
 Repeating (key, nonce) pair with different plaintexts would allow an attacker to decrypt it.
 
     ciphertext_a = encrypt(plaintext_a, key, nonce)
@@ -420,7 +420,7 @@ Check out [draft-irtf-cfrg-aead-limits](https://datatracker.ietf.org/doc/draft-i
 For non-deterministic (not ECB) schemes, initialization vector (IV) is mixed to block/key;
 and each new round either depends on previous block's key, or on some counter.
 
-- **ECB** (Electronic Codebook): Deterministic encryption; identical plaintext blocks yield identical ciphertexts. Not secure due to pattern leakage. due to pattern leakage.
+- **ECB** (Electronic Codebook): Deterministic encryption; identical plaintext blocks yield identical ciphertexts. Not secure due to pattern leakage.
   See [AES Penguin](https://words.filippo.io/the-ecb-penguin/)
 - **CBC** (Cipher Block Chaining): Each plaintext block is XORed with the previous block of ciphertext
   before encryption. Hard to use: requires proper padding and an IV. Unauthenticated: needs MAC.
@@ -456,7 +456,7 @@ If you see anything unusual: investigate and report.
 
 ### Constant-timeness
 
-We're targetting algorithmic constant time. _JIT-compiler_ and _Garbage Collector_ make "constant time"
+We're targeting algorithmic constant time. _JIT-compiler_ and _Garbage Collector_ make "constant time"
 extremely hard to achieve [timing attack](https://en.wikipedia.org/wiki/Timing_attack) resistance
 in a scripting language. Which means _any other JS library can't have
 constant-timeness_. Even statically typed Rust, a language without GC,
