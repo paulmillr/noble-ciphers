@@ -28,7 +28,7 @@ import {
   clean,
   equalBytes,
   getOutput,
-  swap8IfBE,
+  isLE,
   swap32IfBE,
   u64Lengths,
   wrapCipher,
@@ -112,7 +112,8 @@ function chachaCore(
  * hchacha hashes key and nonce into key' and nonce' for xchacha20.
  * Algorithmically identical to `hchacha_small` from `test/misc/micro-ciphers.ts`,
  * but this exported path normalizes word order on big-endian hosts.
- * Need to find a way to merge it with `chachaCore` without 25% performance hit.
+ * Reuses `chachaCore` and subtracts its feed-forward, keeping the hot per-block
+ * path untouched.
  * @param s - Sigma constants as 32-bit words.
  * @param k - Key words.
  * @param i - Nonce-prefix words.
@@ -132,58 +133,23 @@ function chachaCore(
 export function hchacha(
   s: TArg<Uint32Array>, k: TArg<Uint32Array>, i: TArg<Uint32Array>, out: TArg<Uint32Array>
 ): void {
-  let x00 = swap8IfBE(s[0]), x01 = swap8IfBE(s[1]), x02 = swap8IfBE(s[2]), x03 = swap8IfBE(s[3]),
-      x04 = swap8IfBE(k[0]), x05 = swap8IfBE(k[1]), x06 = swap8IfBE(k[2]), x07 = swap8IfBE(k[3]),
-      x08 = swap8IfBE(k[4]), x09 = swap8IfBE(k[5]), x10 = swap8IfBE(k[6]), x11 = swap8IfBE(k[7]),
-      x12 = swap8IfBE(i[0]), x13 = swap8IfBE(i[1]), x14 = swap8IfBE(i[2]), x15 = swap8IfBE(i[3]);
-  for (let r = 0; r < 20; r += 2) {
-    x00 = (x00 + x04) | 0; x12 = rotl(x12 ^ x00, 16);
-    x08 = (x08 + x12) | 0; x04 = rotl(x04 ^ x08, 12);
-    x00 = (x00 + x04) | 0; x12 = rotl(x12 ^ x00, 8);
-    x08 = (x08 + x12) | 0; x04 = rotl(x04 ^ x08, 7);
-
-    x01 = (x01 + x05) | 0; x13 = rotl(x13 ^ x01, 16);
-    x09 = (x09 + x13) | 0; x05 = rotl(x05 ^ x09, 12);
-    x01 = (x01 + x05) | 0; x13 = rotl(x13 ^ x01, 8);
-    x09 = (x09 + x13) | 0; x05 = rotl(x05 ^ x09, 7);
-
-    x02 = (x02 + x06) | 0; x14 = rotl(x14 ^ x02, 16);
-    x10 = (x10 + x14) | 0; x06 = rotl(x06 ^ x10, 12);
-    x02 = (x02 + x06) | 0; x14 = rotl(x14 ^ x02, 8);
-    x10 = (x10 + x14) | 0; x06 = rotl(x06 ^ x10, 7);
-
-    x03 = (x03 + x07) | 0; x15 = rotl(x15 ^ x03, 16);
-    x11 = (x11 + x15) | 0; x07 = rotl(x07 ^ x11, 12);
-    x03 = (x03 + x07) | 0; x15 = rotl(x15 ^ x03, 8)
-    x11 = (x11 + x15) | 0; x07 = rotl(x07 ^ x11, 7);
-
-    x00 = (x00 + x05) | 0; x15 = rotl(x15 ^ x00, 16);
-    x10 = (x10 + x15) | 0; x05 = rotl(x05 ^ x10, 12);
-    x00 = (x00 + x05) | 0; x15 = rotl(x15 ^ x00, 8);
-    x10 = (x10 + x15) | 0; x05 = rotl(x05 ^ x10, 7);
-
-    x01 = (x01 + x06) | 0; x12 = rotl(x12 ^ x01, 16);
-    x11 = (x11 + x12) | 0; x06 = rotl(x06 ^ x11, 12);
-    x01 = (x01 + x06) | 0; x12 = rotl(x12 ^ x01, 8);
-    x11 = (x11 + x12) | 0; x06 = rotl(x06 ^ x11, 7);
-
-    x02 = (x02 + x07) | 0; x13 = rotl(x13 ^ x02, 16);
-    x08 = (x08 + x13) | 0; x07 = rotl(x07 ^ x08, 12);
-    x02 = (x02 + x07) | 0; x13 = rotl(x13 ^ x02, 8);
-    x08 = (x08 + x13) | 0; x07 = rotl(x07 ^ x08, 7);
-
-    x03 = (x03 + x04) | 0; x14 = rotl(x14 ^ x03, 16)
-    x09 = (x09 + x14) | 0; x04 = rotl(x04 ^ x09, 12);
-    x03 = (x03 + x04) | 0; x14 = rotl(x14 ^ x03, 8);
-    x09 = (x09 + x14) | 0; x04 = rotl(x04 ^ x09, 7);
-  }
-  // HChaCha derives the subkey from state words 0..3 and 12..15 after 20 rounds.
+  // Runs the shared chachaCore permutation, then subtracts the RFC 8439 feed-forward
+  // it applies, recovering the raw permutation words hchacha needs.
+  // LE hosts read the caller arrays in place (no copies); BE hosts get
+  // byte-swapped scratch copies, wiped before returning.
+  const s2 = isLE ? s : swap32IfBE(s.slice(0, 4));
+  const k2 = isLE ? k : swap32IfBE(k.slice(0, 8));
+  const i2 = isLE ? i : swap32IfBE(i.slice(0, 4));
+  const t = new Uint32Array(16);
+  chachaCore(s2, k2, i2.subarray(1), t, i2[0]);
   let oi = 0;
-  out[oi++] = x00; out[oi++] = x01;
-  out[oi++] = x02; out[oi++] = x03;
-  out[oi++] = x12; out[oi++] = x13;
-  out[oi++] = x14; out[oi++] = x15;
+  out[oi++] = (t[0] - s2[0]) | 0; out[oi++] = (t[1] - s2[1]) | 0;
+  out[oi++] = (t[2] - s2[2]) | 0; out[oi++] = (t[3] - s2[3]) | 0;
+  out[oi++] = (t[12] - i2[0]) | 0; out[oi++] = (t[13] - i2[1]) | 0;
+  out[oi++] = (t[14] - i2[2]) | 0; out[oi++] = (t[15] - i2[3]) | 0;
   swap32IfBE(out);
+  if (!isLE) clean(s2, k2, i2);
+  clean(t);
 }
 
 /**
