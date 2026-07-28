@@ -14,8 +14,23 @@ import {
   xchacha20poly1305,
 } from '../src/chacha.ts';
 import { pathToFileURL } from 'node:url';
-import { hsalsa, salsa20, secretbox, xsalsa20, xsalsa20poly1305 } from '../src/salsa.ts';
+import {
+  __TESTS as __SALSA_TESTS,
+  hsalsa,
+  salsa20,
+  secretbox,
+  xsalsa20,
+  xsalsa20poly1305,
+} from '../src/salsa.ts';
 import * as utils from '../src/utils.ts';
+import {
+  chacha20poly1305_small,
+  chachaCore_small,
+  poly1305_small,
+  salsaCore_small,
+  xchacha20poly1305_small,
+  xsalsa20poly1305_small,
+} from './misc/micro-ciphers.ts';
 import { json } from './utils.ts';
 
 const stable_chacha_poly = json('./vectors/stablelib_chacha20poly1305.json');
@@ -103,6 +118,20 @@ export function test(
         eql(hex.encode(dst), good);
       });
     }
+    should('salsaCore_small matches salsaCore', () => {
+      const key = new Uint32Array([
+        0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c, 0x13121110, 0x17161514, 0x1b1a1918,
+        0x1f1e1d1c,
+      ]);
+      const nonce = new Uint32Array([0xa3a2a1a0, 0xa7a6a5a4]);
+      for (const cnt of [0, 1, 0xfffffffe]) {
+        const small = new Uint32Array(16);
+        const fast = new Uint32Array(16);
+        salsaCore_small(sigma32_32, key, nonce, small, cnt, 20);
+        __SALSA_TESTS.salsaCore(sigma32_32, key, nonce, fast, cnt, 20);
+        eql(small, fast, `cnt=${cnt}`);
+      }
+    });
     should('xsalsa20', () => {
       const key = hex.decode('000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f');
       const nonce = hex.decode('fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8');
@@ -145,9 +174,29 @@ export function test(
       const nonce = new Uint32Array([0x09000000, 0x4a000000, 0x00000000]);
       const small = new Uint32Array(16);
       const fast = new Uint32Array(16);
-      __TESTS.chachaCore_small(sigma, key, nonce, small, 1, 20);
+      chachaCore_small(sigma, key, nonce, small, 1, 20);
       __TESTS.chachaCore(sigma, key, nonce, fast, 1, 20);
       eql(small, fast);
+    });
+    should('RFC 8439 §2.4.2 with explicit counter=1', () => {
+      // Pins the public `counter` argument against the spec: the RFC encrypts
+      // the sunscreen text starting from block 1, not block 0.
+      const key = hex.decode('000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f');
+      const nonce = hex.decode('000000000000004a00000000');
+      const plaintext = utils.utf8ToBytes(
+        "Ladies and Gentlemen of the class of '99: If I could offer you " +
+          'only one tip for the future, sunscreen would be it.'
+      );
+      const ciphertext =
+        '6e2e359a2568f98041ba0728dd0d6981e97e7aec1d4360c20a27afccfd9fae0b' +
+        'f91b65c5524733ab8f593dabcd62b3571639d624e65152ab8f530c359f0861d8' +
+        '07ca0dbf500d6a6156a38e088a22b65e52bc514d16ccf806818ce91ab7793736' +
+        '5af90bbf74a35be6b40b8eedf2785e42874d';
+      eql(hex.encode(chacha20(key, nonce, plaintext, undefined, 1)), ciphertext);
+      eql(
+        hex.encode(chacha20(key, nonce, hex.decode(ciphertext), undefined, 1)),
+        hex.encode(plaintext)
+      );
     });
     should('short key', () => {
       const res = chacha20orig(
@@ -310,10 +359,69 @@ export function test(
     );
   });
 
+  describe(`counter semantics (${variant})`, () => {
+    should('counter=k continues the stream at block k', () => {
+      // Counter continuation is what AEAD wrappers rely on: block 0 makes the
+      // Poly1305 key, payload starts at block 1.
+      const key = Uint8Array.from({ length: 32 }, (_, i) => i + 1);
+      const cases = [
+        { fn: chacha20, nonceLen: 12 },
+        { fn: chacha20orig, nonceLen: 8 },
+        { fn: xchacha20, nonceLen: 24 },
+        { fn: salsa20, nonceLen: 8 },
+        { fn: xsalsa20, nonceLen: 24 },
+      ];
+      for (const { fn, nonceLen } of cases) {
+        const nonce = Uint8Array.from({ length: nonceLen }, (_, i) => 0xa0 + i);
+        const full = fn(key, nonce, new Uint8Array(64 * 3 + 17));
+        const tail = fn(key, nonce, new Uint8Array(64 * 2 + 17), undefined, 1);
+        eql(tail, full.subarray(64));
+      }
+    });
+    should('last valid counter block 0xfffffffe succeeds', () => {
+      // Success side of the overflow boundary pinned by the oracles above.
+      // chacha20 keystream cross-checked against OpenSSL 3 (`chacha20` EVP
+      // cipher, IV = 32-bit LE counter || 12-byte nonce); salsa20 keystream is
+      // cross-checked against the reference core here.
+      const key = Uint8Array.from({ length: 32 }, (_, i) => i);
+      const nonce12 = Uint8Array.from({ length: 12 }, (_, i) => 0xa0 + i);
+      eql(
+        hex.encode(chacha20(key, nonce12, new Uint8Array(64), undefined, 0xfffffffe)),
+        '2d15b217a238bdbdb8ea5d9a30f7b863594d905002750af94292264a9c51eda4' +
+          '3b2b13065251bdd364891cf70dae1bf8a5090c9fc0d7411d7e2e0fa395cc4716'
+      );
+      const nonce8 = Uint8Array.from({ length: 8 }, (_, i) => 0xb0 + i);
+      const salsaOut = salsa20(key, nonce8, new Uint8Array(64), undefined, 0xfffffffe);
+      eql(
+        hex.encode(salsaOut),
+        'e9d814cfba7a1b462c0ac6b195992a1fae8a89dd9d5b05dc734dffe82ee65948' +
+          'fc424989a8eb379242a0f42e6cbc22076394a36b7854dd9c4b34c2fed0ffcb9b'
+      );
+      if (utils.isLE) {
+        // Raw core words serialize to keystream bytes directly only on LE hosts.
+        const ref = new Uint32Array(16);
+        salsaCore_small(sigma32_32, u32(key), u32(nonce8), ref, 0xfffffffe, 20);
+        eql(new Uint8Array(ref.buffer.slice(0)), salsaOut);
+      }
+      // One block past the boundary still throws.
+      throws(
+        () => chacha20(key, nonce12, new Uint8Array(65), undefined, 0xfffffffe),
+        /arx: counter overflow/
+      );
+    });
+  });
+
   describe(`poly1305 (${variant})`, () => {
     should('basic', () => {
       for (const v of stable_poly1305) {
         eql(hex.encode(poly1305(hex.decode(v.data), hex.decode(v.key).subarray(0, 32))), v.mac);
+      }
+    });
+
+    should('poly1305_small reference matches vectors', () => {
+      for (const v of stable_poly1305) {
+        const key = hex.decode(v.key).subarray(0, 32);
+        eql(hex.encode(poly1305_small(hex.decode(v.data), key)), v.mac);
       }
     });
 
@@ -354,6 +462,9 @@ export function test(
     };
     t('Chacha20Poly1305', stable_chacha_poly, chacha20poly1305);
     t('Xchacha20Poly1305', stable_xchacha_poly, xchacha20poly1305);
+    // Micro reference AEADs from test/misc/micro-ciphers.ts must match the same vectors.
+    t('Chacha20Poly1305 (micro)', stable_chacha_poly, chacha20poly1305_small);
+    t('Xchacha20Poly1305 (micro)', stable_xchacha_poly, xchacha20poly1305_small);
   });
 
   should(`tweetnacl secretbox compat (${variant})`, () => {
@@ -367,6 +478,10 @@ export function test(
       // Secret box
       eql(secretbox(key, nonce).seal(msg), exp);
       eql(secretbox(key, nonce).open(exp), msg);
+      // Micro reference secretbox from test/misc/micro-ciphers.ts must match too.
+      const cm = xsalsa20poly1305_small(key, nonce);
+      eql(hex.encode(cm.encrypt(msg)), hex.encode(exp), i);
+      eql(hex.encode(cm.decrypt(exp)), hex.encode(msg), i);
     }
   });
 

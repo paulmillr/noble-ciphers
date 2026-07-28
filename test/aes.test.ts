@@ -5,6 +5,7 @@ import { __TESTS, aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv, unsafe } from 
 import { pathToFileURL } from 'node:url';
 import { bytesToHex, concatBytes, hexToBytes } from '../src/utils.ts';
 import * as web from '../src/webcrypto.ts';
+import { cbc_small, ctr_small, gcm_small } from './misc/micro-aes.ts';
 import { json } from './utils.ts';
 
 // https://datatracker.ietf.org/doc/html/rfc8452#appendix-C
@@ -96,6 +97,137 @@ export function test(
           }
         );
       });
+    should('rejects invalid keys before allocation and wipes plaintext copies', () => {
+      const Native = Uint8Array;
+      const key = new Native(16);
+      const invalidKey = new Native(15);
+      const iv = new Native(16);
+      const data = new Native(1024);
+      const off = new Native(1025).subarray(1);
+      const plaintext = new Native(17).subarray(1);
+      plaintext.fill(0x42);
+      const padded = new Native(20).subarray(1);
+      padded.fill(0x24);
+      const ecbOut = new Native(32);
+      const cbcOut = new Native(32);
+      const allocs: Uint8Array[] = [];
+      const Tracked = new Proxy(Native, {
+        construct(target, args, next) {
+          const out = Reflect.construct(target, args, next);
+          if (typeof args[0] === 'number') allocs.push(out);
+          return out;
+        },
+      });
+      // Invalid keys are known before message-sized work, and alignment copies contain
+      // plaintext, so retain the allocations to verify both rejection order and zeroization.
+      (globalThis as any).Uint8Array = Tracked;
+      try {
+        const rejectsBeforeAlloc = (fn: () => unknown) => {
+          allocs.length = 0;
+          throws(fn, /aes key/);
+          return allocs.map((buf) => buf.length);
+        };
+        const rejectsDetached = (create: (key: Uint8Array) => () => unknown) => {
+          const key = new Native(16);
+          const run = create(key);
+          const buffer = key.buffer as ArrayBuffer;
+          structuredClone(buffer, { transfer: [buffer] });
+          return rejectsBeforeAlloc(run);
+        };
+        const rejectsResized = (create: (key: Uint8Array) => () => unknown) => {
+          const buffer = new (ArrayBuffer as any)(16, { maxByteLength: 32 });
+          if (!buffer.resizable) return [];
+          const key = new Native(buffer);
+          const run = create(key);
+          buffer.resize(15);
+          return rejectsBeforeAlloc(run);
+        };
+        const wipedCopies = (fn: () => Uint8Array) => {
+          allocs.length = 0;
+          const out = fn();
+          return allocs.filter((buf) => buf.length === plaintext.length && buf !== out);
+        };
+        const wipedScratch = (fn: () => Uint8Array) => {
+          allocs.length = 0;
+          fn();
+          return allocs.slice();
+        };
+        const got = {
+          invalid: {
+            ecbEncrypt: rejectsBeforeAlloc(() =>
+              ecb(invalidKey, { disablePadding: true }).encrypt(off)
+            ),
+            ecbDecrypt: rejectsBeforeAlloc(() =>
+              ecb(invalidKey, { disablePadding: true }).decrypt(data)
+            ),
+            cbcDecrypt: rejectsBeforeAlloc(() =>
+              cbc(invalidKey, iv, { disablePadding: true }).decrypt(data)
+            ),
+            cbcEncrypt: rejectsBeforeAlloc(() =>
+              cbc(invalidKey, iv, { disablePadding: true }).encrypt(off)
+            ),
+          },
+          detached: {
+            ecbEncrypt: rejectsDetached((key) => {
+              const cipher = ecb(key, { disablePadding: true });
+              return () => cipher.encrypt(off);
+            }),
+            ecbDecrypt: rejectsDetached((key) => {
+              const cipher = ecb(key, { disablePadding: true });
+              return () => cipher.decrypt(data);
+            }),
+            cbcEncrypt: rejectsDetached((key) => {
+              const cipher = cbc(key, iv, { disablePadding: true });
+              return () => cipher.encrypt(off);
+            }),
+            cbcDecrypt: rejectsDetached((key) => {
+              const cipher = cbc(key, iv, { disablePadding: true });
+              return () => cipher.decrypt(data);
+            }),
+          },
+          resized: {
+            ecbEncrypt: rejectsResized((key) => {
+              const cipher = ecb(key, { disablePadding: true });
+              return () => cipher.encrypt(off);
+            }),
+            ecbDecrypt: rejectsResized((key) => {
+              const cipher = ecb(key, { disablePadding: true });
+              return () => cipher.decrypt(data);
+            }),
+            cbcEncrypt: rejectsResized((key) => {
+              const cipher = cbc(key, iv, { disablePadding: true });
+              return () => cipher.encrypt(off);
+            }),
+            cbcDecrypt: rejectsResized((key) => {
+              const cipher = cbc(key, iv, { disablePadding: true });
+              return () => cipher.decrypt(data);
+            }),
+          },
+          wiped: {
+            ecbEncrypt: wipedCopies(() => ecb(key, { disablePadding: true }).encrypt(plaintext)),
+            cbcEncrypt: wipedCopies(() =>
+              cbc(key, iv, { disablePadding: true }).encrypt(plaintext)
+            ),
+            ecbPadded: wipedScratch(() => ecb(key).encrypt(padded, ecbOut)),
+            cbcPadded: wipedScratch(() => cbc(key, iv).encrypt(padded, cbcOut)),
+          },
+        };
+        const zero = new Native(plaintext.length);
+        eql(got, {
+          invalid: { ecbEncrypt: [], ecbDecrypt: [], cbcDecrypt: [], cbcEncrypt: [] },
+          detached: { ecbEncrypt: [], ecbDecrypt: [], cbcEncrypt: [], cbcDecrypt: [] },
+          resized: { ecbEncrypt: [], ecbDecrypt: [], cbcEncrypt: [], cbcDecrypt: [] },
+          wiped: {
+            ecbEncrypt: [zero],
+            cbcEncrypt: [zero],
+            ecbPadded: [new Native(padded.length), new Native(16)],
+            cbcPadded: [new Native(padded.length), new Native(16)],
+          },
+        });
+      } finally {
+        (globalThis as any).Uint8Array = Native;
+      }
+    });
     should('CTR', () => {
       const nodeAES = (name) => ({
         encrypt: (buf, opts) =>
@@ -127,6 +259,46 @@ export function test(
         const c = ctr(key, nonce);
         eql(c.encrypt(msg), nodeVal);
         eql(c.decrypt(nodeVal), msg);
+      }
+    });
+    should('CTR 128-bit counter wraparound (fixed vectors)', () => {
+      // Environment-independent versions of the node.js cross-checks above
+      // (those are skipped on deno). Expected values produced by OpenSSL via
+      // node:crypto createCipheriv('aes-*-ctr'), which uses the full 128-bit
+      // wrapping counter from NIST SP 800-38A B.1.
+      const key = new Uint8Array(32).fill(7);
+      const vectors = [
+        {
+          name: 'wrap ff..ff -> 00..00 across 3 full blocks',
+          key,
+          nonce: hex.decode('ffffffffffffffffffffffffffffffff'),
+          msg: new Uint8Array(48).fill(0x42),
+          ct: hex.decode(
+            'b8f77a429211f0a04cd60b7b47218d73480facc5a52ea2963e2c5e9d852f62e1' +
+              '1c99133b14a375bc56d58c82eb374e3b'
+          ),
+        },
+        {
+          name: 'wrap right before a final partial block (41 bytes)',
+          key,
+          nonce: hex.decode('fffffffffffffffffffffffffffffffe'),
+          msg: new Uint8Array(41).fill(0x24),
+          ct: hex.decode(
+            '504dbe0025938b7f52a9329ec58d9e36de911c24f47796c62ab06d1d2147eb15' +
+              '2e69caa3c348c4f058'
+          ),
+        },
+        {
+          name: 'carry propagation stops mid-counter (low 9 bytes are ff)',
+          key: hex.decode('2b7e151628aed2a6abf7158809cf4f3c'),
+          nonce: hex.decode('00000000000000ffffffffffffffffff'),
+          msg: new Uint8Array(32).fill(0x11),
+          ct: hex.decode('cbdd8059efaaeef253c4914426fb044ee755477cf13e438bb46c8b7175bd1ba7'),
+        },
+      ];
+      for (const t of vectors) {
+        eql(ctr(t.key, t.nonce).encrypt(t.msg), t.ct, t.name);
+        eql(ctr(t.key, t.nonce).decrypt(t.ct), t.msg, t.name + ' (decrypt)');
       }
     });
     should('CFB final short segment matches byte-stream vector', () => {
@@ -198,6 +370,19 @@ export function test(
         throws(() => gcmsiv(new Uint8Array(32), new Uint8Array(11), new Uint8Array(12))); // nonce
         throws(() => gcmsiv(new Uint8Array(33), new Uint8Array(12), new Uint8Array(12))); // key
       });
+      should('AES-192 local extension roundtrips and authenticates', () => {
+        // RFC 8452 only defines 16/32-byte keys; 24-byte AES-192 keys are a
+        // documented local extension, so pin its roundtrip + tag rejection.
+        const key = new Uint8Array(24).map((_, i) => i);
+        const nonce = new Uint8Array(12).fill(3);
+        const aad = new Uint8Array(5).fill(4);
+        const msg = new Uint8Array(33).map((_, i) => 255 - i);
+        const ct = gcmsiv(key, nonce, aad).encrypt(msg);
+        eql(gcmsiv(key, nonce, aad).decrypt(ct), msg);
+        const bad = ct.slice();
+        bad[bad.length - 1] ^= 1;
+        throws(() => gcmsiv(key, nonce, aad).decrypt(bad), /invalid polyval tag/);
+      });
     });
 
     describe('Wycheproof', () => {
@@ -245,6 +430,59 @@ export function test(
             }
           }
         }
+      });
+    });
+    describe('micro-aes reference', () => {
+      // Deterministic bytes so failures are reproducible.
+      const buf = (len, seed = 0) =>
+        Uint8Array.from({ length: len }, (_, i) => (i * 7 + seed) & 0xff);
+      const LENS = [0, 1, 15, 16, 17, 32, 47, 64];
+      should('ctr_small matches ctr', () => {
+        for (const keyLen of [16, 24, 32]) {
+          const key = buf(keyLen, 1);
+          const nonce = buf(16, 2);
+          for (const len of LENS) {
+            const data = buf(len, 3);
+            const exp = ctr(key, nonce).encrypt(data);
+            eql(ctr_small(key, nonce).encrypt(data), exp, `encrypt ${keyLen}/${len}`);
+            eql(ctr_small(key, nonce).decrypt(exp), data, `decrypt ${keyLen}/${len}`);
+          }
+        }
+      });
+      should('cbc_small matches cbc', () => {
+        for (const keyLen of [16, 24, 32]) {
+          const key = buf(keyLen, 1);
+          const iv = buf(16, 2);
+          for (const len of LENS) {
+            const data = buf(len, 3);
+            const exp = cbc(key, iv).encrypt(data);
+            eql(cbc_small(key, iv).encrypt(data), exp, `encrypt ${keyLen}/${len}`);
+            eql(cbc_small(key, iv).decrypt(exp), data, `decrypt ${keyLen}/${len}`);
+          }
+        }
+      });
+      should('gcm_small matches gcm', () => {
+        for (const keyLen of [16, 24, 32]) {
+          const key = buf(keyLen, 1);
+          // Non-12-byte nonces exercise the GHASH-based J0 derivation.
+          for (const nonceLen of [12, 8, 16]) {
+            const nonce = buf(nonceLen, 2);
+            for (const aad of [undefined, buf(13, 4)]) {
+              for (const len of LENS) {
+                const data = buf(len, 3);
+                const label = `${keyLen}/${nonceLen}/${aad ? 'aad' : 'no-aad'}/${len}`;
+                const exp = gcm(key, nonce, aad).encrypt(data);
+                eql(gcm_small(key, nonce, aad).encrypt(data), exp, `encrypt ${label}`);
+                eql(gcm_small(key, nonce, aad).decrypt(exp), data, `decrypt ${label}`);
+              }
+            }
+          }
+        }
+        const key = buf(32, 1);
+        const nonce = buf(12, 2);
+        const corrupt = gcm_small(key, nonce).encrypt(buf(10, 3));
+        corrupt[corrupt.length - 1] ^= 1;
+        throws(() => gcm_small(key, nonce).decrypt(corrupt), /invalid tag/);
       });
     });
     describe('AESKW', () => {

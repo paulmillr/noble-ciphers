@@ -35,77 +35,12 @@ import {
 } from './utils.ts';
 
 /**
- * ChaCha core function. It is implemented twice:
- * 1. Simple loop (chachaCore_small, hchacha_small)
- * 2. Unrolled loop (chachaCore, hchacha) - 4x faster, but larger & harder to read
+ * ChaCha core function. Uses an unrolled loop (chachaCore, hchacha) - 4x
+ * faster than a simple loop, but larger & harder to read. A simple-loop
+ * reference version lives in `test/misc/micro-ciphers.ts`;
+ * `test/arx.test.ts` keeps the two aligned.
  * The specific implementation is selected in `createCipher` below.
  */
-
-/** RFC 8439 §2.1 quarter round on words a, b, c, d. */
-// prettier-ignore
-function chachaQR(x: TArg<Uint32Array>, a: number, b: number, c: number, d: number) {
-  x[a] = (x[a] + x[b]) | 0; x[d] = rotl(x[d] ^ x[a], 16);
-  x[c] = (x[c] + x[d]) | 0; x[b] = rotl(x[b] ^ x[c], 12);
-  x[a] = (x[a] + x[b]) | 0; x[d] = rotl(x[d] ^ x[a], 8);
-  x[c] = (x[c] + x[d]) | 0; x[b] = rotl(x[b] ^ x[c], 7);
-}
-
-/** Repeated ChaCha double rounds; callers are expected to pass an even round count. */
-function chachaRound(x: TArg<Uint32Array>, rounds = 20) {
-  for (let r = 0; r < rounds; r += 2) {
-    // RFC 8439 §2.3 / §2.3.1 inner_block: four column rounds, then four diagonal rounds.
-    chachaQR(x, 0, 4, 8, 12);
-    chachaQR(x, 1, 5, 9, 13);
-    chachaQR(x, 2, 6, 10, 14);
-    chachaQR(x, 3, 7, 11, 15);
-    chachaQR(x, 0, 5, 10, 15);
-    chachaQR(x, 1, 6, 11, 12);
-    chachaQR(x, 2, 7, 8, 13);
-    chachaQR(x, 3, 4, 9, 14);
-  }
-}
-
-// Shared scratch for the auditability-only helper below; only the test-only
-// __TESTS.chachaCore_small hook reaches it, so production exports stay reentrant.
-const ctmp = /* @__PURE__ */ new Uint32Array(16);
-
-/** Small version of chacha without loop unrolling. Unused, provided for auditability. */
-// prettier-ignore
-function chacha(
-  s: TArg<Uint32Array>, k: TArg<Uint32Array>, i: TArg<Uint32Array>, out: TArg<Uint32Array>,
-  isHChacha: boolean = true, rounds: number = 20
-): void {
-  // `i` is either `[counter, nonce0, nonce1, nonce2]` for the ChaCha block
-  // function or the full 128-bit nonce prefix for the HChaCha subkey path.
-  // Create initial array using common pattern
-  const y = Uint32Array.from([
-    s[0], s[1], s[2], s[3], // "expa"   "nd 3"  "2-by"  "te k"
-    k[0], k[1], k[2], k[3], // Key      Key     Key     Key
-    k[4], k[5], k[6], k[7], // Key      Key     Key     Key
-    i[0], i[1], i[2], i[3], // Counter  Counter Nonce   Nonce
-  ]);
-  const x = ctmp;
-  x.set(y);
-  chachaRound(x, rounds);
-
-  // HChaCha writes words 0..3 and 12..15 after the rounds; the ChaCha
-  // block path adds the original state word-by-word.
-  if (isHChacha) {
-    const xindexes = [0, 1, 2, 3, 12, 13, 14, 15];
-    for (let i = 0; i < 8; i++) out[i] = x[xindexes[i]];
-  } else {
-    for (let i = 0; i < 16; i++) out[i] = (y[i] + x[i]) | 0;
-  }
-}
-
-/** Identical to `chachaCore`. Reached only through the test-only `__TESTS` export. */
-// @ts-ignore
-const chachaCore_small: typeof chachaCore = (s, k, n, out, cnt, rounds) =>
-  // Keep the reference wrapper on the same [counter, nonce0, nonce1, nonce2] layout as chacha().
-  chacha(s, k, Uint32Array.from([cnt, n[0], n[1], n[2]]), out, false, rounds);
-/** Identical to `hchacha`. Unused. */
-// @ts-ignore
-const hchacha_small: typeof hchacha = chacha;
 
 /** RFC 8439 §2.3 block core for `state = constants | key | counter | nonce`. */
 // prettier-ignore
@@ -175,8 +110,8 @@ function chachaCore(
 }
 /**
  * hchacha hashes key and nonce into key' and nonce' for xchacha20.
- * Algorithmically identical to `hchacha_small`, but this exported path
- * normalizes word order on big-endian hosts.
+ * Algorithmically identical to `hchacha_small` from `test/misc/micro-ciphers.ts`,
+ * but this exported path normalizes word order on big-endian hosts.
  * Need to find a way to merge it with `chachaCore` without 25% performance hit.
  * @param s - Sigma constants as 32-bit words.
  * @param k - Key words.
@@ -384,11 +319,11 @@ export const chacha12: TRet<XorStream> = /* @__PURE__ */ createCipher(chachaCore
   rounds: 12,
 });
 
-// Test-only hooks for keeping the simple/reference core aligned with the unrolled production core.
+// Test-only hook: exposes the unrolled production core so tests can compare it
+// with the simple/reference core from `test/misc/micro-ciphers.ts`.
 export const __TESTS: {
-  chachaCore_small: typeof chachaCore_small;
   chachaCore: typeof chachaCore;
-} = /* @__PURE__ */ Object.freeze({ chachaCore_small, chachaCore });
+} = /* @__PURE__ */ Object.freeze({ chachaCore });
 
 // RFC 8439 §2.8.1 pad16(x): shared zero block for AAD/ciphertext padding.
 const ZEROS16 = /* @__PURE__ */ new Uint8Array(16);
@@ -420,7 +355,8 @@ function computeTag(
   const lengths = u64Lengths(ciphertext.length, AAD ? AAD.length : 0, true);
 
   // Methods below can be replaced with
-  // return poly1305_computeTag_small(authKey, lengths, ciphertext, AAD)
+  // `return poly1305_computeTag_small(authKey, lengths, ciphertext, AAD)`
+  // from `test/misc/micro-ciphers.ts`.
   const h = poly1305.create(authKey);
   if (AAD) updatePadded(h, AAD);
   updatePadded(h, ciphertext);

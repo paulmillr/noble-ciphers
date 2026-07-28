@@ -210,20 +210,19 @@ export function abytes(
   length?: number,
   title: string = ''
 ): TRet<Uint8Array> {
+  // Success path first: this runs at the start of every update() / digestInto(), and the
+  // common `abytes(data)` form must not pay for length handling it does not use.
+  if (isBytes(value) && (length === undefined || value.length === length))
+    return value as TRet<Uint8Array>;
+  // Error path: recompute freely to build the exact message.
+  if (length !== undefined) anumber(length, 'length');
   const bytes = isBytes(value);
-  const len = value?.length;
-  const needsLen = length !== undefined;
-  if (bytes && (!needsLen || len === length)) return value as TRet<Uint8Array>;
-  if (needsLen) anumber(length, 'length');
-  if (!bytes || (needsLen && len !== length)) {
-    const prefix = title && `"${title}" `;
-    const ofLen = needsLen ? ` of length ${length}` : '';
-    const got = bytes ? `length=${len}` : `type=${typeof value}`;
-    const message = prefix + 'expected Uint8Array' + ofLen + ', got ' + got;
-    if (!bytes) throw new TypeError(message);
-    throw new RangeError(message);
-  }
-  return value as TRet<Uint8Array>;
+  const prefix = title && `"${title}" `;
+  const ofLen = length !== undefined ? ` of length ${length}` : '';
+  const got = bytes ? `length=${value.length}` : `type=${typeof value}`;
+  const message = prefix + 'expected Uint8Array' + ofLen + ', got ' + got;
+  if (!bytes) throw new TypeError(message);
+  throw new RangeError(message);
 }
 
 const aobject = (value: Record<string, any>, label: string) => {
@@ -249,25 +248,21 @@ const aobject = (value: Record<string, any>, label: string) => {
  * ```
  */
 export function aexists(instance: any, checkFinished = true): void {
-  aobject(instance, 'instance');
-  const destroyed =
-    instance.destroyed === undefined ? false : abool(instance.destroyed, 'instance.destroyed');
-  const finished =
-    instance.finished === undefined ? false : abool(instance.finished, 'instance.finished');
-  if (destroyed) throw new Error('Hash instance has been destroyed');
-  if (checkFinished && finished) throw new Error('Hash#digest() has already been called');
+  // Runs on every update()/digestInto(); the flags are library-owned booleans, so only their
+  // truthiness is checked - re-validating their type per call was pure hot-path overhead.
+  if (instance.destroyed) throw new Error('Hash instance has been destroyed');
+  if (checkFinished && instance.finished)
+    throw new Error('Hash#digest() has already been called');
 }
 
 /**
- * Asserts output is a properly-sized byte array.
+ * Asserts output is a sufficiently-sized byte array.
  * @param out - Output buffer to validate.
  * @param instance - Hash-like instance providing `outputLen`.
  * This is the relaxed `digestInto()`-style contract: output must be at least `outputLen`,
  * unlike one-shot cipher helpers elsewhere in the repo that often require exact lengths.
  * @throws On wrong argument types. {@link TypeError}
- * @param onlyAligned - Whether `out` must be 4-byte aligned for zero-allocation word views.
  * @throws On wrong output buffer lengths. {@link RangeError}
- * @throws On wrong output buffer alignment. {@link Error}
  * @example
  * Verifies that a caller-provided output buffer is large enough.
  *
@@ -275,14 +270,35 @@ export function aexists(instance: any, checkFinished = true): void {
  * aoutput(new Uint8Array(16), { outputLen: 16 });
  * ```
  */
-export function aoutput(out: any, instance: any, onlyAligned = false): void {
-  abytes(out, undefined, 'output');
-  aobject(instance, 'instance');
-  const min = anumber(instance.outputLen, 'instance.outputLen');
-  if (out.length < min) {
-    throw new RangeError('digestInto() expects output buffer of length at least ' + min);
+export function aoutput(out: any, instance: any): void {
+  abytes(out, undefined, 'digestInto() output');
+  // `outputLen` is a library-owned readonly number; the negated comparison keeps failing fast
+  // when it is missing/NaN (comparisons with undefined/NaN are false) without an anumber() call.
+  const min = instance.outputLen;
+  if (!(out.length >= min)) {
+    throw new RangeError('"digestInto() output" expected to be of length >= ' + min);
   }
-  if (onlyAligned && !isAligned32(out)) throw new Error('invalid output, must be aligned');
+}
+
+/**
+ * Asserts output is a sufficiently-sized, 4-byte-aligned byte array.
+ * {@link aoutput} plus an {@link isAligned32} check, for `digestInto()` paths
+ * that write through zero-allocation `u32` word views.
+ * @param out - Output buffer to validate.
+ * @param instance - Hash-like instance providing `outputLen`.
+ * @throws On wrong argument types. {@link TypeError}
+ * @throws On wrong output buffer lengths. {@link RangeError}
+ * @throws On wrong output buffer alignment. {@link Error}
+ * @example
+ * Verifies that a caller-provided output buffer is large enough and aligned.
+ *
+ * ```ts
+ * aoutput32(new Uint8Array(16), { outputLen: 16 });
+ * ```
+ */
+export function aoutput32(out: any, instance: any): void {
+  aoutput(out, instance);
+  if (!isAligned32(out)) throw new Error('invalid output, must be aligned');
 }
 
 /** One-shot hash helper with `.create()`. */
@@ -490,24 +506,24 @@ export function bytesToHex(bytes: TArg<Uint8Array>): string {
   return hex;
 }
 
-// We use optimized technique to convert hex string to byte array
-const asciis = { _0: 48, _9: 57, A: 65, F: 70, a: 97, f: 102 } as const;
+// Strict ASCII nibble parser: non-ASCII hex lookalikes are rejected as undefined.
+// ASCII codes: '0'..'9' = 48..57, 'A'..'F' = 65..70, 'a'..'f' = 97..102.
+// prettier-ignore
 function asciiToBase16(ch: number): number | undefined {
-  if (ch >= asciis._0 && ch <= asciis._9) return ch - asciis._0; // '2' => 50-48
-  if (ch >= asciis.A && ch <= asciis.F) return ch - (asciis.A - 10); // 'B' => 66-(65-10)
-  if (ch >= asciis.a && ch <= asciis.f) return ch - (asciis.a - 10); // 'b' => 98-(97-10)
-  return;
+  return ch >= 48 && ch <= 57 ? ch - 48 // '2' => 50-48
+  : ch >= 65 && ch <= 70 ? ch - (65 - 10) // 'B' => 66-(65-10)
+  : ch >= 97 && ch <= 102 ? ch - (97 - 10) // 'b' => 98-(97-10)
+  : undefined;
 }
 
 /**
  * Convert hex string to byte array. Uses built-in function, when available.
- * @param hex - Hexadecimal string to decode.
+ * @param hex - hexadecimal string to decode
  * @returns Decoded bytes.
  * @throws On wrong argument types. {@link TypeError}
- * @throws On malformed hexadecimal input. {@link RangeError}
+ * @throws On wrong argument ranges or values. {@link RangeError}
  * @example
- * Parses a hex test vector into bytes.
- *
+ * Decode lowercase hexadecimal into bytes.
  * ```ts
  * hexToBytes('cafe0123'); // Uint8Array.from([0xca, 0xfe, 0x01, 0x23])
  * ```
@@ -527,20 +543,20 @@ export function hexToBytes(hex: string): TRet<Uint8Array> {
   if (hl % 2) throw new RangeError('hex string expected, got unpadded hex of length ' + hl);
   const array = new Uint8Array(al);
   for (let ai = 0, hi = 0; ai < al; ai++, hi += 2) {
-    const n1 = asciiToBase16(hex.charCodeAt(hi));
-    const n2 = asciiToBase16(hex.charCodeAt(hi + 1));
+    const n1 = asciiToBase16(hex.charCodeAt(hi)); // parse first char, multiply it by 16
+    const n2 = asciiToBase16(hex.charCodeAt(hi + 1)); // parse second char
     if (n1 === undefined || n2 === undefined) {
       const char = hex[hi] + hex[hi + 1];
       throw new RangeError(
         'hex string expected, got non-hex character "' + char + '" at index ' + hi
       );
     }
-    array[ai] = n1 * 16 + n2; // multiply first octet, e.g. 'a3' => 10*16+3 => 160 + 3 => 163
+    array[ai] = n1 * 16 + n2; // example: 'A9' => 10*16 + 9
   }
-  return array as TRet<Uint8Array>;
+  return array;
 }
 
-// Used in micro
+// Used in ff1, via bytesToNumberBE
 /**
  * Converts a big-endian hex string into bigint.
  * @param hex - Hexadecimal string without `0x`.
@@ -578,7 +594,7 @@ export function bytesToNumberBE(bytes: TArg<Uint8Array>): bigint {
   return hexToNumber(bytesToHex(bytes));
 }
 
-// Used in micro, ff1
+// Used in ff1
 /**
  * Converts a number into big-endian bytes of fixed length.
  * @param n - Number to encode.
@@ -1043,9 +1059,10 @@ export function getOutput(
 }
 
 /**
- * Encodes data and AAD bit lengths into a 16-byte buffer.
- * @param dataLength - Data length in bits.
- * @param aadLength - AAD length in bits.
+ * Encodes data and AAD lengths into a 16-byte buffer.
+ * @param dataLength - Data length. Units are caller-defined: GCM passes bit
+ * lengths, ChaCha20-Poly1305 passes byte lengths — the helper writes the raw values.
+ * @param aadLength - AAD length, same unit convention as `dataLength`.
  * The serialized block is still `aadLength || dataLength`, matching GCM/Poly1305
  * conventions even though the helper parameter order is `(dataLength, aadLength)`.
  * @param isLE - Whether to encode lengths as little-endian.

@@ -6,7 +6,8 @@
   },
   "include": [
     "../src",
-    "./*.ts"
+    "./*.ts",
+    "./misc/*.ts"
   ],
   "exclude": [
     "node_modules"

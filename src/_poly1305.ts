@@ -19,66 +19,17 @@
  */
 // prettier-ignore
 import {
-  abytes, aexists, aoutput, bytesToHex,
-  clean, concatBytes, copyBytes, hexToNumber, numberToBytesBE,
+  abytes, aexists, aoutput,
+  clean, copyBytes,
   wrapMacConstructor, type CMac, type IHash2, type TArg, type TRet
 } from './utils.ts';
+
+// A simple-loop reference version (`poly1305_small`) lives in
+// `test/misc/micro-ciphers.ts`, provided for auditability.
 
 // Little-endian 2-byte load used by the Poly1305 limb decomposition.
 function u8to16(a: TArg<Uint8Array>, i: number) {
   return (a[i++] & 0xff) | ((a[i++] & 0xff) << 8);
-}
-
-function bytesToNumberLE(bytes: TArg<Uint8Array>): bigint {
-  return hexToNumber(bytesToHex(Uint8Array.from(bytes).reverse()));
-}
-
-/** Small version of `poly1305` without loop unrolling. Unused, provided for auditability. */
-function poly1305_small(msg: TArg<Uint8Array>, key: TArg<Uint8Array>): TRet<Uint8Array> {
-  abytes(msg);
-  abytes(key, 32, 'key');
-  const POW_2_130_5 = BigInt(2) ** BigInt(130) - BigInt(5); // 2^130-5
-  const POW_2_128_1 = BigInt(2) ** BigInt(128) - BigInt(1); // 2^128-1
-  const CLAMP_R = BigInt('0x0ffffffc0ffffffc0ffffffc0fffffff');
-  const r = bytesToNumberLE(key.subarray(0, 16)) & CLAMP_R;
-  const s = bytesToNumberLE(key.subarray(16));
-  // Process by 16 byte chunks
-  let acc = BigInt(0);
-  for (let i = 0; i < msg.length; i += 16) {
-    const m = msg.subarray(i, i + 16);
-    // RFC 8439 §2.5.1 / RFC 7539 §2.5.1 append [0x01] to each chunk before multiplying by r.
-    const n = bytesToNumberLE(m) | (BigInt(1) << BigInt(8 * m.length));
-    acc = ((acc + n) * r) % POW_2_130_5;
-  }
-  const res = (acc + s) & POW_2_128_1;
-  // RFC 8439 §2.5 / RFC 7539 §2.5 serialize the low 128 bits in little-endian order.
-  return numberToBytesBE(res, 16).reverse() as TRet<Uint8Array>; // LE
-}
-
-// Can be used to replace `computeTag` in chacha.ts. Unused, provided for auditability.
-// @ts-expect-error
-function poly1305_computeTag_small(
-  authKey: TArg<Uint8Array>,
-  // AEAD trailer must already be the 16-byte length block:
-  // 8-byte little-endian AAD length || 8-byte little-endian ciphertext length.
-  lengths: TArg<Uint8Array>,
-  ciphertext: TArg<Uint8Array>,
-  AAD?: TArg<Uint8Array>
-): TRet<Uint8Array> {
-  // RFC 8439 §2.8.1 / RFC 7539 §2.8.1 MAC input is
-  // AAD || pad16(AAD) || ciphertext || pad16(ciphertext) || lengths.
-  const res = [];
-  const updatePadded2 = (msg: TArg<Uint8Array>) => {
-    res.push(msg);
-    const leftover = msg.length % 16;
-    // RFC 8439 §2.8.1 / RFC 7539 §2.8.1: pad16(x) is empty for aligned
-    // inputs, else 16-(len%16) zero bytes.
-    if (leftover) res.push(new Uint8Array(16).slice(leftover));
-  };
-  if (AAD) updatePadded2(AAD);
-  updatePadded2(ciphertext);
-  res.push(lengths);
-  return poly1305_small(concatBytes(...res), authKey);
 }
 
 /**

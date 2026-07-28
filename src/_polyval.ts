@@ -15,7 +15,7 @@
 import {
   abytes,
   aexists,
-  aoutput,
+  aoutput32,
   clean,
   copyBytes,
   createView,
@@ -238,7 +238,7 @@ export class GHASH implements IHash2 {
     aexists(this);
     // `digestInto(out)` is the no-allocation fast path, so callers must pass a
     // 32-bit-aligned buffer before we reinterpret it with `u32(out)`.
-    aoutput(out, this, true);
+    aoutput32(out, this);
     this.finished = true;
     // NIST SP 800-38D §6.4 returns the final 128-bit block Y_m.
     // `digestInto()` follows the relaxed `aoutput()` contract, so only
@@ -322,7 +322,7 @@ export class Polyval extends GHASH {
     aexists(this);
     // `digestInto(out)` is the no-allocation fast path, so callers must pass a
     // 32-bit-aligned buffer before we reinterpret the output prefix with `u32(view)`.
-    aoutput(out, this, true);
+    aoutput32(out, this);
     this.finished = true;
     // RFC 8452 Appendix A maps POLYVAL output back through `ByteReverse(...)`.
     // `digestInto()` follows the relaxed `aoutput()` contract, so only out[0..15] may be touched.

@@ -38,6 +38,34 @@ const VECTORS = [
     CT: 'a9tv40mll9kdu509eum',
     AB: [10, 9, 29, 31, 4, 0, 22, 21, 21, 9, 20, 13, 30, 5, 0, 9, 14, 30, 22],
   },
+  // AES-192 (FF1samples.pdf samples 4-6)
+  {
+    key: fromHex('2B7E151628AED2A6ABF7158809CF4F3CEF4359D8D580AA4F'),
+    radix: 10,
+    tweak: Uint8Array.of(),
+    PT: '0123456789',
+    X: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    CT: '2830668132',
+    AB: [2, 8, 3, 0, 6, 6, 8, 1, 3, 2],
+  },
+  {
+    key: fromHex('2B7E151628AED2A6ABF7158809CF4F3CEF4359D8D580AA4F'),
+    radix: 10,
+    tweak: fromHex('39383736353433323130'),
+    PT: '0123456789',
+    X: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    CT: '2496655549',
+    AB: [2, 4, 9, 6, 6, 5, 5, 5, 4, 9],
+  },
+  {
+    key: fromHex('2B7E151628AED2A6ABF7158809CF4F3CEF4359D8D580AA4F'),
+    radix: 36,
+    tweak: fromHex('3737373770717273373737'),
+    PT: '0123456789abcdefghi',
+    X: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+    CT: 'xbj3kv35jrawxv32ysr',
+    AB: [33, 11, 19, 3, 20, 31, 3, 5, 19, 27, 10, 32, 33, 31, 3, 2, 34, 28, 27],
+  },
   // AES-256
   {
     key: fromHex('2B7E151628AED2A6ABF7158809CF4F3CEF4359D8D580AA4F7F036D6F04FC6A94'),
@@ -135,6 +163,18 @@ describe('FF1', () => {
 
   should('throw on wrong radix', () => {
     throws(() => FF1(1, new Uint8Array(10)).encrypt([1]));
+  });
+  should('enforce minLen: radix**minlen >= 100 and minlen >= 2', () => {
+    const key = new Uint8Array(16);
+    // radix 10: minLen 2
+    throws(() => FF1(10, key).encrypt([1]));
+    eql(FF1(10, key).decrypt(FF1(10, key).encrypt([1, 2])), [1, 2]);
+    // radix 2: minLen 7 (2**7 = 128 >= 100)
+    throws(() => FF1(2, key).encrypt([1, 0, 1, 0, 1, 0]));
+    const bits7 = [1, 0, 1, 0, 1, 0, 1];
+    eql(FF1(2, key).decrypt(FF1(2, key).encrypt(bits7)), bits7);
+    // radix 65535: minLen 2 (65535**2 >= 100)
+    throws(() => FF1(65535, key).encrypt([12345]));
   });
   should('reject digits outside the radix domain', () => {
     const ff1 = FF1(10, new Uint8Array(16));

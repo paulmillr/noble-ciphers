@@ -1,5 +1,7 @@
 /**
- * WebCrypto-based AES gcm/ctr/cbc, `managedNonce` and `randomBytes`.
+ * WebCrypto-based AES gcm/ctr/cbc: async wrappers over `crypto.subtle` with the
+ * same constructor shape as the sync `aes.ts` modes. Combine with `managedNonce`
+ * and `randomBytes` from `utils.ts` for automatic nonce handling.
  * We use WebCrypto aka globalThis.crypto, which exists in browsers and node.js 16+.
  * @module
  */
@@ -39,7 +41,9 @@ export const utils: TRet<WebcryptoUtils> = {
     plaintext: TArg<Uint8Array>
   ): Promise<TRet<Uint8Array>> {
     const cr = getWebcryptoSubtle();
-    const iKey = await cr.importKey('raw', key, keyParams, true, ['encrypt']);
+    // Non-extractable: the ephemeral CryptoKey is only used for this operation,
+    // so there is no reason to allow exportKey() on it.
+    const iKey = await cr.importKey('raw', key, keyParams, false, ['encrypt']);
     const ciphertext = await cr.encrypt(cryptParams, iKey, plaintext);
     return new Uint8Array(ciphertext) as TRet<Uint8Array>;
   },
@@ -50,7 +54,8 @@ export const utils: TRet<WebcryptoUtils> = {
     ciphertext: TArg<Uint8Array>
   ): Promise<TRet<Uint8Array>> {
     const cr = getWebcryptoSubtle();
-    const iKey = await cr.importKey('raw', key, keyParams, true, ['decrypt']);
+    // Non-extractable, same as encrypt() above.
+    const iKey = await cr.importKey('raw', key, keyParams, false, ['decrypt']);
     const plaintext = await cr.decrypt(cryptParams, iKey, ciphertext);
     return new Uint8Array(plaintext) as TRet<Uint8Array>;
   },
