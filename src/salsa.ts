@@ -24,8 +24,8 @@ import {
   clean,
   equalBytes,
   getOutput,
+  isLE,
   swap32IfBE,
-  swap8IfBE,
   wrapCipher,
   type ARXCipher,
   type CipherWithOutput,
@@ -35,9 +35,10 @@ import {
 } from './utils.ts';
 
 /**
- * Salsa20 core function. It is implemented twice:
- * 1. Simple loop (salsaCore_small, hsalsa_small)
- * 2. Unrolled loop (salsaCore, hsalsa) - 4x faster, but larger & harder to read
+ * Salsa20 core function. Uses an unrolled loop (salsaCore, hsalsa) - 4x
+ * faster than a simple loop, but larger & harder to read. A simple-loop
+ * reference version lives in `test/misc/micro-ciphers.ts`;
+ * `test/arx.test.ts` keeps the two aligned.
  * The specific implementation is selected in `createCipher` below.
  * Performance numbers for 1MB inputs:
  * * default x 779 ops/sec @ 1ms/op
@@ -45,76 +46,17 @@ import {
  * * small x 132 ops/sec @ 7ms/op
  */
 
-/** RFC 7914 §3 Salsa20/8 core quarter-round on words a, b, c, d. */
-function salsaQR(x: TArg<Uint32Array>, a: number, b: number, c: number, d: number) {
-  x[b] ^= rotl((x[a] + x[d]) | 0, 7);
-  x[c] ^= rotl((x[b] + x[a]) | 0, 9);
-  x[d] ^= rotl((x[c] + x[b]) | 0, 13);
-  x[a] ^= rotl((x[d] + x[c]) | 0, 18);
-}
-
-/** RFC 7914 §3 double-round schedule: four column rounds, then four row rounds. */
-function salsaRound(x: TArg<Uint32Array>, rounds = 20) {
-  for (let r = 0; r < rounds; r += 2) {
-    salsaQR(x, 0, 4, 8, 12);
-    salsaQR(x, 5, 9, 13, 1);
-    salsaQR(x, 10, 14, 2, 6);
-    salsaQR(x, 15, 3, 7, 11);
-    salsaQR(x, 0, 1, 2, 3);
-    salsaQR(x, 5, 6, 7, 4);
-    salsaQR(x, 10, 11, 8, 9);
-    salsaQR(x, 15, 12, 13, 14);
-  }
-}
-
-// Shared scratch for the unused auditability helper below; it would be
-// non-reentrant under overlapping/nested calls, but current code doesn't invoke it.
-const stmp = /* @__PURE__ */ new Uint32Array(16);
-
-/** Small version of salsa without loop unrolling. Unused, provided for auditability. */
-// prettier-ignore
-function salsa(
-  s: TArg<Uint32Array>, k: TArg<Uint32Array>, i: TArg<Uint32Array>, out: TArg<Uint32Array>,
-  isHSalsa: boolean = true, rounds: number = 20
-): void {
-  // Create initial array using common pattern
-  const y = Uint32Array.from([
-    s[0], k[0], k[1], k[2], // "expa" Key     Key     Key
-    k[3], s[1], i[0], i[1], // Key    "nd 3"  Nonce   Nonce
-    i[2], i[3], s[2], k[4], // Pos.   Pos.    "2-by"  Key
-    k[5], k[6], k[7], s[3], // Key    Key     Key     "te k"
-  ]);
-  const x = stmp;
-  x.set(y);
-  // const x = y.slice();
-  salsaRound(x, rounds);
-
-  // hsalsa extracts 8 specific words for the 32-byte subkey; salsa adds the original state.
-  if (isHSalsa) {
-    const xindexes = [0, 5, 10, 15, 6, 7, 8, 9];
-    for (let i = 0; i < 8; i++) out[i] = x[xindexes[i]];
-  } else {
-    for (let i = 0; i < 16; i++) out[i] = (y[i] + x[i]) | 0;
-  }
-}
-/** Identical to `salsaCore`. Unused. */
-// @ts-ignore
-const salsaCore_small: typeof salsaCore = (s, k, n, out, cnt, rounds) =>
-  salsa(s, k, Uint32Array.from([n[0], n[1], cnt, 0]), out, false, rounds);
-/** Identical to `hsalsa`. Unused. */
-// @ts-ignore
-const hsalsa_small: typeof hsalsa = salsa;
-
-/** Identical to `salsaCore_small`. Uses only the low 32 bits of Salsa20's 64-bit counter state. */
+/** Uses only the low 32 bits of Salsa20's 64-bit counter state. */
 // prettier-ignore
 function salsaCore(
-  s: TArg<Uint32Array>, k: TArg<Uint32Array>, n: TArg<Uint32Array>, out: TArg<Uint32Array>, cnt: number, rounds = 20
+  s: TArg<Uint32Array>, k: TArg<Uint32Array>, n: TArg<Uint32Array>, out: TArg<Uint32Array>, cnt: number, rounds = 20, cntHi = 0
 ): void {
-  // Public wrappers expose only the low 32 bits of Salsa20's 64-bit counter; y09 stays zero.
+  // Public wrappers expose only the low 32 bits of Salsa20's 64-bit counter; y09 stays zero
+  // there. hsalsa reuses this core with its input words 2-3 in the counter positions.
   // Based on {@link https://cr.yp.to/salsa20.html | the Salsa20 reference page}.
   let y00 = s[0], y01 = k[0], y02 = k[1], y03 = k[2], // "expa" Key     Key     Key
       y04 = k[3], y05 = s[1], y06 = n[0], y07 = n[1], // Key    "nd 3"  Nonce   Nonce
-      y08 = cnt,  y09 = 0,    y10 = s[2], y11 = k[4], // Pos.   Pos.    "2-by"	Key
+      y08 = cnt,  y09 = cntHi,    y10 = s[2], y11 = k[4], // Pos.   Pos.    "2-by"	Key
       y12 = k[5], y13 = k[6], y14 = k[7], y15 = s[3]; // Key    Key     Key     "te k"
   // Save state to temporary variables
   let x00 = y00, x01 = y01, x02 = y02, x03 = y03,
@@ -153,8 +95,10 @@ function salsaCore(
 
 /**
  * hsalsa hashes key and nonce-prefix words into the 32-byte subkey used by XSalsa20.
- * Identical to `hsalsa_small`.
- * Need to find a way to merge it with `salsaCore` without 25% performance hit.
+ * Algorithmically identical to `hsalsa_small` from `test/misc/micro-ciphers.ts`,
+ * but this exported path normalizes word order on big-endian hosts.
+ * Reuses `salsaCore` and subtracts its feed-forward, keeping the hot per-block
+ * path untouched.
  * @param s - Sigma constants as 32-bit words.
  * @param k - Key words.
  * @param i - Nonce-prefix words.
@@ -174,35 +118,24 @@ function salsaCore(
 export function hsalsa(
   s: TArg<Uint32Array>, k: TArg<Uint32Array>, i: TArg<Uint32Array>, out: TArg<Uint32Array>
 ): void {
-  let x00 = swap8IfBE(s[0]), x01 = swap8IfBE(k[0]), x02 = swap8IfBE(k[1]), x03 = swap8IfBE(k[2]),
-      x04 = swap8IfBE(k[3]), x05 = swap8IfBE(s[1]), x06 = swap8IfBE(i[0]), x07 = swap8IfBE(i[1]),
-      x08 = swap8IfBE(i[2]), x09 = swap8IfBE(i[3]), x10 = swap8IfBE(s[2]), x11 = swap8IfBE(k[4]),
-      x12 = swap8IfBE(k[5]), x13 = swap8IfBE(k[6]), x14 = swap8IfBE(k[7]), x15 = swap8IfBE(s[3]);
-  for (let r = 0; r < 20; r += 2) {
-    x04 ^= rotl(x00 + x12 | 0, 7);  x08 ^= rotl(x04 + x00 | 0, 9);
-    x12 ^= rotl(x08 + x04 | 0, 13); x00 ^= rotl(x12 + x08 | 0, 18);
-    x09 ^= rotl(x05 + x01 | 0, 7);  x13 ^= rotl(x09 + x05 | 0, 9);
-    x01 ^= rotl(x13 + x09 | 0, 13); x05 ^= rotl(x01 + x13 | 0, 18);
-    x14 ^= rotl(x10 + x06 | 0, 7);  x02 ^= rotl(x14 + x10 | 0, 9);
-    x06 ^= rotl(x02 + x14 | 0, 13); x10 ^= rotl(x06 + x02 | 0, 18);
-    x03 ^= rotl(x15 + x11 | 0, 7);  x07 ^= rotl(x03 + x15 | 0, 9);
-    x11 ^= rotl(x07 + x03 | 0, 13); x15 ^= rotl(x11 + x07 | 0, 18);
-    x01 ^= rotl(x00 + x03 | 0, 7);  x02 ^= rotl(x01 + x00 | 0, 9);
-    x03 ^= rotl(x02 + x01 | 0, 13); x00 ^= rotl(x03 + x02 | 0, 18);
-    x06 ^= rotl(x05 + x04 | 0, 7);  x07 ^= rotl(x06 + x05 | 0, 9);
-    x04 ^= rotl(x07 + x06 | 0, 13); x05 ^= rotl(x04 + x07 | 0, 18);
-    x11 ^= rotl(x10 + x09 | 0, 7);  x08 ^= rotl(x11 + x10 | 0, 9);
-    x09 ^= rotl(x08 + x11 | 0, 13); x10 ^= rotl(x09 + x08 | 0, 18);
-    x12 ^= rotl(x15 + x14 | 0, 7);  x13 ^= rotl(x12 + x15 | 0, 9);
-    x14 ^= rotl(x13 + x12 | 0, 13); x15 ^= rotl(x14 + x13 | 0, 18);
-  }
+  // Runs the shared salsaCore permutation, then subtracts the feed-forward it applies,
+  // recovering the raw permutation words hsalsa needs.
+  // LE hosts read the caller arrays in place (no copies); BE hosts get
+  // byte-swapped scratch copies, wiped before returning.
+  const s2 = isLE ? s : swap32IfBE(s.slice(0, 4));
+  const k2 = isLE ? k : swap32IfBE(k.slice(0, 8));
+  const i2 = isLE ? i : swap32IfBE(i.slice(0, 4));
+  const t = new Uint32Array(16);
+  salsaCore(s2, k2, i2.subarray(0, 2), t, i2[2], 20, i2[3]);
   let oi = 0;
   // XSalsa20 takes words 0,5,10,15 and 6,7,8,9 as the 32-byte subkey material.
-  out[oi++] = x00; out[oi++] = x05;
-  out[oi++] = x10; out[oi++] = x15;
-  out[oi++] = x06; out[oi++] = x07;
-  out[oi++] = x08; out[oi++] = x09;
+  out[oi++] = (t[0] - s2[0]) | 0; out[oi++] = (t[5] - s2[1]) | 0;
+  out[oi++] = (t[10] - s2[2]) | 0; out[oi++] = (t[15] - s2[3]) | 0;
+  out[oi++] = (t[6] - i2[0]) | 0; out[oi++] = (t[7] - i2[1]) | 0;
+  out[oi++] = (t[8] - i2[2]) | 0; out[oi++] = (t[9] - i2[3]) | 0;
   swap32IfBE(out);
+  if (!isLE) clean(s2, k2, i2);
+  clean(t);
 }
 
 /**
@@ -258,6 +191,12 @@ export const xsalsa20: TRet<XorStream> = /* @__PURE__ */ createCipher(salsaCore,
   counterRight: true,
   extendNonceFn: hsalsa,
 });
+
+// Test-only hook: exposes the unrolled production core so tests can compare it
+// with the simple/reference core from `test/misc/micro-ciphers.ts`.
+export const __TESTS: {
+  salsaCore: typeof salsaCore;
+} = /* @__PURE__ */ Object.freeze({ salsaCore });
 
 /**
  * xsalsa20-poly1305 eXtended-nonce (24 bytes) salsa.

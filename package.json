@@ -10,7 +10,7 @@
     "*.d.ts.map"
   ],
   "devDependencies": {
-    "@paulmillr/jsbt": "0.6.0",
+    "@paulmillr/jsbt": "0.6.1",
     "@scure/base": "2.0.0",
     "@types/node": "25.3.0",
     "fast-check": "4.2.0",

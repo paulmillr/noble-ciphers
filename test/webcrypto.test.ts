@@ -1,5 +1,5 @@
 import { describe, should } from '@paulmillr/jsbt/test.js';
-import { deepStrictEqual as eql, throws } from 'node:assert';
+import { deepStrictEqual as eql, rejects, throws } from 'node:assert';
 import { cbc, ctr, gcm } from '../src/aes.ts';
 import { pathToFileURL } from 'node:url';
 import { managedNonce, randomBytes } from '../src/utils.ts';
@@ -63,6 +63,20 @@ export function test(
       ]);
       const msg = Uint8Array.from(Array.from({ length: 32 }, (_, i) => i));
       eql(await web.ctr(key, nonce).encrypt(msg), ctr(key, nonce).encrypt(msg));
+    });
+    should('enforces encrypt-once and rejects tampered GCM ciphertext', async () => {
+      const key = randomBytes(32);
+      const nonce = randomBytes(12);
+      const msg = randomBytes(33);
+      const c = web.gcm(key, nonce);
+      const ct = await c.encrypt(msg);
+      // Same instance cannot encrypt twice, matching sync wrapCipher semantics.
+      throws(() => c.encrypt(msg), /encrypt/);
+      // Tag corruption must reject; the untouched ciphertext must still decrypt.
+      const bad = ct.slice();
+      bad[bad.length - 1] ^= 1;
+      await rejects(() => web.gcm(key, nonce).decrypt(bad));
+      eql(await web.gcm(key, nonce).decrypt(ct), msg);
     });
     should('gcm rejects falsy non-byte AAD', () => {
       const key = randomBytes(32);

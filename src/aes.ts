@@ -22,7 +22,7 @@
 import { ghash, polyval } from './_polyval.ts';
 // prettier-ignore
 import {
-  abytes, anumber, aoutput,
+  abytes, anumber, aoutput32,
   byteSwap,
   clean, complexOverlapBytes, concatBytes,
   copyBytes, createView, equalBytes, getOutput, isAligned32,
@@ -351,34 +351,40 @@ function ctrCounter(
   const c32 = u32(ctr);
   const src32 = u32(src);
   const dst32 = u32(dst);
-  // Fill block (empty, ctr=0)
-  let { s0, s1, s2, s3 } = encrypt(
-    xk,
-    swap8IfBE(c32[0]),
-    swap8IfBE(c32[1]),
-    swap8IfBE(c32[2]),
-    swap8IfBE(c32[3])
-  );
   // process blocks
   for (let i = 0; i + 4 <= src32.length; i += 4) {
-    dst32[i + 0] = src32[i + 0] ^ swap8IfBE(s0);
-    dst32[i + 1] = src32[i + 1] ^ swap8IfBE(s1);
-    dst32[i + 2] = src32[i + 2] ^ swap8IfBE(s2);
-    dst32[i + 3] = src32[i + 3] ^ swap8IfBE(s3);
-    incBytes(ctr, false, 1); // Full 128 bit counter with wrap around
-    ({ s0, s1, s2, s3 } = encrypt(
+    const { s0, s1, s2, s3 } = encrypt(
       xk,
       swap8IfBE(c32[0]),
       swap8IfBE(c32[1]),
       swap8IfBE(c32[2]),
       swap8IfBE(c32[3])
-    ));
+    );
+    dst32[i + 0] = src32[i + 0] ^ swap8IfBE(s0);
+    dst32[i + 1] = src32[i + 1] ^ swap8IfBE(s1);
+    dst32[i + 2] = src32[i + 2] ^ swap8IfBE(s2);
+    dst32[i + 3] = src32[i + 3] ^ swap8IfBE(s3);
+    // Full 128 bit big-endian counter with wrap around. Same fixed-shape
+    // 16-byte carry walk as incBytes(ctr, false, 1), inlined to skip its
+    // per-call argument validation on the per-block hot path.
+    for (let j = BLOCK_SIZE - 1, carry = 1; j >= 0; j--) {
+      carry = (carry + ctr[j]) | 0;
+      ctr[j] = carry & 0xff;
+      carry >>>= 8;
+    }
   }
   // NIST SP 800-38A CTR mode uses the leading `u` bits of the next output
   // block for the final short block.
   // It's possible to handle > u32 fast, but is it worth it?
   const start = BLOCK_SIZE * Math.floor(src32.length / BLOCK_SIZE32);
   if (start < srcLen) {
+    const { s0, s1, s2, s3 } = encrypt(
+      xk,
+      swap8IfBE(c32[0]),
+      swap8IfBE(c32[1]),
+      swap8IfBE(c32[2]),
+      swap8IfBE(c32[3])
+    );
     const b32 = new Uint32Array([s0, s1, s2, s3]);
     swap32IfBE(b32);
     const buf = u8(b32);
@@ -415,34 +421,33 @@ function ctr32(
   // RFC 8452 AES-GCM-SIV increments the first 32 bits as a little-endian u32.
   const ctrPos = isLE ? 0 : 12;
   const srcLen = src.length;
-  // Fill block (empty, ctr=0)
   let ctrNum = view.getUint32(ctrPos, isLE); // read current counter value
-  let { s0, s1, s2, s3 } = encrypt(
-    xk,
-    swap8IfBE(c32[0]),
-    swap8IfBE(c32[1]),
-    swap8IfBE(c32[2]),
-    swap8IfBE(c32[3])
-  );
   // process blocks
   for (let i = 0; i + 4 <= src32.length; i += 4) {
+    const { s0, s1, s2, s3 } = encrypt(
+      xk,
+      swap8IfBE(c32[0]),
+      swap8IfBE(c32[1]),
+      swap8IfBE(c32[2]),
+      swap8IfBE(c32[3])
+    );
     dst32[i + 0] = src32[i + 0] ^ swap8IfBE(s0);
     dst32[i + 1] = src32[i + 1] ^ swap8IfBE(s1);
     dst32[i + 2] = src32[i + 2] ^ swap8IfBE(s2);
     dst32[i + 3] = src32[i + 3] ^ swap8IfBE(s3);
     ctrNum = (ctrNum + 1) >>> 0; // u32 wrap
     view.setUint32(ctrPos, ctrNum, isLE);
-    ({ s0, s1, s2, s3 } = encrypt(
+  }
+  // leftovers (less than a block)
+  const start = BLOCK_SIZE * Math.floor(src32.length / BLOCK_SIZE32);
+  if (start < srcLen) {
+    const { s0, s1, s2, s3 } = encrypt(
       xk,
       swap8IfBE(c32[0]),
       swap8IfBE(c32[1]),
       swap8IfBE(c32[2]),
       swap8IfBE(c32[3])
-    ));
-  }
-  // leftovers (less than a block)
-  const start = BLOCK_SIZE * Math.floor(src32.length / BLOCK_SIZE32);
-  if (start < srcLen) {
+    );
     const b32 = new Uint32Array([s0, s1, s2, s3]);
     swap32IfBE(b32);
     const buf = u8(b32);
@@ -507,7 +512,7 @@ export const ctr: TRet<
   }
 );
 
-function validateBlockDecrypt(data: TArg<Uint8Array>) {
+function validateBlockDecrypt(data: TArg<Uint8Array>, dst?: TArg<Uint8Array>) {
   abytes(data);
   // ECB/CBC decryption always consumes whole ciphertext blocks; PKCS#7/CMS
   // padding, when enabled, is removed only after decrypting the final block.
@@ -515,6 +520,11 @@ function validateBlockDecrypt(data: TArg<Uint8Array>) {
     throw new Error(
       'aes-(cbc/ecb).decrypt ciphertext should consist of blocks with size ' + BLOCK_SIZE
     );
+  }
+  // Validate caller-provided output before key expansion; allocation happens after it.
+  if (dst !== undefined) {
+    getOutput(data.length, dst);
+    complexOverlapBytes(data, dst);
   }
 }
 
@@ -533,15 +543,22 @@ function validateBlockEncrypt(plaintext: TArg<Uint8Array>, pkcs5: boolean, dst?:
     if (!left) left = BLOCK_SIZE; // if no bytes left, create empty padding block
     outLen = outLen + left;
   }
-  dst = getOutput(outLen, dst);
-  complexOverlapBytes(plaintext, dst);
+  // Validate caller-provided output before key expansion; allocation happens after it.
+  if (dst !== undefined) {
+    getOutput(outLen, dst);
+    complexOverlapBytes(plaintext, dst);
+  }
+  return outLen;
+}
+
+function prepareBlockEncrypt(plaintext: TArg<Uint8Array>, outLen: number, dst?: TArg<Uint8Array>) {
+  if (dst === undefined) dst = new Uint8Array(outLen);
   // Copy on BE or misaligned inputs so u32()/swap32IfBE() normalization never
   // mutates caller plaintext bytes in place before ECB/CBC processing.
   if (!isLE || !isAligned32(plaintext)) plaintext = copyBytes(plaintext);
-  const b = u32(plaintext);
-  swap32IfBE(b);
   const o = u32(dst);
-  return { b, o, out: dst };
+  // Keep the full byte owner so callers can wipe a conditional copy without rebuilding a view.
+  return { b: plaintext, o, out: dst };
 }
 
 // `pkcs5` is the historical option name; for AES's 16-byte block this is the
@@ -625,8 +642,11 @@ export const ecb: TRet<
     const pkcs5 = !opts.disablePadding;
     return {
       encrypt(plaintext: TArg<Uint8Array>, dst?: TArg<Uint8Array>): TRet<Uint8Array> {
-        const { b, o, out: _out } = validateBlockEncrypt(plaintext, pkcs5, dst);
+        const outLen = validateBlockEncrypt(plaintext, pkcs5, dst);
         const xk = expandKeyLE(key);
+        const { b: input, o, out: _out } = prepareBlockEncrypt(plaintext, outLen, dst);
+        const b = u32(input);
+        swap32IfBE(b);
         let i = 0;
         for (; i + 4 <= b.length; ) {
           const { s0, s1, s2, s3 } = encrypt(xk, b[i + 0], b[i + 1], b[i + 2], b[i + 3]);
@@ -637,17 +657,21 @@ export const ecb: TRet<
           swap32IfBE(tmp32);
           const { s0, s1, s2, s3 } = encrypt(xk, tmp32[0], tmp32[1], tmp32[2], tmp32[3]);
           ((o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3));
+          // The padding scratch contains the final plaintext tail; wipe it as soon as consumed.
+          clean(tmp32);
         }
         swap32IfBE(o);
         clean(xk);
+        if (input !== plaintext) clean(input);
         return _out as TRet<Uint8Array>;
       },
       decrypt(ciphertext: TArg<Uint8Array>, dst?: TArg<Uint8Array>): TRet<Uint8Array> {
-        validateBlockDecrypt(ciphertext);
+        // Validate inputs before expanding the key, so a validation throw
+        // never leaves an unwiped expanded key behind.
+        validateBlockDecrypt(ciphertext, dst);
         const xk = expandKeyDecLE(key);
-        dst = getOutput(ciphertext.length, dst);
+        if (dst === undefined) dst = new Uint8Array(ciphertext.length);
         const toClean: (Uint8Array | Uint32Array)[] = [xk];
-        complexOverlapBytes(ciphertext, dst);
         // Copy on BE or misaligned ciphertext so u32()/swap32IfBE()
         // normalization never mutates caller bytes in place before decrypt().
         if (!isLE || !isAligned32(ciphertext)) toClean.push((ciphertext = copyBytes(ciphertext)));
@@ -702,8 +726,13 @@ export const cbc: TRet<
     const pkcs5 = !opts.disablePadding;
     return {
       encrypt(plaintext: TArg<Uint8Array>, dst?: TArg<Uint8Array>): TRet<Uint8Array> {
+        // Validate inputs before expanding the key, so a validation throw
+        // never leaves an unwiped expanded key behind.
+        const outLen = validateBlockEncrypt(plaintext, pkcs5, dst);
         const xk = expandKeyLE(key);
-        const { b, o, out: _out } = validateBlockEncrypt(plaintext, pkcs5, dst);
+        const { b: input, o, out: _out } = prepareBlockEncrypt(plaintext, outLen, dst);
+        const b = u32(input);
+        swap32IfBE(b);
         let _iv = iv;
         const toClean: (Uint8Array | Uint32Array)[] = [xk];
         // Copy on BE or misaligned inputs so IV normalization and the mutable
@@ -725,14 +754,20 @@ export const cbc: TRet<
           ((s0 ^= tmp32[0]), (s1 ^= tmp32[1]), (s2 ^= tmp32[2]), (s3 ^= tmp32[3]));
           ({ s0, s1, s2, s3 } = encrypt(xk, s0, s1, s2, s3));
           ((o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3));
+          // The padding scratch contains the final plaintext tail; wipe it as soon as consumed.
+          clean(tmp32);
         }
         swap32IfBE(o);
         clean(...toClean);
+        if (input !== plaintext) clean(input);
         return _out as TRet<Uint8Array>;
       },
       decrypt(ciphertext: TArg<Uint8Array>, dst?: TArg<Uint8Array>): TRet<Uint8Array> {
-        validateBlockDecrypt(ciphertext);
+        // Validate inputs before expanding the key, so a validation throw
+        // never leaves an unwiped expanded key behind.
+        validateBlockDecrypt(ciphertext, dst);
         const xk = expandKeyDecLE(key);
+        if (dst === undefined) dst = new Uint8Array(ciphertext.length);
         let _iv = iv;
         const toClean: (Uint8Array | Uint32Array)[] = [xk];
         // Copy on BE or misaligned inputs so IV normalization and the mutable
@@ -740,8 +775,6 @@ export const cbc: TRet<
         if (!isLE || !isAligned32(_iv)) toClean.push((_iv = copyBytes(_iv)));
         const n32 = u32(_iv);
         swap32IfBE(n32);
-        dst = getOutput(ciphertext.length, dst);
-        complexOverlapBytes(ciphertext, dst);
         // Copy on BE or misaligned ciphertext so u32()/swap32IfBE()
         // normalization never mutates caller bytes in place before decrypt().
         if (!isLE || !isAligned32(ciphertext)) toClean.push((ciphertext = copyBytes(ciphertext)));
@@ -1608,12 +1641,11 @@ function dbl<T extends Uint8Array>(block: T): T {
     carry = newCarry;
   }
 
-  // XOR with 0x87 if there was a carry from the most significant bit
-  if (carry) {
-    // RFC 4493 §2.3 / RFC 5297 §2.1: 0x87 is const_Rb for doubling in the
-    // CMAC/S2V finite field with primitive polynomial x^128 + x^7 + x^2 + x + 1.
-    block[BLOCK_SIZE - 1] ^= 0x87;
-  }
+  // XOR with 0x87 if there was a carry from the most significant bit.
+  // RFC 4493 §2.3 / RFC 5297 §2.1: 0x87 is const_Rb for doubling in the
+  // CMAC/S2V finite field with primitive polynomial x^128 + x^7 + x^2 + x + 1.
+  // Branchless: `carry` derives from secret CMAC subkey material.
+  block[BLOCK_SIZE - 1] ^= 0x87 & -carry;
 
   return block;
 }
@@ -1671,6 +1703,7 @@ class _CMAC implements IHash2 {
   private k1: Uint8Array;
   private k2: Uint8Array;
   private x: Uint8Array;
+  private x32: Uint32Array;
   private xk: Uint32Array;
 
   constructor(key: TArg<Uint8Array>) {
@@ -1682,6 +1715,9 @@ class _CMAC implements IHash2 {
     this.finished = false;
     this.destroyed = false;
     this.x = new Uint8Array(BLOCK_SIZE);
+    // Cached word view over `x`: process() runs once per 16 input bytes, so
+    // it must not re-create views or re-validate per block like encryptBlock().
+    this.x32 = u32(this.x);
     // L = AES_encrypt(K, const_Zero)
     const L = new Uint8Array(BLOCK_SIZE);
     encryptBlock(this.xk, L);
@@ -1692,10 +1728,16 @@ class _CMAC implements IHash2 {
     this.k2 = dbl(new Uint8Array(this.k1));
   }
 
-  private process(data: TArg<Uint8Array>): void {
+  // Consumes 16 bytes of `data` starting at `pos`; `pos` avoids a per-block
+  // subarray view allocation in update().
+  private process(data: TArg<Uint8Array>, pos: number): void {
     // RFC 4493 §2.4 step 6 loop body: Y := X XOR M_i; X := AES-128(K, Y).
-    xorBlock(this.x, data);
-    encryptBlock(this.xk, this.x);
+    const { x, x32, xk } = this;
+    for (let i = 0; i < BLOCK_SIZE; i++) x[i] ^= data[pos + i];
+    swap32IfBE(x32);
+    const { s0, s1, s2, s3 } = encrypt(xk, x32[0], x32[1], x32[2], x32[3]);
+    ((x32[0] = s0), (x32[1] = s1), (x32[2] = s2), (x32[3] = s3));
+    swap32IfBE(x32);
   }
 
   update(data: TArg<Uint8Array>): this {
@@ -1709,14 +1751,14 @@ class _CMAC implements IHash2 {
       this.pos += take;
       pos = take;
       if (this.pos === BLOCK_SIZE && pos < data.length) {
-        this.process(this.buffer);
+        this.process(this.buffer, 0);
         this.pos = 0;
       }
     }
     // Keep one complete block buffered: an exact 16-byte tail may still be
     // M_n, and digestInto() must decide there whether RFC 4493 uses K1 or K2.
     while (pos + BLOCK_SIZE < data.length) {
-      this.process(data.subarray(pos, pos + BLOCK_SIZE));
+      this.process(data, pos);
       pos += BLOCK_SIZE;
     }
     if (pos < data.length) {
@@ -1732,7 +1774,7 @@ class _CMAC implements IHash2 {
     if (this.finished) throw new Error('Hash#digest() has already been called');
     // `digestInto(out)` is the no-allocation fast path, so AES block re-use below
     // requires a 32-bit-aligned caller buffer instead of hidden temp copies.
-    aoutput(out, this, true);
+    aoutput32(out, this);
     this.finished = true;
     // `digestInto()` accepts out.length >= outputLen, so only the first block stores the tag.
     const view = out.subarray(0, this.outputLen);
