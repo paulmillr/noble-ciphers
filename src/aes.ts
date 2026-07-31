@@ -22,7 +22,7 @@
 import { ghash, polyval } from './_polyval.ts';
 // prettier-ignore
 import {
-  abytes, anumber, aoutput32,
+  abytes, aexists, anumber, aoutput32,
   byteSwap,
   clean, complexOverlapBytes, concatBytes,
   copyBytes, createView, equalBytes, getOutput, isAligned32,
@@ -143,7 +143,7 @@ const rotl32_8 = (n: number) => (n << 8) | (n >>> 24);
 // - bigger tables: T0 and T1 are merged into T01 table and T2 & T3 into T23;
 //   so index is u16, instead of u8. This speeds up things, unexpectedly
 function genTtable(sbox: TArg<Uint8Array>, fn: (n: number) => number) {
-  if (sbox.length !== 256) throw new Error('Wrong sbox length');
+  if (sbox.length !== 256) throw new Error('wrong sbox length');
   const T0 = new Uint32Array(256).map((_, j) => fn(sbox[j]));
   const T1 = T0.map(rotl32_8);
   const T2 = T1.map(rotl32_8);
@@ -517,9 +517,7 @@ function validateBlockDecrypt(data: TArg<Uint8Array>, dst?: TArg<Uint8Array>) {
   // ECB/CBC decryption always consumes whole ciphertext blocks; PKCS#7/CMS
   // padding, when enabled, is removed only after decrypting the final block.
   if (data.length % BLOCK_SIZE !== 0) {
-    throw new Error(
-      'aes-(cbc/ecb).decrypt ciphertext should consist of blocks with size ' + BLOCK_SIZE
-    );
+    throw new Error('ciphertext must be multiple of ' + BLOCK_SIZE);
   }
   // Validate caller-provided output before key expansion; allocation happens after it.
   if (dst !== undefined) {
@@ -534,8 +532,7 @@ function validateBlockEncrypt(plaintext: TArg<Uint8Array>, pkcs5: boolean, dst?:
   abytes(plaintext);
   let outLen = plaintext.length;
   const remaining = outLen % BLOCK_SIZE;
-  if (!pkcs5 && remaining !== 0)
-    throw new Error('aec/(cbc-ecb): unpadded plaintext with disabled padding');
+  if (!pkcs5 && remaining !== 0) throw new Error('plaintext must be multiple of ' + BLOCK_SIZE);
   if (pkcs5) {
     let left = BLOCK_SIZE - remaining;
     // RFC 5652 pads even already-aligned inputs, so a full extra block is
@@ -570,7 +567,7 @@ function validatePKCS(data: TArg<Uint8Array>, pkcs5: boolean): TRet<Uint8Array> 
   // RFC 5652 pads even empty / already-aligned inputs, so a valid padded
   // ECB/CBC ciphertext is never empty when PKCS#7/CMS unpadding is enabled.
   // AES-CBC/ECB ciphertext should be full blocks before unpadding
-  if (len === 0) throw new Error('aes/pkcs7: empty ciphertext not allowed');
+  if (len === 0) throw new Error('pkcs7: empty ciphertext not allowed');
   const lastByte = data[len - 1];
   let valid = 1;
   valid &= ((lastByte - 1) >>> 31) ^ 1; // pad >= 1
@@ -835,7 +832,7 @@ export const cfb: TRet<
       dst = getOutput(srcLen, dst);
       // CFB feeds back previous ciphertext, so overlapping src/dst could
       // overwrite bytes that are still needed as the next feedback block.
-      if (overlapBytes(src, dst)) throw new Error('overlapping src and dst not supported.');
+      if (overlapBytes(src, dst)) throw new Error('overlapping src and dst not supported');
       const xk = expandKeyLE(key);
       let _iv = iv;
       const toClean: (Uint8Array | Uint32Array)[] = [xk];
@@ -1018,7 +1015,7 @@ export const gcm: TRet<
         // tag before CTR so unauthenticated plaintext is never materialized.
         if (!equalBytes(tag, passedTag)) {
           clean(...toClean);
-          throw new Error('aes/gcm: invalid ghash tag');
+          throw new Error('aes-gcm: invalid tag');
         }
         const out = ctr32(xk, false, counter, data);
         clean(...toClean);
@@ -1350,8 +1347,7 @@ export const aeskw: TRet<
           throw new Error('invalid plaintext length');
         // RFC 3394 / NIST SP 800-38F define KW only for >=2 plaintext
         // semiblocks; the 1-semiblock case belongs to RFC 5649 KWP.
-        if (plaintext.length === 8)
-          throw new Error('8-byte keys not allowed in AESKW, use AESKWP instead');
+        if (plaintext.length === 8) throw new Error('8-byte keys not allowed, use AESKWP');
         const out = concatBytes(AESKW_IV, plaintext);
         AESW.encrypt(kek, out);
         return out;
@@ -1677,7 +1673,7 @@ function xorBlock<T extends TArg<Uint8Array>>(a: T, b: TArg<Uint8Array>): T {
  */
 function xorend<T extends TArg<Uint8Array>>(a: T, b: TArg<Uint8Array>): T {
   if (b.length > a.length) {
-    throw new Error('xorend: len(B) must be less than or equal to len(A)');
+    throw new Error('xorend: expected len(B) <= len(A)');
   }
   // keep leftmost part of `a` unchanged
   // and xor only the rightmost part:
@@ -1698,8 +1694,8 @@ class _CMAC implements IHash2 {
   // so updates process older blocks eagerly but keep one pending block buffered.
   private buffer: Uint8Array;
   private pos: number;
-  private finished: boolean;
-  private destroyed: boolean;
+  protected finished: boolean;
+  protected destroyed: boolean;
   private k1: Uint8Array;
   private k2: Uint8Array;
   private x: Uint8Array;
@@ -1741,8 +1737,7 @@ class _CMAC implements IHash2 {
   }
 
   update(data: TArg<Uint8Array>): this {
-    if (this.destroyed) throw new Error('Hash instance has been destroyed');
-    if (this.finished) throw new Error('Hash#digest() has already been called');
+    aexists(this);
     abytes(data);
     let pos = 0;
     if (this.pos) {
@@ -1770,8 +1765,7 @@ class _CMAC implements IHash2 {
 
   // See {@link https://www.rfc-editor.org/rfc/rfc4493.html#section-2.4 | RFC 4493 Section 2.4}.
   digestInto(out: TArg<Uint8Array>): void {
-    if (this.destroyed) throw new Error('Hash instance has been destroyed');
-    if (this.finished) throw new Error('Hash#digest() has already been called');
+    aexists(this);
     // `digestInto(out)` is the no-allocation fast path, so AES block re-use below
     // requires a 32-bit-aligned caller buffer instead of hidden temp copies.
     aoutput32(out, this);
@@ -1877,7 +1871,7 @@ function s2v(key: TArg<Uint8Array>, strings: TArg<Uint8Array[]>): TRet<Uint8Arra
   if (len > 127) {
     // RFC 5297 §7 only proves S2V secure for at most 127 components; SIV
     // spends one of those on the plaintext, leaving at most 126 AAD inputs.
-    throw new Error('s2v: number of input strings must be less than or equal to 127');
+    throw new Error('s2v: expected <= 127 inputs');
   }
 
   if (len === 0) return cmac(ONE_BLOCK, key);
@@ -1976,7 +1970,7 @@ export const aessiv: TRet<
     if (AAD.length > 126) {
       // RFC 5297 §2.6 / §2.7 / §7: SIV passes the plaintext as the last S2V
       // component, so callers only get 126 associated-data components.
-      throw new Error('"AAD" number of elements must be less than or equal to 126');
+      throw new Error('"AAD" expected <= 126 items');
     }
     AAD.forEach((aad) => abytes(aad));
     abytes(key);

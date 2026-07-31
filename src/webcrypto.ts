@@ -118,7 +118,7 @@ function generate(
       // keyLength,
       encrypt(plaintext: TArg<Uint8Array>): Promise<TRet<Uint8Array>> {
         abytes(plaintext, undefined, 'data');
-        if (consumed) throw new Error('Cannot encrypt() twice with same key / nonce');
+        if (consumed) throw new Error('cannot encrypt() twice with same key + nonce');
         consumed = true;
         return utils.encrypt(key, keyParams, cryptParams, plaintext);
       },

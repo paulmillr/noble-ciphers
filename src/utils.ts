@@ -250,9 +250,8 @@ const aobject = (value: Record<string, any>, label: string) => {
 export function aexists(instance: any, checkFinished = true): void {
   // Runs on every update()/digestInto(); the flags are library-owned booleans, so only their
   // truthiness is checked - re-validating their type per call was pure hot-path overhead.
-  if (instance.destroyed) throw new Error('Hash instance has been destroyed');
-  if (checkFinished && instance.finished)
-    throw new Error('Hash#digest() has already been called');
+  if (instance.destroyed) throw new Error('hash was destroyed');
+  if (checkFinished && instance.finished) throw new Error('digest() was already called');
 }
 
 /**
@@ -271,12 +270,12 @@ export function aexists(instance: any, checkFinished = true): void {
  * ```
  */
 export function aoutput(out: any, instance: any): void {
-  abytes(out, undefined, 'digestInto() output');
+  abytes(out, undefined, 'output');
   // `outputLen` is a library-owned readonly number; the negated comparison keeps failing fast
   // when it is missing/NaN (comparisons with undefined/NaN are false) without an anumber() call.
   const min = instance.outputLen;
   if (!(out.length >= min)) {
-    throw new RangeError('"digestInto() output" expected to be of length >= ' + min);
+    throw new RangeError('"output" expected length >= ' + min);
   }
 }
 
@@ -996,7 +995,7 @@ export const wrapCipher = <C extends CipherCons<any>, P extends CipherParams>(
       decrypt(data: TArg<Uint8Array>, output?: TArg<Uint8Array>) {
         abytes(data, undefined, 'data');
         if (tagl && data.length < tagl)
-          throw new Error('"ciphertext" expected length bigger than tagLength=' + tagl);
+          throw new Error('"ciphertext" expected length >= tagLength=' + tagl);
         checkOutput(cipher.decrypt.length, output);
         return (cipher as CipherWithOutput).decrypt(data, output);
       },
@@ -1034,7 +1033,8 @@ export type XorStream = (
  * @param onlyAligned - Whether `out` must be 4-byte aligned.
  * @returns Output buffer ready for writing.
  * @throws On wrong argument types. {@link TypeError}
- * @throws If the provided output buffer has the wrong size or alignment. {@link Error}
+ * @throws If the provided output buffer has the wrong size. {@link RangeError}
+ * @throws If the provided output buffer has the wrong alignment. {@link Error}
  * @example
  * Reuses a caller-provided output buffer when lengths match.
  *
@@ -1049,11 +1049,7 @@ export function getOutput(
 ): TRet<Uint8Array> {
   if (out === undefined) return new Uint8Array(expectedLength) as TRet<Uint8Array>;
   // Keep Buffer/cross-realm Uint8Array support here instead of trusting a shape-compatible object.
-  abytes(out, undefined, 'output');
-  if (out.length !== expectedLength)
-    throw new Error(
-      '"output" expected Uint8Array of length ' + expectedLength + ', got: ' + out.length
-    );
+  abytes(out, expectedLength, 'output');
   if (onlyAligned && !isAligned32(out)) throw new Error('invalid output, must be aligned');
   return out as TRet<Uint8Array>;
 }
