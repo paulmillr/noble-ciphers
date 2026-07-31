@@ -299,7 +299,7 @@ export function createCipher(core: TArg<CipherCoreFn>, opts: TArg<CipherOpts>): 
     let k32 = u32(k);
     // hsalsa & hchacha: handle extended nonce
     if (extendNonceFn) {
-      if (nonce.length !== 24) throw new Error(`arx: extended nonce must be 24 bytes`);
+      if (nonce.length !== 24) throw new Error('arx: extended nonce must be 24 bytes');
       const n16 = nonce.subarray(0, 16);
       if (isLE) extendNonceFn(sigma as TRet<Uint32Array>, k32, u32(n16), k32);
       else {
