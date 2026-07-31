@@ -6,7 +6,7 @@ Audited & minimal JS implementation of Salsa20, ChaCha and AES.
 - 🔻 Tree-shakeable: unused code is excluded from your builds
 - 🏎 Fast: hand-optimized for caveats of JS engines
 - 🔍 Reliable: property-based / cross-library / wycheproof tests ensure correctness
-- 💼 AES: ECB, CBC, CTR, CFB, GCM, SIV (nonce misuse-resistant), AESKW, AESKWP
+- 💼 AES: ECB, CBC, CTR, CFB, GCM, GCM-SIV & AES-SIV (nonce misuse-resistant), AESKW, AESKWP, FF1
 - 💃 Salsa20, ChaCha, XSalsa20, XChaCha, ChaCha8, ChaCha12, Poly1305
 - 🥈 Two AES implementations: pure JS or friendly WebCrypto wrapper
 - 🪶 11KB (gzipped) for everything, 3KB for ChaCha-only build
@@ -52,6 +52,9 @@ import { ctr, cfb, cbc, ecb } from '@noble/ciphers/aes.js';
 import { salsa20, xsalsa20 } from '@noble/ciphers/salsa.js';
 import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha.js';
 import { aeskw, aeskwp } from '@noble/ciphers/aes.js'; // KW
+import { FF1, BinaryFF1 } from '@noble/ciphers/ff1.js'; // format-preserving encryption
+import { rngAesCtrDrbg128, rngAesCtrDrbg256 } from '@noble/ciphers/aes.js'; // CSPRNG
+import { rngChacha8, rngChacha20 } from '@noble/ciphers/chacha.js'; // CSPRNG
 import { bytesToHex, hexToBytes, managedNonce, randomBytes } from '@noble/ciphers/utils.js';
 ```
 
@@ -62,6 +65,7 @@ import { bytesToHex, hexToBytes, managedNonce, randomBytes } from '@noble/cipher
   - [AES: gcm, siv, ctr, cfb, cbc, ecb, aeskw](#aes-gcm-siv-ctr-cfb-cbc-ecb-aeskw)
   - [AES: friendly WebCrypto wrapper](#aes-friendly-webcrypto-wrapper)
   - [Reuse array for input and output](#reuse-array-for-input-and-output)
+  - [Randomness generation](#randomness-generation)
   - [Use password for encryption](#use-password-for-encryption)
 - [Internals](#internals)
   - [Picking a cipher](#picking-a-cipher)
@@ -106,7 +110,7 @@ const data_ = chacha.decrypt(ciphertext); // new TextDecoder().decode(data_) ===
 import { gcm } from '@noble/ciphers/aes.js';
 import { randomBytes } from '@noble/ciphers/utils.js';
 const key = randomBytes(32);
-const nonce = randomBytes(24);
+const nonce = randomBytes(12);
 const data = new TextEncoder().encode('hello noble');
 const aes = gcm(key, nonce);
 const ciphertext = aes.encrypt(data);
@@ -228,7 +232,7 @@ due to its inner workings.
 
 We provide userspace CSPRNG (cryptographically secure pseudorandom number generator).
 It's best to limit their usage to non-production, non-critical cases: for example, test-only usage.
-ChaCha-based CSPRNG does not have a specification as per 2025, which makes it less secure.
+ChaCha-based CSPRNG does not have a specification, which makes it less secure.
 
 ```js
 import { randomBytes } from '@noble/ciphers/utils.js';
@@ -284,7 +288,7 @@ const data_ = chacha.decrypt(ciphertext);
 
 ### Picking a cipher
 
-We suggest to use **XChaCha20-Poly1305** because it's very fast and allows random keys.
+We suggest to use **XChaCha20-Poly1305** because it's very fast and allows random nonces.
 **AES-GCM-SIV** is also a good idea, because it provides resistance against nonce reuse.
 **AES-GCM** is a good option when those two are not available.
 
@@ -375,7 +379,7 @@ Check out [draft-irtf-cfrg-aead-limits](https://datatracker.ietf.org/doc/draft-i
   which are hard to implement in a constant-time manner.
   Salsa20 is usually faster than AES, a big deal on slow, budget mobile phones.
   - [XSalsa20](https://cr.yp.to/snuffle/xsalsa-20110204.pdf), extended-nonce
-    variant was released in 2008. It switched nonces from 96-bit to 192-bit,
+    variant was released in 2008. It switched nonces from 64-bit to 192-bit,
     and became safe to be picked at random.
   - Nacl / Libsodium popularized term "secretbox", - which is just xsalsa20poly1305.
     We provide the alias and corresponding seal / open methods.
@@ -412,7 +416,7 @@ Check out [draft-irtf-cfrg-aead-limits](https://datatracker.ietf.org/doc/draft-i
     is a fast and parallel secret-key message-authentication code suitable for
     a wide variety of applications. It was standardized in
     [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439) and is now used in TLS 1.3.
-  - Ghash is used in AES-GCM: see NIST SP 800-38G
+  - Ghash is used in AES-GCM: see [NIST SP 800-38D](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf)
   - Polyval is used in AES-GCM-SIV: see [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452)
 
 ##### AES block modes
@@ -496,7 +500,7 @@ Browsers have had weaknesses in the past - and could again - but implementing a 
 ### Quantum computers
 
 Cryptographically relevant quantum computer, if built, will allow to
-utilize Grover's algorithm to break ciphers in 2^n/2 operations, instead of 2^n.
+utilize Grover's algorithm to break ciphers in 2^(n/2) operations, instead of 2^n.
 
 This means AES128 should be replaced with AES256. Salsa and ChaCha are already safe.
 
@@ -505,7 +509,7 @@ Australian ASD prohibits AES128 [after 2030](https://www.cyber.gov.au/resources-
 ## Speed
 
 ```sh
-npm run bench
+npm run benchmark
 ```
 
 Benchmarks measured on Apple M4.
@@ -593,8 +597,8 @@ Changelog of v2, when upgrading from ciphers v1:
 ## Contributing & testing
 
 - `npm install && npm run build && npm test` will build the code and run tests.
-- `npm run lint` / `npm run format` will run linter / fix linter issues.
-- `npm run bench` will run benchmarks
+- `npm run check` / `npm run format` will run linter / fix linter issues.
+- `npm run benchmark` will run benchmarks
 - `npm run bundle` will build single file
 
 See [paulmillr.com/noble](https://paulmillr.com/noble/)
