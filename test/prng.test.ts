@@ -1,4 +1,4 @@
-import { describe, should } from '@paulmillr/jsbt/test.js';
+import { describe, it } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual as eql, throws } from 'node:assert';
 import { rngAesCtrDrbg128, rngAesCtrDrbg256 } from '../src/aes.ts';
 import { rngChacha20, rngChacha8 } from '../src/chacha.ts';
@@ -85,7 +85,7 @@ const AVCP_VECTORS = json('./vectors/ctrDRBG-1.0/internalProjection.json'); // A
  */
 
 describe('PRNG', () => {
-  should('AES', () => {
+  it('AES', () => {
     for (const g of AVCP_VECTORS.testGroups) {
       if (g.derFunc) continue; // No DF support (for now?)
       if (!g.mode.startsWith('AES-')) continue;
@@ -111,7 +111,7 @@ describe('PRNG', () => {
       }
     }
   });
-  should('AES additional input is bounded by state width', () => {
+  it('AES additional input is bounded by state width', () => {
     const drbg128 = rngAesCtrDrbg128(new Uint8Array(32));
     const drbg256 = rngAesCtrDrbg256(new Uint8Array(48));
     drbg128.randomBytes(16, new Uint8Array(32));
@@ -123,14 +123,14 @@ describe('PRNG', () => {
     throws(() => drbg256.randomBytes(16, new Uint8Array(49)));
     throws(() => drbg256.addEntropy(new Uint8Array(48), new Uint8Array(49)));
   });
-  should('AES permits a generate call when reseed_counter equals 2^48', () => {
+  it('AES permits a generate call when reseed_counter equals 2^48', () => {
     const drbg = rngAesCtrDrbg128(new Uint8Array(32)) as ReturnType<typeof rngAesCtrDrbg128> & {
       reseedCnt: number;
     };
     drbg.reseedCnt = 2 ** 48;
     eql(drbg.randomBytes(16).length, 16);
   });
-  should('AES rejects generate requests above 2^19 bits', () => {
+  it('AES rejects generate requests above 2^19 bits', () => {
     const drbg = rngAesCtrDrbg128(new Uint8Array(32));
     throws(() => drbg.randomBytes(65537));
   });
@@ -140,7 +140,7 @@ describe('PRNG', () => {
   // - variable seed/entropy length
   // - no forward secrecy by default (==no re-key)
   // - read(2)||read(2) === read(4)
-  should('ChaCha20', () => {
+  it('ChaCha20', () => {
     const ent = new Uint8Array([
       0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
       0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e,
@@ -161,7 +161,7 @@ describe('PRNG', () => {
     clone.randomBytes(500); // skip(500)
     eql(clone.randomBytes(10), t3, 't3');
   });
-  should('ChaCha20 preflights oversized reads before consuming keystream', () => {
+  it('ChaCha20 preflights oversized reads before consuming keystream', () => {
     const seed = Uint8Array.from({ length: 40 }, (_, i) => i + 1);
     const create = () => rngChacha20(seed) as ReturnType<typeof rngChacha20> & { ctr: number };
     const ok = create();
@@ -173,7 +173,7 @@ describe('PRNG', () => {
     eql(broken.ctr, 0xfffffffe);
     eql(broken.randomBytes(64), first);
   });
-  should('rejected addEntropy leaves PRG state unchanged', () => {
+  it('rejected addEntropy leaves PRG state unchanged', () => {
     const expectRejectedAddEntropyStable = (
       create: () => {
         addEntropy: (...args: any[]) => void;
@@ -208,4 +208,4 @@ describe('PRNG', () => {
   });
 });
 
-should.runWhen(import.meta.url);
+it.runWhen(import.meta.url);

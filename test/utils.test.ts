@@ -1,4 +1,4 @@
-import { describe, should } from '@paulmillr/jsbt/test.js';
+import { describe, it } from '@paulmillr/jsbt/test.js';
 import fc from 'fast-check';
 import { deepStrictEqual as eql, throws } from 'node:assert';
 import { pathToFileURL } from 'node:url';
@@ -13,7 +13,7 @@ import {
   u64Lengths,
 } from '../src/utils.ts';
 import { TYPE_TEST, unalign } from './utils.ts';
-const BT = { describe, should };
+const BT = { describe, it };
 
 function hexa() {
   const items = '0123456789abcdef';
@@ -23,7 +23,7 @@ function hexaString(constraints = {}) {
   return fc.string({ ...constraints, unit: hexa() });
 }
 
-export function test({ describe, should } = BT) {
+export function test({ describe, it } = BT) {
   describe('utils', () => {
     const staticHexVectors = [
       { bytes: Uint8Array.from([]), hex: '' },
@@ -31,7 +31,7 @@ export function test({ describe, should } = BT) {
       { bytes: Uint8Array.from([0xca, 0xfe]), hex: 'cafe' },
       { bytes: Uint8Array.from(new Array(1024).fill(0x69)), hex: '69'.repeat(1024) },
     ];
-    should('hexToBytes', () => {
+    it('hexToBytes', () => {
       for (let v of staticHexVectors) eql(hexToBytes(v.hex), v.bytes);
       for (let v of staticHexVectors) eql(hexToBytes(v.hex.toUpperCase()), v.bytes);
       for (let v of TYPE_TEST.hex) {
@@ -41,13 +41,13 @@ export function test({ describe, should } = BT) {
       throws(() => hexToBytes('a'), RangeError);
       throws(() => hexToBytes('gg'), RangeError);
     });
-    should('bytesToHex', () => {
+    it('bytesToHex', () => {
       for (let v of staticHexVectors) eql(bytesToHex(v.bytes), v.hex);
       for (let v of TYPE_TEST.bytes) {
         throws(() => bytesToHex(v));
       }
     });
-    should('hexToBytes <=> bytesToHex roundtrip', () =>
+    it('hexToBytes <=> bytesToHex roundtrip', () =>
       fc.assert(
         fc.property(hexaString({ minLength: 2, maxLength: 64 }), (hex) => {
           if (hex.length % 2 !== 0) return;
@@ -56,9 +56,8 @@ export function test({ describe, should } = BT) {
           if (typeof Buffer !== 'undefined')
             eql(hexToBytes(hex), Uint8Array.from(Buffer.from(hex, 'hex')));
         })
-      )
-    );
-    should('concatBytes', () => {
+      ));
+    it('concatBytes', () => {
       const a = 1;
       const b = 2;
       const c = 0xff;
@@ -73,15 +72,14 @@ export function test({ describe, should } = BT) {
           concatBytes(v);
         });
     });
-    should('concatBytes random', () =>
+    it('concatBytes random', () =>
       fc.assert(
         fc.property(fc.uint8Array(), fc.uint8Array(), fc.uint8Array(), (a, b, c) => {
           const expected = Uint8Array.from([...a, ...b, ...c]);
           eql(concatBytes(a.slice(), b.slice(), c.slice()), expected);
         })
-      )
-    );
-    should('overlapBytes', () => {
+      ));
+    it('overlapBytes', () => {
       // Basic
       const buffer = new ArrayBuffer(20);
       const a = new Uint8Array(buffer, 0, 10); // Bytes 0-9
@@ -121,26 +119,26 @@ export function test({ describe, should } = BT) {
       eql(overlapBytes(main2, emptyInside), false);
       eql(overlapBytes(emptyInside, main2), false);
     });
-    should('bytesToUtf8', () => {
+    it('bytesToUtf8', () => {
       eql(bytesToUtf8(new Uint8Array([97, 98, 99])), 'abc');
     });
-    should('hexToNumber', () => {
+    it('hexToNumber', () => {
       eql(u.hexToNumber(''), 0n);
       eql(u.hexToNumber('ff'), 255n);
       throws(() => u.hexToNumber(1 as any), TypeError);
     });
-    should('numberToBytesBE', () => {
+    it('numberToBytesBE', () => {
       eql(u.numberToBytesBE(1, 2), Uint8Array.of(0, 1));
       throws(() => u.numberToBytesBE('1' as any, 2), TypeError);
       throws(() => u.numberToBytesBE(true as any, 2), TypeError);
       throws(() => u.numberToBytesBE(1, '2' as any), TypeError);
       throws(() => u.numberToBytesBE(-1n, 1), /positive bigint expected, got -1/);
     });
-    should('utf8ToBytes', () => {
+    it('utf8ToBytes', () => {
       eql(u.utf8ToBytes('abc'), new Uint8Array([97, 98, 99]));
       throws(() => u.utf8ToBytes(1 as any), TypeError);
     });
-    should('getOutput', () => {
+    it('getOutput', () => {
       eql(getOutput(32), new Uint8Array(32));
       throws(() => getOutput(32, new Uint8Array(31)));
       throws(() => getOutput(32, new Uint8Array(33)));
@@ -153,7 +151,7 @@ export function test({ describe, should } = BT) {
       }
       throws(() => getOutput(32, { length: 32, byteOffset: 0 } as any, false), TypeError);
     });
-    should('u64Lengths', () => {
+    it('u64Lengths', () => {
       eql(
         bytesToHex(u64Lengths(new Uint8Array(10).length, 0, true)),
         '00000000000000000a00000000000000'
@@ -168,19 +166,19 @@ export function test({ describe, should } = BT) {
   });
 
   describe('assert', () => {
-    should('abool', () => {
+    it('abool', () => {
       eql(u.abool(true), true);
       throws(() => u.abool('1' as any), TypeError);
       throws(() => u.abool(1 as any), TypeError);
     });
-    should('anumber', () => {
+    it('anumber', () => {
       eql(u.anumber(10), 10);
       throws(() => u.anumber(1.2), RangeError);
       throws(() => u.anumber('1' as any), TypeError);
       throws(() => u.anumber(true as any), TypeError);
       throws(() => u.anumber(NaN), RangeError);
     });
-    should('abytes', () => {
+    it('abytes', () => {
       eql(u.abytes(new Uint8Array(0)), new Uint8Array(0));
       if (typeof Buffer !== 'undefined') eql(u.abytes(Buffer.alloc(10)), Buffer.alloc(10));
       eql(u.abytes(new Uint8Array(10)), new Uint8Array(10));
@@ -190,18 +188,18 @@ export function test({ describe, should } = BT) {
       throws(() => u.abytes(new Uint8Array(10), 11, '11'), RangeError);
       throws(() => u.abytes(new Uint8Array(10), 12, '12'), RangeError);
     });
-    should('aexists', () => {
+    it('aexists', () => {
       eql(u.aexists({}), undefined);
       throws(() => u.aexists({ destroyed: true }));
     });
-    should('aoutput', () => {
+    it('aoutput', () => {
       eql(u.aoutput(new Uint8Array(10), { outputLen: 5 }), undefined);
       throws(() => u.aoutput(new Uint8Array(1), { outputLen: 5 }), RangeError);
     });
   });
 
   describe('utils etc', () => {
-    should('wrapMacConstructor', () => {
+    it('wrapMacConstructor', () => {
       class Hash16 {
         blockLen = 7;
         outputLen = 3;
@@ -230,13 +228,13 @@ export function test({ describe, should } = BT) {
       eql(hash.blockLen, 7);
       eql(Array.from(hash(new Uint8Array([9]), new Uint8Array(16))), [1, 2, 3]);
     });
-    should('complexOverlapBytes', () => {
+    it('complexOverlapBytes', () => {
       const buffer = new Uint8Array(10);
       const input = buffer.subarray(0, 4);
       const output = buffer.subarray(2, 2);
       u.complexOverlapBytes(input, output);
     });
-    should('copyBytes', () => {
+    it('copyBytes', () => {
       const out = u.copyBytes(Uint8Array.of(1, 2, 3));
       eql(out, Uint8Array.of(1, 2, 3));
       if (typeof Buffer !== 'undefined') {
@@ -251,13 +249,13 @@ export function test({ describe, should } = BT) {
       throws(() => u.copyBytes(new Uint16Array([0x0102, 0x0304]) as any), TypeError);
       throws(() => u.copyBytes(new DataView(new ArrayBuffer(4)) as any), TypeError);
     });
-    should('randomBytes', () => {
+    it('randomBytes', () => {
       eql(u.randomBytes(0).length, 0);
       throws(() => u.randomBytes(1.5 as any), RangeError);
       throws(() => u.randomBytes('2' as any), TypeError);
       throws(() => u.randomBytes(true as any), TypeError);
     });
-    should('managedNonce does not wipe plaintext when wrapped encrypt aliases it', () => {
+    it('managedNonce does not wipe plaintext when wrapped encrypt aliases it', () => {
       const fn = ((_: Uint8Array, __: Uint8Array) => ({
         encrypt(plaintext: Uint8Array) {
           return plaintext;
@@ -273,7 +271,7 @@ export function test({ describe, should } = BT) {
       eql(wrapped(key).encrypt(plaintext), Uint8Array.of(9, 8, 1, 2, 3));
       eql(plaintext, Uint8Array.of(1, 2, 3));
     });
-    should('unalign', () => {
+    it('unalign', () => {
       const arr = new Uint8Array([1, 2, 3]);
       for (let i = 0; i < 16; i++) {
         const tmp = unalign(arr, i);
@@ -289,4 +287,4 @@ export function test({ describe, should } = BT) {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) test();
-should.runWhen(import.meta.url);
+it.runWhen(import.meta.url);

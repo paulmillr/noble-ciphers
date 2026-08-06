@@ -1,11 +1,11 @@
-import { describe, should } from '@paulmillr/jsbt/test.js';
+import { describe, it } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual, throws } from 'node:assert';
-import { cmac } from '../src/aes.ts';
 import { pathToFileURL } from 'node:url';
+import { cmac } from '../src/aes.ts';
 import { abytes, bytesToHex, equalBytes, hexToBytes } from '../src/utils.ts';
-const BT = { describe, should };
+const BT = { describe, it };
 
-export function test(variant = 'noble', platform = { cmac }, { describe, should } = BT) {
+export function test(variant = 'noble', platform = { cmac }, { describe, it } = BT) {
   const { cmac } = platform;
   describe(`AES-CMAC (${variant})`, () => {
     // Test vectors from https://www.rfc-editor.org/rfc/rfc4493.html#section-4
@@ -123,7 +123,7 @@ export function test(variant = 'noble', platform = { cmac }, { describe, should 
 
     describe('RFC 4493 test vectors', () => {
       for (const vector of rfcTestVectors) {
-        should(vector.name, () => {
+        it(vector.name, () => {
           const result = cmac(vector.message, RFC4493_KEY);
           deepStrictEqual(bytesToHex(result), vector.expected);
         });
@@ -131,7 +131,7 @@ export function test(variant = 'noble', platform = { cmac }, { describe, should 
     });
 
     describe('Subkey generation', () => {
-      should('generate correct subkeys', () => {
+      it('generate correct subkeys', () => {
         // Test vectors for subkey generation (derived from RFC 4493)
         const subkeys = cmac.create(RFC4493_KEY);
         if (!('k1' in subkeys) || !('k2' in subkeys)) return;
@@ -147,7 +147,7 @@ export function test(variant = 'noble', platform = { cmac }, { describe, should 
 
     describe('NIST test vectors', () => {
       for (const vector of nistTestVectors) {
-        should(vector.name, () => {
+        it(vector.name, () => {
           const result = cmac(vector.message, vector.key);
           deepStrictEqual(bytesToHex(result), vector.expected);
         });
@@ -155,7 +155,7 @@ export function test(variant = 'noble', platform = { cmac }, { describe, should 
     });
 
     describe('Streaming interface', () => {
-      should('expose standard incremental MAC metadata and digestInto', () => {
+      it('expose standard incremental MAC metadata and digestInto', () => {
         const mac = cmac.create(RFC4493_KEY);
         deepStrictEqual(mac.blockLen, 16);
         deepStrictEqual(mac.outputLen, 16);
@@ -165,7 +165,7 @@ export function test(variant = 'noble', platform = { cmac }, { describe, should 
         mac.destroy();
       });
 
-      should('digestInto accepts output buffers larger than outputLen', () => {
+      it('digestInto accepts output buffers larger than outputLen', () => {
         const out = new Uint8Array(32).fill(0x5a);
         const expect = new Uint8Array(32).fill(0x5a);
         expect.set(cmac(new Uint8Array(), RFC4493_KEY), 0);
@@ -179,27 +179,24 @@ export function test(variant = 'noble', platform = { cmac }, { describe, should 
         }
       });
 
-      should(
-        'digestInto either rejects misaligned outputs explicitly or writes into them directly',
-        () => {
-          const mac = cmac.create(RFC4493_KEY);
-          const out = new Uint8Array(21).subarray(1).fill(0x5a);
-          const before = out.slice();
-          const expect = new Uint8Array(20).fill(0x5a);
-          expect.set(cmac(new Uint8Array(), RFC4493_KEY), 0);
-          try {
-            mac.digestInto(out);
-            deepStrictEqual(out, expect);
-          } catch (error) {
-            deepStrictEqual(error, new Error('invalid output, must be aligned'));
-            deepStrictEqual(out, before);
-          } finally {
-            mac.destroy();
-          }
+      it('digestInto either rejects misaligned outputs explicitly or writes into them directly', () => {
+        const mac = cmac.create(RFC4493_KEY);
+        const out = new Uint8Array(21).subarray(1).fill(0x5a);
+        const before = out.slice();
+        const expect = new Uint8Array(20).fill(0x5a);
+        expect.set(cmac(new Uint8Array(), RFC4493_KEY), 0);
+        try {
+          mac.digestInto(out);
+          deepStrictEqual(out, expect);
+        } catch (error) {
+          deepStrictEqual(error, new Error('invalid output, must be aligned'));
+          deepStrictEqual(out, before);
+        } finally {
+          mac.destroy();
         }
-      );
+      });
 
-      should('keep only one pending block across updates', () => {
+      it('keep only one pending block across updates', () => {
         const mac = cmac.create(RFC4493_KEY) as ReturnType<typeof cmac.create> & {
           buffer?: Uint8Array;
           pos?: number;
@@ -214,7 +211,7 @@ export function test(variant = 'noble', platform = { cmac }, { describe, should 
         mac.destroy();
       });
 
-      should('work with update/digest pattern', () => {
+      it('work with update/digest pattern', () => {
         const mac = cmac.create(RFC4493_KEY);
         mac.update(hexToBytes('6bc1bee22e409f96e93d7e117393172a'));
         const result = mac.digest();
@@ -222,7 +219,7 @@ export function test(variant = 'noble', platform = { cmac }, { describe, should 
         mac.destroy();
       });
 
-      should('work with multiple updates', () => {
+      it('work with multiple updates', () => {
         const mac = cmac.create(RFC4493_KEY);
         const message = hexToBytes(
           '6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411'
@@ -238,7 +235,7 @@ export function test(variant = 'noble', platform = { cmac }, { describe, should 
         mac.destroy();
       });
 
-      should('work with single byte updates', () => {
+      it('work with single byte updates', () => {
         const mac = cmac.create(RFC4493_KEY);
         const message = hexToBytes('6bc1bee22e409f96e93d7e117393172a');
 
@@ -260,13 +257,13 @@ export function test(variant = 'noble', platform = { cmac }, { describe, should 
         // clean(computedTag);
         return result;
       }
-      should('verify correct tags', () => {
+      it('verify correct tags', () => {
         const message = hexToBytes('6bc1bee22e409f96e93d7e117393172a');
         const tag = hexToBytes('070a16b46b4d4144f79bdd9dd04a287c');
         deepStrictEqual(cmac_verify(RFC4493_KEY, message, tag), true);
       });
 
-      should('reject incorrect tags', () => {
+      it('reject incorrect tags', () => {
         const message = hexToBytes('6bc1bee22e409f96e93d7e117393172a');
         const wrongTag = hexToBytes('070a16b46b4d4144f79bdd9dd04a287d'); // Last byte changed
         deepStrictEqual(cmac_verify(RFC4493_KEY, message, wrongTag), false);
@@ -274,14 +271,14 @@ export function test(variant = 'noble', platform = { cmac }, { describe, should 
     });
 
     describe('Different key sizes', () => {
-      should('work with 192-bit keys', () => {
+      it('work with 192-bit keys', () => {
         const key192 = hexToBytes('8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b');
         const message = hexToBytes('6bc1bee22e409f96e93d7e117393172a');
         const result = cmac(message, key192);
         deepStrictEqual(result.length, 16); // Should always produce 16-byte tag
       });
 
-      should('work with 256-bit keys', () => {
+      it('work with 256-bit keys', () => {
         const key256 = hexToBytes(
           '603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4'
         );
@@ -292,26 +289,26 @@ export function test(variant = 'noble', platform = { cmac }, { describe, should 
     });
 
     describe('Error handling', () => {
-      should('reject invalid key lengths', () => {
+      it('reject invalid key lengths', () => {
         throws(() => cmac(new Uint8Array(16), new Uint8Array(15)));
         throws(() => cmac(new Uint8Array(16), new Uint8Array(17)));
         throws(() => cmac(new Uint8Array(16), new Uint8Array(25)));
       });
 
-      should('reject invalid tag lengths in verify', () => {
+      it('reject invalid tag lengths in verify', () => {
         const message = hexToBytes('6bc1bee22e409f96e93d7e117393172a');
         throws(() => cmac_verify(RFC4493_KEY, message, new Uint8Array(15)));
         throws(() => cmac_verify(RFC4493_KEY, message, new Uint8Array(17)));
       });
 
-      should('prevent use after destroy', () => {
+      it('prevent use after destroy', () => {
         const mac = cmac.create(RFC4493_KEY);
         mac.destroy();
         throws(() => mac.update(new Uint8Array(16)));
         throws(() => mac.digest());
       });
 
-      should('handle multiple destroy calls', () => {
+      it('handle multiple destroy calls', () => {
         const mac = cmac.create(RFC4493_KEY);
         mac.destroy();
         mac.destroy(); // Should not throw
@@ -319,7 +316,7 @@ export function test(variant = 'noble', platform = { cmac }, { describe, should 
     });
 
     describe('Security properties', () => {
-      should('produce different tags for different keys', () => {
+      it('produce different tags for different keys', () => {
         const key1 = hexToBytes('2b7e151628aed2a6abf7158809cf4f3c');
         const key2 = hexToBytes('2b7e151628aed2a6abf7158809cf4f3d'); // Last byte different
         const message = hexToBytes('6bc1bee22e409f96e93d7e117393172a');
@@ -331,7 +328,7 @@ export function test(variant = 'noble', platform = { cmac }, { describe, should 
         deepStrictEqual(equalBytes(tag1, tag2), false);
       });
 
-      should('produce different tags for different messages', () => {
+      it('produce different tags for different messages', () => {
         const message1 = hexToBytes('6bc1bee22e409f96e93d7e117393172a');
         const message2 = hexToBytes('6bc1bee22e409f96e93d7e117393172b'); // Last byte different
 
@@ -345,4 +342,4 @@ export function test(variant = 'noble', platform = { cmac }, { describe, should 
   });
 }
 if (import.meta.url === pathToFileURL(process.argv[1]).href) test();
-should.runWhen(import.meta.url);
+it.runWhen(import.meta.url);

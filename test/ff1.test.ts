@@ -1,4 +1,4 @@
-import { describe, should } from '@paulmillr/jsbt/test.js';
+import { describe, it } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual as eql, throws } from 'node:assert';
 import { BinaryFF1, FF1 } from '../src/ff1.ts';
 import { hexToBytes, json } from './utils.ts';
@@ -97,7 +97,7 @@ const VECTORS = [
 ];
 
 describe('FF1', () => {
-  should('FF1: simple test', () => {
+  it('FF1: simple test', () => {
     const bytes = new Uint8Array([
       156, 161, 238, 80, 84, 230, 40, 147, 212, 166, 85, 71, 189, 19, 216, 222, 239, 239, 247, 244,
       254, 223, 161, 182, 178, 156, 92, 134, 113, 32, 54, 74,
@@ -110,14 +110,14 @@ describe('FF1', () => {
   for (let i = 0; i < VECTORS.length; i++) {
     const v = VECTORS[i];
     const ff1 = FF1(v.radix, v.key, v.tweak);
-    should(`NIST vector (${i}): encrypt`, () => {
+    it(`NIST vector (${i}): encrypt`, () => {
       eql(ff1.encrypt(v.X), v.AB);
     });
-    should(`NIST vector (${i}): decrypt`, () => {
+    it(`NIST vector (${i}): decrypt`, () => {
       eql(ff1.decrypt(v.AB), v.X);
     });
   }
-  should('support high radices within the current 16-bit encoding bound', () => {
+  it('support high radices within the current 16-bit encoding bound', () => {
     for (const v of [
       {
         radix: 256,
@@ -140,7 +140,7 @@ describe('FF1', () => {
     }
   });
 
-  should(`Binary FF1 encrypt`, () => {
+  it(`Binary FF1 encrypt`, () => {
     const BIN_VECTORS = json('./vectors/ff1.json').v;
     for (let i = 0; i < BIN_VECTORS.length; i++) {
       const v = BIN_VECTORS[i];
@@ -161,10 +161,10 @@ describe('FF1', () => {
     }
   });
 
-  should('throw on wrong radix', () => {
+  it('throw on wrong radix', () => {
     throws(() => FF1(1, new Uint8Array(10)).encrypt([1]));
   });
-  should('enforce minLen: radix**minlen >= 100 and minlen >= 2', () => {
+  it('enforce minLen: radix**minlen >= 100 and minlen >= 2', () => {
     const key = new Uint8Array(16);
     // radix 10: minLen 2
     throws(() => FF1(10, key).encrypt([1]));
@@ -176,7 +176,7 @@ describe('FF1', () => {
     // radix 65535: minLen 2 (65535**2 >= 100)
     throws(() => FF1(65535, key).encrypt([12345]));
   });
-  should('reject digits outside the radix domain', () => {
+  it('reject digits outside the radix domain', () => {
     const ff1 = FF1(10, new Uint8Array(16));
     for (const x of [
       [10, 0],
@@ -189,4 +189,4 @@ describe('FF1', () => {
   });
 });
 
-should.runWhen(import.meta.url);
+it.runWhen(import.meta.url);

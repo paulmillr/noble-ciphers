@@ -1,9 +1,9 @@
-import { describe, should } from '@paulmillr/jsbt/test.js';
+import { describe, it } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual as eql } from 'node:assert';
 import { createCipheriv, createDecipheriv, getCiphers } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 import * as aes from '../src/aes.ts';
 import { chacha20, chacha20poly1305, xchacha20poly1305 } from '../src/chacha.ts';
-import { pathToFileURL } from 'node:url';
 import { xsalsa20poly1305 } from '../src/salsa.ts';
 import { concatBytes } from '../src/utils.ts';
 
@@ -30,7 +30,7 @@ function chunks(array, length) {
 const empty = new Uint8Array(0);
 
 const nodeCiphers = new Set(getCiphers());
-const BT = { describe, should };
+const BT = { describe, it };
 
 const nodeTagCipher = (name) => {
   return {
@@ -85,7 +85,7 @@ function buf(n) {
 export function test(
   variant = 'noble',
   platform = { ...aes, chacha20, chacha20poly1305, xchacha20poly1305, xsalsa20poly1305 },
-  { describe, should } = BT
+  { describe, it } = BT
 ) {
   const { chacha20, chacha20poly1305, xchacha20poly1305, xsalsa20poly1305 } = platform;
   const aes = platform;
@@ -319,20 +319,20 @@ export function test(
       const v = CIPHERS[k];
       if (isDeno || !v) continue;
       describe(k, () => {
-        should('basic round-trip', () => {
+        it('basic round-trip', () => {
           const BUF = buf(32);
           const enc = v.noble.encrypt(BUF, v.opts);
           eql(v.noble.decrypt(enc, v.opts), BUF);
         });
         if (v.node) {
           describe('node', () => {
-            should('basic', () => {
+            it('basic', () => {
               const BUF = buf(32);
               const enc = v.node.encrypt(BUF, v.opts);
               eql(v.noble.encrypt(BUF, v.opts), enc);
               eql(v.noble.decrypt(enc, v.opts), BUF);
             });
-            should('1 MB', () => {
+            it('1 MB', () => {
               const BUF = new Uint8Array(1 * MB);
               const enc = v.node.encrypt(BUF, v.opts);
               eql(v.noble.encrypt(BUF, v.opts), enc);
@@ -352,7 +352,7 @@ export function test(
             */
               // (4*GB).toString(2).length == 33 -> should crash
               if (supports5GB && !ALGO_4GB_LIMIT.includes(k)) {
-                should('5 GB', () => {
+                it('5 GB', () => {
                   const BUF = new Uint8Array(5 * GB);
                   const enc = v.node.encrypt(BUF, v.opts);
                   eql(v.noble.encrypt(BUF, v.opts), enc);
@@ -367,4 +367,4 @@ export function test(
   });
 }
 if (import.meta.url === pathToFileURL(process.argv[1]).href) test();
-should.runWhen(import.meta.url);
+it.runWhen(import.meta.url);

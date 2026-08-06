@@ -1,16 +1,12 @@
-import { describe, should } from '@paulmillr/jsbt/test.js';
+import { describe, it } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual as eql, rejects, throws } from 'node:assert';
-import { cbc, ctr, gcm } from '../src/aes.ts';
 import { pathToFileURL } from 'node:url';
+import { cbc, ctr, gcm } from '../src/aes.ts';
 import { managedNonce, randomBytes } from '../src/utils.ts';
 import * as web from '../src/webcrypto.ts';
-const BT = { describe, should };
+const BT = { describe, it };
 
-export function test(
-  variant = 'noble',
-  platform = { cbc, ctr, gcm, web },
-  { describe, should } = BT
-) {
+export function test(variant = 'noble', platform = { cbc, ctr, gcm, web }, { describe, it } = BT) {
   const { cbc, ctr, gcm, web } = platform;
   describe(`Webcrypto (${variant})`, () => {
     const ciphers = {
@@ -20,7 +16,7 @@ export function test(
     };
     for (const name in ciphers) {
       const c = ciphers[name];
-      should(name, async () => {
+      it(name, async () => {
         // Basic sanity check
         const key = randomBytes(32);
         const iv = randomBytes(16);
@@ -52,7 +48,7 @@ export function test(
         }
       });
     }
-    should('ctr matches sync ctr when low 64-bit counter wraps', async () => {
+    it('ctr matches sync ctr when low 64-bit counter wraps', async () => {
       const key = Uint8Array.from([
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee,
         0xff,
@@ -64,7 +60,7 @@ export function test(
       const msg = Uint8Array.from(Array.from({ length: 32 }, (_, i) => i));
       eql(await web.ctr(key, nonce).encrypt(msg), ctr(key, nonce).encrypt(msg));
     });
-    should('enforces encrypt-once and rejects tampered GCM ciphertext', async () => {
+    it('enforces encrypt-once and rejects tampered GCM ciphertext', async () => {
       const key = randomBytes(32);
       const nonce = randomBytes(12);
       const msg = randomBytes(33);
@@ -78,19 +74,19 @@ export function test(
       await rejects(() => web.gcm(key, nonce).decrypt(bad));
       eql(await web.gcm(key, nonce).decrypt(ct), msg);
     });
-    should('gcm rejects falsy non-byte AAD', () => {
+    it('gcm rejects falsy non-byte AAD', () => {
       const key = randomBytes(32);
       const nonce = randomBytes(12);
       for (const bad of [false, 0, '', null])
         throws(() => web.gcm(key, nonce, bad as any), TypeError);
     });
-    should('advertise AAD support explicitly', () => {
+    it('advertise AAD support explicitly', () => {
       eql(
         { cbc: (web.cbc as any).withAAD, ctr: (web.ctr as any).withAAD, gcm: web.gcm.withAAD },
         { cbc: undefined, ctr: undefined, gcm: true }
       );
     });
-    should('reject AAD for no-AAD ciphers', () => {
+    it('reject AAD for no-AAD ciphers', () => {
       const key = randomBytes(32);
       const nonce = randomBytes(16);
       const aad = randomBytes(16);
@@ -101,4 +97,4 @@ export function test(
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) test();
-should.runWhen(import.meta.url);
+it.runWhen(import.meta.url);

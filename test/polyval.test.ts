@@ -1,7 +1,7 @@
-import { describe, should } from '@paulmillr/jsbt/test.js';
-import { deepStrictEqual as eql, throws } from 'node:assert';
-import { _toGHASHKey, ghash, Polyval, polyval } from '../src/_polyval.ts';
+import { describe, it } from '@paulmillr/jsbt/test.js';
+import { deepStrictEqual as eql } from 'node:assert';
 import { pathToFileURL } from 'node:url';
+import { _toGHASHKey, ghash, Polyval, polyval } from '../src/_polyval.ts';
 import * as utils from '../src/utils.ts';
 import { json } from './utils.ts';
 
@@ -9,12 +9,12 @@ const hex = { decode: utils.hexToBytes, encode: utils.bytesToHex };
 
 // https://datatracker.ietf.org/doc/html/rfc8452#appendix-C
 const VECTORS = json('./vectors/siv.json');
-const BT = { describe, should };
+const BT = { describe, it };
 
 export function test(
   variant = 'noble',
   platform = { _toGHASHKey, ghash, polyval },
-  { describe, should } = BT
+  { describe, it } = BT
 ) {
   const { _toGHASHKey, ghash, polyval } = platform;
   const VECTORS_GHASH = [
@@ -43,7 +43,7 @@ export function test(
   }
   describe(`Polyval (${variant})`, () => {
     if (typeof _toGHASHKey === 'function') {
-      should('_toGHASHKey', () => {
+      it('_toGHASHKey', () => {
         const vectors = {
           '7b754bba26f8311d7642925847936225': 'dcbaa5dd137c188ebb21492c23c9b112',
           '01000000000000000000000000000000': '00800000000000000000000000000000',
@@ -53,7 +53,7 @@ export function test(
       });
     }
 
-    should('Basic', () => {
+    it('Basic', () => {
       for (const v of VECTORS_GHASH) {
         const concated = utils.concatBytes(...v.msg);
         eql(hex.encode(v.fn(concated, v.key)), hex.encode(v.exp));
@@ -63,7 +63,7 @@ export function test(
       }
     });
 
-    should('digestInto writes the tag into out[0..15] only', () => {
+    it('digestInto writes the tag into out[0..15] only', () => {
       const key = hex.decode('25629347589242761d31f826ba4b757b');
       const msg = utils.concatBytes(
         hex.decode('4f4f95668c83dfb6401762bb2d01a262'),
@@ -81,49 +81,46 @@ export function test(
       eql(pOut, new Uint8Array([...polyval(msg, key), ...tail]));
     });
 
-    should(
-      'digestInto either rejects misaligned outputs explicitly or writes into them directly',
-      () => {
-        const key = hex.decode('25629347589242761d31f826ba4b757b');
-        const msg = utils.concatBytes(
-          hex.decode('4f4f95668c83dfb6401762bb2d01a262'),
-          hex.decode('d1a24ddd2721d006bbe45f20d3c9f362')
-        );
-        const g = ghash.create(key);
-        const p = polyval.create(key);
-        const gOut = new Uint8Array(21).subarray(1).fill(0xaa);
-        const pOut = new Uint8Array(21).subarray(1).fill(0xaa);
-        const gBefore = gOut.slice();
-        const pBefore = pOut.slice();
-        const gExpect = new Uint8Array(20).fill(0xaa);
-        const pExpect = new Uint8Array(20).fill(0xaa);
-        gExpect.set(ghash(msg, key), 0);
-        pExpect.set(polyval(msg, key), 0);
+    it('digestInto either rejects misaligned outputs explicitly or writes into them directly', () => {
+      const key = hex.decode('25629347589242761d31f826ba4b757b');
+      const msg = utils.concatBytes(
+        hex.decode('4f4f95668c83dfb6401762bb2d01a262'),
+        hex.decode('d1a24ddd2721d006bbe45f20d3c9f362')
+      );
+      const g = ghash.create(key);
+      const p = polyval.create(key);
+      const gOut = new Uint8Array(21).subarray(1).fill(0xaa);
+      const pOut = new Uint8Array(21).subarray(1).fill(0xaa);
+      const gBefore = gOut.slice();
+      const pBefore = pOut.slice();
+      const gExpect = new Uint8Array(20).fill(0xaa);
+      const pExpect = new Uint8Array(20).fill(0xaa);
+      gExpect.set(ghash(msg, key), 0);
+      pExpect.set(polyval(msg, key), 0);
+      try {
+        g.update(msg);
         try {
-          g.update(msg);
-          try {
-            g.digestInto(gOut);
-            eql(gOut, gExpect);
-          } catch (error) {
-            eql(error, new Error('invalid output, must be aligned'));
-            eql(gOut, gBefore);
-          }
-          p.update(msg);
-          try {
-            p.digestInto(pOut);
-            eql(pOut, pExpect);
-          } catch (error) {
-            eql(error, new Error('invalid output, must be aligned'));
-            eql(pOut, pBefore);
-          }
-        } finally {
-          g.destroy();
-          p.destroy();
+          g.digestInto(gOut);
+          eql(gOut, gExpect);
+        } catch (error) {
+          eql(error, new Error('invalid output, must be aligned'));
+          eql(gOut, gBefore);
         }
+        p.update(msg);
+        try {
+          p.digestInto(pOut);
+          eql(pOut, pExpect);
+        } catch (error) {
+          eql(error, new Error('invalid output, must be aligned'));
+          eql(pOut, pBefore);
+        }
+      } finally {
+        g.destroy();
+        p.destroy();
       }
-    );
+    });
 
-    should('window sizes W=2/4/8 produce identical digests', () => {
+    it('window sizes W=2/4/8 produce identical digests', () => {
       // expectedLength only tunes the precompute window (2 for <=1KB, 4 for
       // <=64KB, 8 above); results must not depend on it. Pins the unrolled
       // W=4 / W=8 fast paths against the generic walk.
@@ -140,7 +137,7 @@ export function test(
       }
     });
 
-    should('SIV vectors', () => {
+    it('SIV vectors', () => {
       for (const flavor of ['aes128', 'aes256', 'counterWrap']) {
         for (let i = 0; i < VECTORS[flavor].length; i++) {
           const v = VECTORS[flavor][i];
@@ -155,4 +152,4 @@ export function test(
   });
 }
 if (import.meta.url === pathToFileURL(process.argv[1]).href) test();
-should.runWhen(import.meta.url);
+it.runWhen(import.meta.url);

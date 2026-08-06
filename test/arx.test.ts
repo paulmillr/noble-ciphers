@@ -1,19 +1,19 @@
-import { describe, should } from '@paulmillr/jsbt/test.js';
+import { describe, it } from '@paulmillr/jsbt/test.js';
 import { base64 } from '@scure/base';
 import { deepStrictEqual as eql, throws } from 'node:assert';
+import { pathToFileURL } from 'node:url';
 import { poly1305 } from '../src/_poly1305.ts';
 import {
   __TESTS,
-  chacha8,
   chacha12,
   chacha20,
   chacha20orig,
   chacha20poly1305,
+  chacha8,
   hchacha,
   xchacha20,
   xchacha20poly1305,
 } from '../src/chacha.ts';
-import { pathToFileURL } from 'node:url';
 import {
   __TESTS as __SALSA_TESTS,
   hsalsa,
@@ -54,7 +54,7 @@ const getKey = (key) => {
   k.set(key, 16);
   return { key, sigma: sigma16_32 };
 };
-const BT = { describe, should };
+const BT = { describe, it };
 
 export function test(
   variant = 'noble',
@@ -74,7 +74,7 @@ export function test(
     xsalsa20,
     xsalsa20poly1305,
   },
-  { describe, should } = BT
+  { describe, it } = BT
 ) {
   const {
     poly1305,
@@ -93,7 +93,7 @@ export function test(
     xsalsa20poly1305,
   } = platform;
   describe(`Salsa20 (${variant})`, () => {
-    should('basic', () => {
+    it('basic', () => {
       const stable_salsa = json('./vectors/stablelib_salsa20.json');
       for (const v of stable_salsa) {
         {
@@ -106,7 +106,7 @@ export function test(
       }
     });
     if (hsalsa) {
-      should('hsalsa', () => {
+      it('hsalsa', () => {
         const src = hex.decode('fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0');
         const good = 'c6cb53882782b5b86df1ab2ed9b810ec8a88c0a7f29211e693f0019fe0728858';
         const dst = new Uint8Array(32);
@@ -118,7 +118,7 @@ export function test(
         eql(hex.encode(dst), good);
       });
     }
-    should('salsaCore_small matches salsaCore', () => {
+    it('salsaCore_small matches salsaCore', () => {
       const key = new Uint32Array([
         0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c, 0x13121110, 0x17161514, 0x1b1a1918,
         0x1f1e1d1c,
@@ -132,7 +132,7 @@ export function test(
         eql(small, fast, `cnt=${cnt}`);
       }
     });
-    should('xsalsa20', () => {
+    it('xsalsa20', () => {
       const key = hex.decode('000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f');
       const nonce = hex.decode('fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8');
       const good =
@@ -147,14 +147,14 @@ export function test(
   });
 
   describe(`chacha (${variant})`, () => {
-    should('chacha8 basic round-trip', () => {
+    it('chacha8 basic round-trip', () => {
       const key = new Uint8Array(32).fill(1);
       const nonce = new Uint8Array(12).fill(2);
       const msg = Uint8Array.from({ length: 32 }, (_, i) => i);
       const enc = chacha8(key, nonce, msg);
       eql(chacha8(key, nonce, enc), msg);
     });
-    should('basic', () => {
+    it('basic', () => {
       const stable_chacha = json('./vectors/stablelib_chacha20.json');
       for (const v of stable_chacha) {
         const res = chacha20orig(
@@ -165,7 +165,7 @@ export function test(
         eql(hex.encode(res), v.stream);
       }
     });
-    should('chachaCore_small matches chachaCore on the RFC 8439 block-function input', () => {
+    it('chachaCore_small matches chachaCore on the RFC 8439 block-function input', () => {
       const sigma = new Uint32Array([0x61707865, 0x3320646e, 0x79622d32, 0x6b206574]);
       const key = new Uint32Array([
         0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c, 0x13121110, 0x17161514, 0x1b1a1918,
@@ -178,7 +178,7 @@ export function test(
       __TESTS.chachaCore(sigma, key, nonce, fast, 1, 20);
       eql(small, fast);
     });
-    should('RFC 8439 §2.4.2 with explicit counter=1', () => {
+    it('RFC 8439 §2.4.2 with explicit counter=1', () => {
       // Pins the public `counter` argument against the spec: the RFC encrypts
       // the sunscreen text starting from block 1, not block 0.
       const key = hex.decode('000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f');
@@ -198,7 +198,7 @@ export function test(
         hex.encode(plaintext)
       );
     });
-    should('short key', () => {
+    it('short key', () => {
       const res = chacha20orig(
         new Uint8Array(16).fill(1),
         new Uint8Array(8).fill(2),
@@ -206,7 +206,7 @@ export function test(
       );
       eql(hex.encode(res), '4ad24b21cba95a002754');
     });
-    should('small nonce', () => {
+    it('small nonce', () => {
       throws(() =>
         chacha20orig(
           new Uint8Array(16).fill(1),
@@ -219,7 +219,7 @@ export function test(
     if (hchacha) {
       // test taken from draft-arciszewski-xchacha-03 section 2.2.1
       // see https://tools.ietf.org/html/draft-arciszewski-xchacha-03#section-2.2.1
-      should('hchacha', () => {
+      it('hchacha', () => {
         const { key, sigma } = getKey(
           hex.decode('000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f')
         );
@@ -232,7 +232,7 @@ export function test(
     }
 
     // test taken from XChaCha20 TV1 in libsodium (line 93 in libsodium/test/default/xchacha20.c)
-    should('xchacha20/0', () => {
+    it('xchacha20/0', () => {
       const key = hex.decode('79c99798ac67300bbb2704c95c341e3245f3dcb21761b98e52ff45b24f304fc4');
       const nonce = hex.decode('b33ffd3096479bcfbc9aee49417688a0a2554f8d95389419');
       const good = 'c6e9758160083ac604ef90e712ce6e75d7797590744e0cf060f013739c';
@@ -241,7 +241,7 @@ export function test(
 
     // test taken from draft-arciszewski-xchacha-03 section A.3.2
     // see https://tools.ietf.org/html/draft-arciszewski-xchacha-03#appendix-A.3.2
-    should('xchacha20/1', () => {
+    it('xchacha20/1', () => {
       const key = hex.decode('808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f');
       const plaintext = hex.decode(
         '5468652064686f6c65202870726f6e6f756e6365642022646f6c652229206973' +
@@ -278,7 +278,7 @@ export function test(
         '93b93111c1a55dd7421a10184974c7c5';
       eql(hex.encode(xchacha20(key, nonce, plaintext)), ciphertext);
     });
-    should('output length', () => {
+    it('output length', () => {
       for (const fn of [chacha8, chacha12, chacha20, chacha20orig, xchacha20, xsalsa20, salsa20]) {
         // thows on output < data
         throws(() =>
@@ -286,7 +286,7 @@ export function test(
         );
       }
     });
-    should('raw stream ciphers reject oversized output buffers', () => {
+    it('raw stream ciphers reject oversized output buffers', () => {
       const data = new Uint8Array(4);
       const cases = [
         { fn: chacha8, key: new Uint8Array(32), nonce: new Uint8Array(12) },
@@ -311,7 +311,7 @@ export function test(
       Uint8Array.from({ length: len }, (_, i) => start + i);
     const pat = (len: number) => Uint8Array.from({ length: len }, (_, i) => 0x30 + (i % 32));
     const counter = (name: string, fn: () => Uint8Array, exp: string) =>
-      should(name, () => throws(() => eql(fn(), hex.decode(exp)), /arx: counter overflow/));
+      it(name, () => throws(() => eql(fn(), hex.decode(exp)), /arx: counter overflow/));
 
     // Pin the exact boundary bytes from the local production oracles so explicit-counter behavior
     // stays visible in review: noble currently rejects `0xffffffff` on every shared ARX surface.
@@ -360,7 +360,7 @@ export function test(
   });
 
   describe(`counter semantics (${variant})`, () => {
-    should('counter=k continues the stream at block k', () => {
+    it('counter=k continues the stream at block k', () => {
       // Counter continuation is what AEAD wrappers rely on: block 0 makes the
       // Poly1305 key, payload starts at block 1.
       const key = Uint8Array.from({ length: 32 }, (_, i) => i + 1);
@@ -378,7 +378,7 @@ export function test(
         eql(tail, full.subarray(64));
       }
     });
-    should('last valid counter block 0xfffffffe succeeds', () => {
+    it('last valid counter block 0xfffffffe succeeds', () => {
       // Success side of the overflow boundary pinned by the oracles above.
       // chacha20 keystream cross-checked against OpenSSL 3 (`chacha20` EVP
       // cipher, IV = 32-bit LE counter || 12-byte nonce); salsa20 keystream is
@@ -412,20 +412,20 @@ export function test(
   });
 
   describe(`poly1305 (${variant})`, () => {
-    should('basic', () => {
+    it('basic', () => {
       for (const v of stable_poly1305) {
         eql(hex.encode(poly1305(hex.decode(v.data), hex.decode(v.key).subarray(0, 32))), v.mac);
       }
     });
 
-    should('poly1305_small reference matches vectors', () => {
+    it('poly1305_small reference matches vectors', () => {
       for (const v of stable_poly1305) {
         const key = hex.decode(v.key).subarray(0, 32);
         eql(hex.encode(poly1305_small(hex.decode(v.data), key)), v.mac);
       }
     });
 
-    should('multiple updates', () => {
+    it('multiple updates', () => {
       const key = new Uint8Array(32);
       for (let i = 0; i < key.length; i++) key[i] = i;
       const data = new Uint8Array(4 + 64 + 169);
@@ -443,7 +443,7 @@ export function test(
       describe(name, () => {
         for (let i = 0; i < testVectors.length; i++) {
           const v = testVectors[i];
-          should(`${i}`, () => {
+          it(`${i}`, () => {
             const aad = v.aad ? hex.decode(v.aad) : undefined;
             const c = cipher(hex.decode(v.key), hex.decode(v.nonce), aad);
             const msg = hex.decode(v.msg);
@@ -467,7 +467,7 @@ export function test(
     t('Xchacha20Poly1305 (micro)', stable_xchacha_poly, xchacha20poly1305_small);
   });
 
-  should(`tweetnacl secretbox compat (${variant})`, () => {
+  it(`tweetnacl secretbox compat (${variant})`, () => {
     const tweetnacl_secretbox = json('./vectors/tweetnacl_secretbox.json');
     for (let i = 0; i < tweetnacl_secretbox.length; i++) {
       const v = tweetnacl_secretbox[i];
@@ -493,7 +493,7 @@ export function test(
     };
     for (const name in VECTORS) {
       const v = VECTORS[name];
-      should(name, () => {
+      it(name, () => {
         const sample = new Uint8Array(60).fill(1);
         const data = new Uint8Array(sample.buffer, 1);
         const key = new Uint8Array(v.keyLen).fill(2);
@@ -517,7 +517,7 @@ export function test(
 
   describe(`Wycheproof (${variant})`, () => {
     const t = (name, vectors, cipher) => {
-      should(name, () => {
+      it(name, () => {
         for (const group of vectors.testGroups) {
           for (const t of group.tests) {
             const ct = t.ct + t.tag;
@@ -546,4 +546,4 @@ export function test(
   });
 }
 if (import.meta.url === pathToFileURL(process.argv[1]).href) test();
-should.runWhen(import.meta.url);
+it.runWhen(import.meta.url);

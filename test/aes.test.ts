@@ -1,8 +1,8 @@
-import { describe, should } from '@paulmillr/jsbt/test.js';
+import { describe, it } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual as eql, throws } from 'node:assert';
 import { createCipheriv, createDecipheriv } from 'node:crypto';
-import { __TESTS, aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv, unsafe } from '../src/aes.ts';
 import { pathToFileURL } from 'node:url';
+import { __TESTS, aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv, unsafe } from '../src/aes.ts';
 import { bytesToHex, concatBytes, hexToBytes } from '../src/utils.ts';
 import * as web from '../src/webcrypto.ts';
 import { cbc_small, ctr_small, gcm_small } from './misc/micro-aes.ts';
@@ -20,18 +20,18 @@ const hex = { decode: hexToBytes, encode: bytesToHex };
 
 const isDeno = 'deno' in process.versions;
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
-const BT = { describe, should };
+const BT = { describe, it };
 
 export function test(
   variant = 'noble',
   platform = { __TESTS, unsafe, aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv, web },
-  { describe, should } = BT
+  { describe, it } = BT
 ) {
   const { __TESTS, unsafe, aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv, web } = platform;
   const CIPHERS = { ecb, cbc, ctr, siv: gcmsiv, gcm };
   describe(`AES (${variant})`, () => {
     if (__TESTS?.incBytes)
-      should('incBytes accepts the largest safe bitwise carry and rejects the next one', () => {
+      it('incBytes accepts the largest safe bitwise carry and rejects the next one', () => {
         const out = new Uint8Array(16);
         __TESTS.incBytes(out, false, 0xffffff00);
         eql(out, hex.decode('000000000000000000000000ffffff00'));
@@ -42,7 +42,7 @@ export function test(
         eql(out, before);
       });
     if (unsafe?.ctrCounter)
-      should('unsafe ctrCounter leaves partial-block continuation to the caller', () => {
+      it('unsafe ctrCounter leaves partial-block continuation to the caller', () => {
         const key = hex.decode('2b7e151628aed2a6abf7158809cf4f3c');
         const nonce = hex.decode('f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff');
         const initial = bytesToHex(nonce);
@@ -63,7 +63,7 @@ export function test(
         );
       });
     if (unsafe?.ctr32)
-      should('unsafe ctr32 leaves partial-block continuation to the caller', () => {
+      it('unsafe ctr32 leaves partial-block continuation to the caller', () => {
         const key = hex.decode('2b7e151628aed2a6abf7158809cf4f3c');
         const nonce = hex.decode('f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff');
         const xk = unsafe.expandKeyLE(key);
@@ -97,7 +97,7 @@ export function test(
           }
         );
       });
-    should('rejects invalid keys before allocation and wipes plaintext copies', () => {
+    it('rejects invalid keys before allocation and wipes plaintext copies', () => {
       const Native = Uint8Array;
       const key = new Native(16);
       const invalidKey = new Native(15);
@@ -228,7 +228,7 @@ export function test(
         (globalThis as any).Uint8Array = Native;
       }
     });
-    should('CTR', () => {
+    it('CTR', () => {
       const nodeAES = (name) => ({
         encrypt: (buf, opts) =>
           Uint8Array.from(createCipheriv(name, opts.key, opts.nonce).update(buf)),
@@ -261,7 +261,7 @@ export function test(
         eql(c.decrypt(nodeVal), msg);
       }
     });
-    should('CTR 128-bit counter wraparound (fixed vectors)', () => {
+    it('CTR 128-bit counter wraparound (fixed vectors)', () => {
       // Environment-independent versions of the node.js cross-checks above
       // (those are skipped on deno). Expected values produced by OpenSSL via
       // node:crypto createCipheriv('aes-*-ctr'), which uses the full 128-bit
@@ -301,7 +301,7 @@ export function test(
         eql(ctr(t.key, t.nonce).decrypt(t.ct), t.msg, t.name + ' (decrypt)');
       }
     });
-    should('CFB final short segment matches byte-stream vector', () => {
+    it('CFB final short segment matches byte-stream vector', () => {
       const key = hex.decode('000102030405060708090a0b0c0d0e0f');
       const iv = hex.decode('101112131415161718191a1b1c1d1e1f');
       // A 15-byte input has only a byte tail; BE output normalization must not rewrite it.
@@ -318,7 +318,7 @@ export function test(
         }
       );
     });
-    should('CBC reports invalid PKCS padding as bad decrypt', () => {
+    it('CBC reports invalid PKCS padding as bad decrypt', () => {
       const key = new Uint8Array(16);
       const iv = new Uint8Array(16);
       const ct = cbc(key, iv).encrypt(hex.decode('68656c6c6f'));
@@ -327,7 +327,7 @@ export function test(
     });
     describe('NIST 800-38a', () => {
       for (const t of NIST_VECTORS) {
-        should(`${t.name}`, () => {
+        it(`${t.name}`, () => {
           let c;
           const cipher = CIPHERS[t.cipher];
           if (t.iv) c = cipher(hex.decode(t.key), hex.decode(t.iv || ''), { disablePadding: true });
@@ -338,7 +338,7 @@ export function test(
           eql(c.encrypt(plaintext), ciphertext);
         });
         if (t.name === 'ctr' && typeof web !== 'undefined') {
-          should(`${t.name}: web`, async () => {
+          it(`${t.name}: web`, async () => {
             let c;
             const cipher = web.ctr;
             if (t.iv)
@@ -353,7 +353,7 @@ export function test(
       }
     });
     describe('GCM-SIV', () => {
-      should('vectors', () => {
+      it('vectors', () => {
         for (const flavor of ['aes128', 'aes256', 'counterWrap']) {
           for (let i = 0; i < VECTORS[flavor].length; i++) {
             const v = VECTORS[flavor][i];
@@ -365,12 +365,12 @@ export function test(
           }
         }
       });
-      should(`throws on lengths`, () => {
+      it(`throws on lengths`, () => {
         gcmsiv(new Uint8Array(32), new Uint8Array(12), new Uint8Array(12));
         throws(() => gcmsiv(new Uint8Array(32), new Uint8Array(11), new Uint8Array(12))); // nonce
         throws(() => gcmsiv(new Uint8Array(33), new Uint8Array(12), new Uint8Array(12))); // key
       });
-      should('AES-192 local extension roundtrips and authenticates', () => {
+      it('AES-192 local extension roundtrips and authenticates', () => {
         // RFC 8452 only defines 16/32-byte keys; 24-byte AES-192 keys are a
         // documented local extension, so pin its roundtrip + tag rejection.
         const key = new Uint8Array(24).map((_, i) => i);
@@ -386,7 +386,7 @@ export function test(
     });
 
     describe('Wycheproof', () => {
-      should('vectors', async () => {
+      it('vectors', async () => {
         const cases = [
           { name: 'GCM-SIV', groups: aes_gcm_siv_test.testGroups, cipher: 'siv' },
           { name: 'GCM', groups: aes_gcm_test.testGroups, cipher: 'gcm', webcipher: web.gcm },
@@ -437,7 +437,7 @@ export function test(
       const buf = (len, seed = 0) =>
         Uint8Array.from({ length: len }, (_, i) => (i * 7 + seed) & 0xff);
       const LENS = [0, 1, 15, 16, 17, 32, 47, 64];
-      should('ctr_small matches ctr', () => {
+      it('ctr_small matches ctr', () => {
         for (const keyLen of [16, 24, 32]) {
           const key = buf(keyLen, 1);
           const nonce = buf(16, 2);
@@ -449,7 +449,7 @@ export function test(
           }
         }
       });
-      should('cbc_small matches cbc', () => {
+      it('cbc_small matches cbc', () => {
         for (const keyLen of [16, 24, 32]) {
           const key = buf(keyLen, 1);
           const iv = buf(16, 2);
@@ -461,7 +461,7 @@ export function test(
           }
         }
       });
-      should('gcm_small matches gcm', () => {
+      it('gcm_small matches gcm', () => {
         for (const keyLen of [16, 24, 32]) {
           const key = buf(keyLen, 1);
           // Non-12-byte nonces exercise the GHASH-based J0 derivation.
@@ -486,7 +486,7 @@ export function test(
       });
     });
     describe('AESKW', () => {
-      should('RFC3394', () => {
+      it('RFC3394', () => {
         // https://www.rfc-editor.org/rfc/rfc3394#section-4.1
         const vectors = [
           // 4.1 Wrap 128 bits of Key Data with a 128-bit KEK
@@ -538,7 +538,7 @@ export function test(
           eql(kw.decrypt(t.Ciphertext), t.KeyData);
         }
       });
-      should('Wycheproof', () => {
+      it('Wycheproof', () => {
         for (const group of aes_kw_test.testGroups) {
           for (const t of group.tests) {
             const kw = aeskw(hex.decode(t.key));
@@ -554,10 +554,10 @@ export function test(
           }
         }
       });
-      should('throws on 8 byte keys', () => {
+      it('throws on 8 byte keys', () => {
         throws(() => aeskw(new Uint8Array(8)).encrypt(new Uint8Array(8)));
       });
-      should('KWP', () => {
+      it('KWP', () => {
         // https://www.rfc-editor.org/rfc/rfc5649
         const vectors = [
           {
@@ -577,7 +577,7 @@ export function test(
           eql(kwp.decrypt(t.Wrap), t.Key);
         }
       });
-      should('AESKWP: Wycheproof', () => {
+      it('AESKWP: Wycheproof', () => {
         for (const group of aes_kwp_test.testGroups) {
           for (const t of group.tests) {
             const kwp = aeskwp(hex.decode(t.key));
@@ -595,4 +595,4 @@ export function test(
   });
 }
 if (import.meta.url === pathToFileURL(process.argv[1]).href) test();
-should.runWhen(import.meta.url);
+it.runWhen(import.meta.url);

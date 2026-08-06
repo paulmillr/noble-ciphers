@@ -1,4 +1,4 @@
-import { describe, should } from '@paulmillr/jsbt/test.js';
+import { describe, it } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual as eql, throws } from 'node:assert';
 import { pathToFileURL } from 'node:url';
 import { aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv } from '../src/aes.ts';
@@ -6,7 +6,7 @@ import { chacha20poly1305, xchacha20poly1305 } from '../src/chacha.ts';
 import { xsalsa20poly1305 } from '../src/salsa.ts';
 import { managedNonce, randomBytes, wrapCipher } from '../src/utils.ts';
 import { TYPE_TEST, unalign } from './utils.ts';
-const BT = { describe, should };
+const BT = { describe, it };
 
 export function test(
   variant = 'noble',
@@ -23,7 +23,7 @@ export function test(
     xchacha20poly1305,
     xsalsa20poly1305,
   },
-  { describe, should } = BT
+  { describe, it } = BT
 ) {
   const {
     aeskw,
@@ -111,7 +111,7 @@ export function test(
     for (const k in CIPHERS) {
       {
         const opts = CIPHERS[k];
-        should(`${k}: blockSize`, () => {
+        it(`${k}: blockSize`, () => {
           const { c, key, nonce, copy } = initCipher(opts);
           const msg = new Uint8Array(opts.blockSize).fill(12);
           const msgCopy = msg.slice();
@@ -124,14 +124,14 @@ export function test(
           }
         });
         if (opts.blockSize) {
-          should(`${k}: wrong blockSize`, () => {
+          it(`${k}: wrong blockSize`, () => {
             const { c } = initCipher(opts);
             const msg = new Uint8Array(opts.blockSize - 1).fill(12);
             throws(() => c.encrypt(msg));
             throws(() => c.decrypt(msg));
           });
         }
-        should(`${k}: round-trip`, () => {
+        it(`${k}: round-trip`, () => {
           // slice, so cipher has no way to corrupt msg
           const msg = new Uint8Array(2).fill(12);
           const msgCopy = msg.slice();
@@ -160,7 +160,7 @@ export function test(
           eql(key, copy.key);
           eql(nonce, copy.nonce);
         });
-        should(`${k}: different sizes`, () => {
+        it(`${k}: different sizes`, () => {
           for (let i = 0; i < 2048; i++) {
             const msg = new Uint8Array(i).fill(i);
             const msgCopy = msg.slice();
@@ -174,7 +174,7 @@ export function test(
             }
           }
         });
-        should(`${k}: unalign 0..7`, () => {
+        it(`${k}: unalign 0..7`, () => {
           for (let i = 0; i < 8; i++) {
             const { fn, keyLen, withNonce } = opts;
             const key = unalign(randomBytes(keyLen), i);
@@ -208,7 +208,7 @@ export function test(
           if (overlapStart >= overlapEnd) return new Uint8Array(0);
           return new Uint8Array(a.buffer, overlapStart, overlapEnd - overlapStart);
         };
-        // should('overlapTest test', () => {
+        // it('overlapTest test', () => {
         //   // Test:
         //   overlapTest(new Uint8Array(5), new Uint8Array(4), (a, b, all) => {
         //     all.fill(0);
@@ -220,7 +220,7 @@ export function test(
         //   throw 'lol';
         // });
 
-        should(`${k} (re-use)`, () => {
+        it(`${k} (re-use)`, () => {
           const { fn, keyLen, withNonce } = opts;
 
           const key = randomBytes(keyLen);
@@ -372,7 +372,7 @@ export function test(
           // console.log('OVERLAP STATS', k, stats);
         });
 
-        should('unaligned', () => {
+        it('unaligned', () => {
           if (!['xsalsa20poly1305', 'xchacha20poly1305', 'chacha20poly1305'].includes(k)) return;
           if (k.includes('managedNonce')) return;
 
@@ -423,7 +423,7 @@ export function test(
           // deepStrictEqual(data.subarray(0, 8), data.subarray(32, 40))
         });
 
-        should('be able to reuse input and output arrays', () => {
+        it('be able to reuse input and output arrays', () => {
           // TODO: test AES
           // TODO: test different values of FILL_BYTE
 
@@ -473,7 +473,7 @@ export function test(
 
         const msg_10 = new Uint8Array(10);
         if (checkBlockSize(opts, msg_10.length) && !k.endsWith('_managedNonce')) {
-          should(`${k}: prohibit encrypting twice`, () => {
+          it(`${k}: prohibit encrypting twice`, () => {
             const { c } = initCipher(opts);
             c.encrypt(msg_10);
             throws(() => {
@@ -488,7 +488,7 @@ export function test(
   describe(`input validation (${variant})`, () => {
     const INVALID_BYTE_ARRAYS = TYPE_TEST.bytes;
 
-    should('advertise AAD support explicitly', () => {
+    it('advertise AAD support explicitly', () => {
       const meta = {
         xsalsa20poly1305: (xsalsa20poly1305 as any).withAAD,
         chacha20poly1305: (chacha20poly1305 as any).withAAD,
@@ -507,7 +507,7 @@ export function test(
       });
     });
 
-    should('wrapCipher accepts explicit AAD support with rest args', () => {
+    it('wrapCipher accepts explicit AAD support with rest args', () => {
       const seen = [];
       const cipher = wrapCipher(
         { blockSize: 1, nonceLength: 1, tagLength: 1, withAAD: true },
@@ -525,7 +525,7 @@ export function test(
       eql(cipher.withAAD, true);
     });
 
-    should('reject AAD after no-AAD options', () => {
+    it('reject AAD after no-AAD options', () => {
       const key = new Uint8Array(16);
       const nonce = new Uint8Array(16);
       const aad = new Uint8Array(16);
@@ -541,7 +541,7 @@ export function test(
 
         describe(k, () => {
           // Constructor tests
-          should('reject invalid key', () => {
+          it('reject invalid key', () => {
             const nonce = new Uint8Array(fn.nonceLength);
             const aad = new Uint8Array(16);
 
@@ -556,7 +556,7 @@ export function test(
           });
 
           if (fn.nonceLength) {
-            should('reject invalid nonce', () => {
+            it('reject invalid nonce', () => {
               const key = new Uint8Array(keyLen);
               const aad = new Uint8Array(16);
 
@@ -573,7 +573,7 @@ export function test(
           }
 
           if (fn.tagLength && k !== 'xsalsa20poly1305') {
-            should('reject invalid AAD', () => {
+            it('reject invalid AAD', () => {
               const key = new Uint8Array(keyLen);
               const nonce = new Uint8Array(fn.nonceLength);
 
@@ -585,7 +585,7 @@ export function test(
           }
 
           if (!opts.withAAD) {
-            should('reject AAD', () => {
+            it('reject AAD', () => {
               const key = new Uint8Array(keyLen);
               const nonce = fn.nonceLength ? new Uint8Array(fn.nonceLength) : undefined;
               const aad = new Uint8Array(16);
@@ -595,7 +595,7 @@ export function test(
           }
 
           // Method tests
-          should('reject invalid encrypt input', () => {
+          it('reject invalid encrypt input', () => {
             const key = new Uint8Array(keyLen);
             const nonce = fn.nonceLength ? new Uint8Array(fn.nonceLength) : undefined;
             const cipher = nonce ? fn(key, nonce) : fn(key);
@@ -605,7 +605,7 @@ export function test(
             }
           });
 
-          should('reject invalid decrypt input', () => {
+          it('reject invalid decrypt input', () => {
             const key = new Uint8Array(keyLen);
             const nonce = fn.nonceLength ? new Uint8Array(fn.nonceLength) : undefined;
             const cipher = nonce ? fn(key, nonce) : fn(key);
@@ -616,7 +616,7 @@ export function test(
           });
 
           if (opts.blockSize) {
-            should('validate block size on encrypt', () => {
+            it('validate block size on encrypt', () => {
               const key = new Uint8Array(keyLen);
               const nonce = fn.nonceLength ? new Uint8Array(fn.nonceLength) : undefined;
               const cipher = nonce ? fn(key, nonce) : fn(key);
@@ -630,7 +630,7 @@ export function test(
           }
 
           if (fn.tagLength) {
-            should('validate tag length on decrypt', () => {
+            it('validate tag length on decrypt', () => {
               const key = new Uint8Array(keyLen);
               const nonce = new Uint8Array(fn.nonceLength);
               const cipher = fn(key, nonce);
@@ -646,4 +646,4 @@ export function test(
   });
 }
 if (import.meta.url === pathToFileURL(process.argv[1]).href) test();
-should.runWhen(import.meta.url);
+it.runWhen(import.meta.url);

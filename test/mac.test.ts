@@ -1,17 +1,17 @@
-import { describe, should } from '@paulmillr/jsbt/test.js';
+import { describe, it } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual as eql, throws } from 'node:assert';
-import { cmac } from '../src/aes.ts';
+import { pathToFileURL } from 'node:url';
 import { poly1305 } from '../src/_poly1305.ts';
 import { ghash, polyval } from '../src/_polyval.ts';
-import { pathToFileURL } from 'node:url';
+import { cmac } from '../src/aes.ts';
 import { concatBytes } from '../src/utils.ts';
 
-const BT = { describe, should };
+const BT = { describe, it };
 
 export function test(
   variant = 'noble',
   platform = { poly1305, ghash, polyval, cmac },
-  { describe, should } = BT
+  { describe, it } = BT
 ) {
   const { poly1305, ghash, polyval, cmac } = platform;
 
@@ -29,7 +29,7 @@ export function test(
       !msg.length || msg.length === 16 ? msg : concatBytes(msg, new Uint8Array(16 - msg.length));
 
     for (const { name, mac, key } of macs) {
-      should(`${name}: incremental contract`, () => {
+      it(`${name}: incremental contract`, () => {
         // Use full 16-byte chunks so the shared expectation is valid for GHASH / POLYVAL too:
         // their `update()` semantics zero-pad each update boundary independently for short segments.
         const inc = mac.create(key);
@@ -47,7 +47,7 @@ export function test(
         inc.destroy();
         throws(() => inc.digest(), /destroyed/);
       });
-      should(`${name}: digestInto allows oversized output and preserves tail`, () => {
+      it(`${name}: digestInto allows oversized output and preserves tail`, () => {
         const msg = concatBytes(a, b);
         const tag = mac(msg, key);
         const out = new Uint8Array(32).fill(0xa5);
@@ -60,7 +60,7 @@ export function test(
         h.destroy();
       });
 
-      should(`${name}: rejects update after destroy`, () => {
+      it(`${name}: rejects update after destroy`, () => {
         const h = mac.create(key);
         h.destroy();
         throws(() => h.update(new Uint8Array([1])), /destroyed/);
@@ -71,7 +71,7 @@ export function test(
     for (const { name, mac, key } of macs.filter(
       (i) => i.name === 'poly1305' || i.name === 'cmac'
     )) {
-      should(`${name}: split updates match raw concat for lengths 0..16`, () => {
+      it(`${name}: split updates match raw concat for lengths 0..16`, () => {
         for (let alen = 0; alen <= 16; alen++) {
           for (let blen = 0; blen <= 16; blen++) {
             const a = mk(alen, 1);
@@ -87,7 +87,7 @@ export function test(
     for (const { name, mac, key } of macs.filter(
       (i) => i.name === 'ghash' || i.name === 'polyval'
     )) {
-      should(`${name}: split updates match padded-segment model for lengths 0..16`, () => {
+      it(`${name}: split updates match padded-segment model for lengths 0..16`, () => {
         for (let alen = 0; alen <= 16; alen++) {
           for (let blen = 0; blen <= 16; blen++) {
             const a = mk(alen, 1);
@@ -103,4 +103,4 @@ export function test(
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) test();
-should.runWhen(import.meta.url);
+it.runWhen(import.meta.url);
