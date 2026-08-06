@@ -146,9 +146,13 @@ export function isBytes(a: unknown): a is Uint8Array {
   );
 }
 
+// Shared error-message prefix builder. Only called on throw paths, so assert
+// success paths never pay for the string concatenation.
+const atitle = (title: string): string => (title ? `"${title}" ` : '');
+
 /**
  * Asserts something is boolean.
- * @param b - Value to validate.
+ * @param value - Value to validate.
  * @returns The validated boolean.
  * @throws On wrong argument types. {@link TypeError}
  * @example
@@ -158,12 +162,10 @@ export function isBytes(a: unknown): a is Uint8Array {
  * abool(true);
  * ```
  */
-export function abool(b: boolean, title: string = ''): boolean {
-  if (typeof b !== 'boolean') {
-    const prefix = title && `"${title}" `;
-    throw new TypeError(`${prefix}expected boolean, got type=${typeof b}`);
-  }
-  return b;
+export function abool(value: boolean, title: string = ''): boolean {
+  if (typeof value !== 'boolean')
+    throw new TypeError(atitle(title) + 'expected boolean, got type=' + typeof value);
+  return value;
 }
 
 /**
@@ -180,12 +182,10 @@ export function abool(b: boolean, title: string = ''): boolean {
  * ```
  */
 export function anumber(n: number, title: string = ''): number {
-  if (typeof n !== 'number') {
-    const prefix = title && `"${title}" `;
-    throw new TypeError(`${prefix}expected number, got ${typeof n}`);
-  }
+  if (typeof n !== 'number')
+    throw new TypeError(atitle(title) + 'expected number, got ' + typeof n);
   if (!Number.isSafeInteger(n) || n < 0)
-    throw new RangeError(`${title ? `"${title}" ` : ''}expected integer >= 0, got ${n}`);
+    throw new RangeError(atitle(title) + 'expected integer >= 0, got ' + n);
   return n;
 }
 
@@ -217,10 +217,9 @@ export function abytes(
   // Error path: recompute freely to build the exact message.
   if (length !== undefined) anumber(length, 'length');
   const bytes = isBytes(value);
-  const prefix = title && `"${title}" `;
   const ofLen = length !== undefined ? ` of length ${length}` : '';
   const got = bytes ? `length=${value.length}` : `type=${typeof value}`;
-  const message = prefix + 'expected Uint8Array' + ofLen + ', got ' + got;
+  const message = atitle(title) + 'expected Uint8Array' + ofLen + ', got ' + got;
   if (!bytes) throw new TypeError(message);
   throw new RangeError(message);
 }
@@ -418,11 +417,14 @@ export const isLE: boolean = /* @__PURE__ */ (() =>
  * byteSwap(0x11223344);
  * ```
  */
-export const byteSwap = (word: number): number =>
-  ((word << 24) & 0xff000000) |
-  ((word << 8) & 0xff0000) |
-  ((word >>> 8) & 0xff00) |
-  ((word >>> 24) & 0xff);
+export function byteSwap(word: number): number {
+  return (
+    ((word << 24) & 0xff000000) |
+    ((word << 8) & 0xff0000) |
+    ((word >>> 8) & 0xff00) |
+    ((word >>> 24) & 0xff)
+  );
+}
 
 /**
  * Normalizes one 32-bit word to the little-endian representation expected by cipher cores.
@@ -450,10 +452,12 @@ export const swap8IfBE: (n: number) => number = isLE
  * byteSwap32(new Uint32Array([0x11223344]));
  * ```
  */
-export const byteSwap32 = (arr: TArg<Uint32Array>): TRet<Uint32Array> => {
-  for (let i = 0; i < arr.length; i++) arr[i] = byteSwap(arr[i]);
+export function byteSwap32(arr: TArg<Uint32Array>): TRet<Uint32Array> {
+  for (let i = 0; i < arr.length; i++) {
+    arr[i] = byteSwap(arr[i]);
+  }
   return arr as TRet<Uint32Array>;
-};
+}
 
 /**
  * Normalizes a Uint32Array view to the little-endian representation expected by cipher cores.
@@ -555,6 +559,8 @@ export function hexToBytes(hex: string): TRet<Uint8Array> {
   return array;
 }
 
+const _0n = /* @__PURE__ */ BigInt(0);
+
 // Used in ff1, via bytesToNumberBE
 /**
  * Converts a big-endian hex string into bigint.
@@ -572,7 +578,7 @@ export function hexToNumber(hex: string): bigint {
   if (typeof hex !== 'string') throw new TypeError('hex string expected, got ' + typeof hex);
   // Numeric parser, not byte-hex decoder: odd-length forms like 'f' are valid,
   // and malformed syntax follows BigInt's native error behavior.
-  return BigInt(hex === '' ? '0' : '0x' + hex); // Big Endian
+  return hex === '' ? _0n : BigInt('0x' + hex); // Big Endian
 }
 
 // Used in ff1
@@ -593,16 +599,28 @@ export function bytesToNumberBE(bytes: TArg<Uint8Array>): bigint {
   return hexToNumber(bytesToHex(bytes));
 }
 
+/**
+ * Validates that a value is a non-negative bigint or safe integer.
+ * @param n - Value to validate.
+ * @returns The same validated value.
+ * @throws On wrong argument ranges or values. {@link RangeError}
+ */
+function abignumber<T extends number | bigint>(n: T): T {
+  if (typeof n === 'bigint') {
+    if (!(_0n <= n)) throw new RangeError('positive bigint expected, got ' + n);
+  } else anumber(n);
+  return n;
+}
+
 // Used in ff1
 /**
  * Converts a number into big-endian bytes of fixed length.
  * @param n - Number to encode.
- * @param len - Output length in bytes.
+ * @param len - Output length in bytes. Must be greater than zero.
  * @returns Big-endian bytes padded to `len`.
  * Negative values, `len = 0`, and values that do not fit are rejected before
  * downstream hex parsing.
- * @throws On wrong argument types. {@link TypeError}
- * @throws If the requested output length cannot represent the encoded value. {@link RangeError}
+ * @throws On wrong argument ranges or values. {@link RangeError}
  * @throws If a documented runtime validation or state check fails. {@link Error}
  * @example
  * Encodes a counter as fixed-width big-endian bytes.
@@ -612,15 +630,12 @@ export function bytesToNumberBE(bytes: TArg<Uint8Array>): bigint {
  * ```
  */
 export function numberToBytesBE(n: number | bigint, len: number): TRet<Uint8Array> {
-  // Reject coercible non-numeric inputs before string/hex conversion changes behavior.
-  if (typeof n === 'number') anumber(n);
-  else if (typeof n === 'bigint') {
-    if (n < 0n) throw new RangeError('positive bigint expected, got ' + n);
-  } else throw new TypeError(`number or bigint expected, got ${typeof n}`);
   anumber(len);
   if (len === 0) throw new Error('zero output length is invalid');
+  n = abignumber(n);
   const expectedLen = len * 2;
   const hex = n.toString(16);
+  // Detect overflow before hex parsing so oversized values don't leak the shared odd-hex error.
   if (hex.length > expectedLen) throw new RangeError('number is too large');
   return hexToBytes(hex.padStart(expectedLen, '0'));
 }
@@ -779,6 +794,8 @@ export function checkOpts<T1 extends EmptyObj, T2 extends EmptyObj>(
  * ```
  */
 export function equalBytes(a: TArg<Uint8Array>, b: TArg<Uint8Array>): boolean {
+  a = abytes(a);
+  b = abytes(b);
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
@@ -1118,30 +1135,35 @@ export function copyBytes(bytes: TArg<Uint8Array>): TRet<Uint8Array> {
 }
 
 /**
- * Cryptographically secure PRNG.
- * Uses internal OS-level `crypto.getRandomValues`.
- * @param bytesLength - Number of bytes to produce.
- * Validation is delegated to `Uint8Array(bytesLength)` and `getRandomValues`, so
- * non-integers, negative lengths, and oversize requests surface backend/runtime errors.
- * @returns Random byte array.
+ * Cryptographically secure PRNG backed by `crypto.getRandomValues`.
+ * @param bytesLength - number of random bytes to generate
+ * @returns Random bytes.
+ * The platform `getRandomValues()` implementation still defines any
+ * single-call length cap, and this helper rejects oversize requests
+ * with a stable library `RangeError` instead of host-specific errors.
  * @throws On wrong argument types. {@link TypeError}
  * @throws On wrong argument ranges or values. {@link RangeError}
- * @throws If the runtime does not expose `crypto.getRandomValues`. {@link Error}
+ * @throws If the current runtime does not provide `crypto.getRandomValues`. {@link Error}
  * @example
- * Generates a fresh nonce or key.
- *
+ * Generate a fresh random key or nonce.
  * ```ts
- * randomBytes(16);
+ * const key = randomBytes(16);
  * ```
  */
 export function randomBytes(bytesLength = 32): TRet<Uint8Array> {
-  // Validate upfront so fractional / coercible lengths do not silently
-  // truncate through Uint8Array().
-  anumber(bytesLength);
+  // Match the repo's other length-taking helpers instead of relying on Uint8Array coercion.
+  anumber(bytesLength, 'bytesLength');
   const cr = typeof globalThis === 'object' ? (globalThis as any).crypto : null;
   if (typeof cr?.getRandomValues !== 'function')
     throw new Error('crypto.getRandomValues must be defined');
-  return cr.getRandomValues(new Uint8Array(bytesLength)) as TRet<Uint8Array>;
+  // Web Cryptography API Level 2 §10.1.1:
+  // if `byteLength > 65536`, throw `QuotaExceededError`.
+  // Keep the guard explicit so callers can see the quota in code
+  // instead of discovering it by reading the spec or host errors.
+  // This wrapper surfaces the same quota as a stable library RangeError.
+  if (bytesLength > 65536)
+    throw new RangeError(`"bytesLength" expected <= 65536, got ${bytesLength}`);
+  return cr.getRandomValues(new Uint8Array(bytesLength));
 }
 
 /**
