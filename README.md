@@ -3,13 +3,12 @@
 Audited & minimal JS implementation of Salsa20, ChaCha and AES.
 
 - 🔒 [**Audited**](#security) by an independent security firm
-- 🔻 Tree-shakeable: unused code is excluded from your builds
+- 🪶 Minimal: 3KB (gzipped) ChaCha, unused code is excluded from your builds
 - 🏎 Fast: hand-optimized for caveats of JS engines
-- 🔍 Reliable: property-based / cross-library / wycheproof tests ensure correctness
-- 💼 AES: ECB, CBC, CTR, CFB, GCM, GCM-SIV & AES-SIV (nonce misuse-resistant), AESKW, AESKWP, FF1
-- 💃 Salsa20, ChaCha, XSalsa20, XChaCha, ChaCha8, ChaCha12, Poly1305
-- 🥈 Two AES implementations: pure JS or friendly WebCrypto wrapper
-- 🪶 11KB (gzipped) for everything, 3KB for ChaCha-only build
+- 🔍 Reliable: cross-library / wycheproof tests ensure correctness
+- 💼 AES: ECB, CBC, CTR, CFB, GCM, GCM-SIV & AES-SIV, AESKW, AESKWP, FF1
+- 💃 Salsa20, ChaCha, XSalsa20, XChaCha, ChaCha8, ChaCha12, Poly1305, rngChaCha8
+- 🥈 Wrapper with identical API over native WebCrypto
 
 ### This library belongs to _noble_ cryptography
 

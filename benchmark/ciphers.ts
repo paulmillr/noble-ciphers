@@ -1,4 +1,4 @@
-import bench from '@paulmillr/jsbt/bench.js';
+import bench from '@paulmillr/jsbt/benchmark.js';
 import { aessiv, cbc, ctr, ecb, gcm, gcmsiv, rngAesCtrDrbg128 } from '../src/aes.ts';
 import {
   chacha12,

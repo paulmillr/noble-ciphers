@@ -2,7 +2,7 @@ import {
   ChaCha20Poly1305 as ChsfChachaPoly,
   newInstance as chainsafe_init_wasm,
 } from '@chainsafe/as-chacha20poly1305';
-import compare from '@paulmillr/jsbt/bench-compare.js';
+import compare from '@paulmillr/jsbt/benchmark-compare.js';
 import { AES as STABLE_AES } from '@stablelib/aes';
 import { ChaCha20Poly1305 as StableChachaPoly } from '@stablelib/chacha20poly1305';
 import { CTR as STABLE_CTR } from '@stablelib/ctr';
