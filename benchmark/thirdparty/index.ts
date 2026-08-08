@@ -580,8 +580,8 @@ export async function main() {
   await compare('Ciphers', { buffer: BUFFERS }, CIPHERS, {
     libraryDimensions: ['type', 'algorithm', 'padding', 'key size', 'library', 'direction'],
     defaults: {
-      buffer: '64B',
-      library: 'noble',
+      buffer: '1MB',
+      //library: '',
       direction: 'encrypt',
       'key size': '256',
       padding: 'padding',
