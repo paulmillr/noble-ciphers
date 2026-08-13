@@ -31,6 +31,8 @@ export function test(
       exp: hex.decode('bd9b3997046731fb96251b91f9c99d7a'),
     },
   ];
+  if (typeof _toGHASHKey !== 'function')
+    it.skip('_toGHASHKey platform hook is unavailable', () => {});
   if (typeof _toGHASHKey === 'function') {
     VECTORS_GHASH.push({
       fn: ghash,
@@ -125,10 +127,10 @@ export function test(
       // <=64KB, 8 above); results must not depend on it. Pins the unrolled
       // W=4 / W=8 fast paths against the generic walk.
       const key = hex.decode('25629347589242761d31f826ba4b757b');
-      for (const len of [0, 1, 15, 16, 17, 64, 79, 256]) {
+      for (const len of [0, 1, 5, 15, 16, 17, 21, 33, 64, 79, 256, 65537]) {
         const msg = Uint8Array.from({ length: len }, (_, i) => (i * 37 + 11) & 0xff);
         for (const fn of [ghash, polyval]) {
-          const ref = hex.encode(fn(msg, key)); // one-shot: hint = msg.length -> W=2
+          const ref = hex.encode(fn.create(key, 1).update(msg).digest()); // force W=2
           for (const hint of [2000, 100000]) {
             const h = fn.create(key, hint);
             eql(hex.encode(h.update(msg).digest()), ref, `len=${len} hint=${hint}`);

@@ -162,7 +162,7 @@ describe('FF1', () => {
   });
 
   it('throw on wrong radix', () => {
-    throws(() => FF1(1, new Uint8Array(10)).encrypt([1]));
+    throws(() => FF1(1, new Uint8Array(16)).encrypt([1]));
   });
   it('enforce minLen: radix**minlen >= 100 and minlen >= 2', () => {
     const key = new Uint8Array(16);

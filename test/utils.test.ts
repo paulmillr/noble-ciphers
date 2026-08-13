@@ -231,8 +231,13 @@ export function test({ describe, it } = BT) {
     it('complexOverlapBytes', () => {
       const buffer = new Uint8Array(10);
       const input = buffer.subarray(0, 4);
-      const output = buffer.subarray(2, 2);
-      u.complexOverlapBytes(input, output);
+      throws(() => u.complexOverlapBytes(input, buffer.subarray(2, 6)), /complex overlap/);
+      // Exact in-place and output-before-input layouts do not overwrite unread input.
+      eql(u.complexOverlapBytes(input, input), undefined);
+      eql(u.complexOverlapBytes(buffer.subarray(2, 6), buffer.subarray(0, 4)), undefined);
+      // Adjacent and unrelated views do not overlap.
+      eql(u.complexOverlapBytes(input, buffer.subarray(4, 8)), undefined);
+      eql(u.complexOverlapBytes(input, new Uint8Array(4)), undefined);
     });
     it('copyBytes', () => {
       const out = u.copyBytes(Uint8Array.of(1, 2, 3));

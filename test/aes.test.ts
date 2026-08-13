@@ -228,7 +228,8 @@ export function test(
         (globalThis as any).Uint8Array = Native;
       }
     });
-    it('CTR', () => {
+    const ctrNodeTest = isDeno ? it.skip : it;
+    ctrNodeTest('CTR node:crypto cross-check', () => {
       const nodeAES = (name) => ({
         encrypt: (buf, opts) =>
           Uint8Array.from(createCipheriv(name, opts.key, opts.nonce).update(buf)),
@@ -253,7 +254,6 @@ export function test(
       ];
       // So, current behaviour seems reasonable.
       // We don't have variable counter length at web version for now, but it works.
-      if (isDeno) return; // deno fails
       for (const nonce of nonces) {
         const nodeVal = nodeAES('aes-256-ctr').encrypt(msg, { key, nonce });
         const c = ctr(key, nonce);
@@ -337,13 +337,9 @@ export function test(
           eql(c.decrypt(ciphertext), plaintext);
           eql(c.encrypt(plaintext), ciphertext);
         });
-        if (t.name === 'ctr' && typeof web !== 'undefined') {
+        if (t.cipher === 'ctr' && typeof web !== 'undefined') {
           it(`${t.name}: web`, async () => {
-            let c;
-            const cipher = web.ctr;
-            if (t.iv)
-              c = cipher(hex.decode(t.key), hex.decode(t.iv || ''), { disablePadding: true });
-            else c = cipher(hex.decode(t.key), { disablePadding: true });
+            const c = web.ctr(hex.decode(t.key), hex.decode(t.iv));
             const ciphertext = concatBytes(...t.blocks.map((i) => hex.decode(i.ciphertext)));
             const plaintext = concatBytes(...t.blocks.map((i) => hex.decode(i.plaintext)));
             eql(await c.decrypt(ciphertext), plaintext);
@@ -413,10 +409,12 @@ export function test(
                   const ct = concatBytes(hex.decode(t.ct), hex.decode(t.tag || ''));
                   eql(a.decrypt(ct), msg, `${label}: decrypt`);
                   eql(a.encrypt(msg), ct, `${label}: encrypt`);
-                  // Webcrypto has different limits
-                  if (c.webcipher && t.iv.length !== 16 && t.iv.length % 16 === 0) {
+                  // Node WebCrypto accepts GCM IVs from 12 through 128 bytes; CBC requires 16.
+                  // Use decoded byte lengths so the standard 96-bit GCM IV path is covered.
+                  const webIvSupported =
+                    c.cipher === 'cbc' ? iv.length === 16 : iv.length >= 12 && iv.length <= 128;
+                  if (c.webcipher && webIvSupported) {
                     const wc = init(c.webcipher);
-                    if (isDeno) continue;
                     eql(await wc.decrypt(ct), msg, `${label}: web decrypt`);
                     eql(await wc.encrypt(msg), ct, `${label}: web encrypt`);
                   }

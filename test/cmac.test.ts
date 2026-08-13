@@ -2,7 +2,7 @@ import { describe, it } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual, throws } from 'node:assert';
 import { pathToFileURL } from 'node:url';
 import { cmac } from '../src/aes.ts';
-import { abytes, bytesToHex, equalBytes, hexToBytes } from '../src/utils.ts';
+import { abytes, bytesToHex, clean, equalBytes, hexToBytes } from '../src/utils.ts';
 const BT = { describe, it };
 
 export function test(variant = 'noble', platform = { cmac }, { describe, it } = BT) {
@@ -133,8 +133,10 @@ export function test(variant = 'noble', platform = { cmac }, { describe, it } = 
     describe('Subkey generation', () => {
       it('generate correct subkeys', () => {
         // Test vectors for subkey generation (derived from RFC 4493)
-        const subkeys = cmac.create(RFC4493_KEY);
-        if (!('k1' in subkeys) || !('k2' in subkeys)) return;
+        const subkeys = cmac.create(RFC4493_KEY) as ReturnType<typeof cmac.create> & {
+          k1: Uint8Array;
+          k2: Uint8Array;
+        };
 
         // Expected values computed according to RFC 4493 algorithm
         const expectedK1 = 'fbeed618357133667c85e08f7236a8de';
@@ -198,14 +200,12 @@ export function test(variant = 'noble', platform = { cmac }, { describe, it } = 
 
       it('keep only one pending block across updates', () => {
         const mac = cmac.create(RFC4493_KEY) as ReturnType<typeof cmac.create> & {
-          buffer?: Uint8Array;
-          pos?: number;
+          buffer: Uint8Array;
+          pos: number;
         };
         mac.update(new Uint8Array(40));
-        // Some wrappers reuse the same public streaming contract without exposing noble's private
-        // pending-buffer internals. When available, keep pinning the one-block buffering invariant.
-        if (mac.buffer !== undefined) deepStrictEqual(mac.buffer.length, 16);
-        if (mac.pos !== undefined) deepStrictEqual(mac.pos, 8);
+        deepStrictEqual(mac.buffer.length, 16);
+        deepStrictEqual(mac.pos, 8);
         const result = mac.digest();
         deepStrictEqual(result.length, 16);
         mac.destroy();
@@ -254,7 +254,7 @@ export function test(variant = 'noble', platform = { cmac }, { describe, it } = 
         abytes(tag, 16, 'tag');
         const computedTag = cmac(message, key);
         const result = equalBytes(computedTag, tag);
-        // clean(computedTag);
+        clean(computedTag);
         return result;
       }
       it('verify correct tags', () => {

@@ -7,6 +7,7 @@ import { test as crosstest } from './crosstest.test.ts';
 import './ff1.test.ts';
 import { test as mac } from './mac.test.ts';
 import { test as polyval } from './polyval.test.ts';
+import './prng.test.ts';
 import { test as siv } from './siv.test.ts';
 import { test as utils } from './utils.test.ts';
 import { test as webcrypto } from './webcrypto.test.ts';

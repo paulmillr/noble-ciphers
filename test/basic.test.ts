@@ -39,29 +39,34 @@ export function test(
     xsalsa20poly1305,
   } = platform;
   const CIPHERS = {
-    xsalsa20poly1305: { fn: xsalsa20poly1305, keyLen: 32, withNonce: true },
+    xsalsa20poly1305: {
+      fn: xsalsa20poly1305,
+      keyLen: 32,
+      withNonce: true,
+      withOutput: true,
+    },
     chacha20poly1305: {
       fn: chacha20poly1305,
       keyLen: 32,
       withNonce: true,
-      withDST: true,
+      withOutput: true,
       withAAD: true,
     },
     xchacha20poly1305: {
       fn: xchacha20poly1305,
       keyLen: 32,
       withNonce: true,
-      withDST: true,
+      withOutput: true,
       withAAD: true,
     },
   };
 
   for (const keyLen of [16, 24, 32]) {
     for (const [name, fn] of Object.entries({ cbc, ctr, cfb }))
-      CIPHERS[`${name}_${keyLen * 8}`] = { fn, keyLen, withNonce: true };
+      CIPHERS[`${name}_${keyLen * 8}`] = { fn, keyLen, withNonce: true, withOutput: true };
     for (const [name, fn] of Object.entries({ gcm, gcmsiv }))
       CIPHERS[`${name}_${keyLen * 8}`] = { fn, keyLen, withNonce: true, withAAD: true };
-    CIPHERS[`ecb_${keyLen * 8}`] = { fn: ecb, keyLen, withNonce: false };
+    CIPHERS[`ecb_${keyLen * 8}`] = { fn: ecb, keyLen, withNonce: false, withOutput: true };
     CIPHERS[`aeskw_${keyLen * 8}`] = {
       fn: aeskw,
       keyLen,
@@ -75,12 +80,19 @@ export function test(
   for (const k in CIPHERS) {
     const opts = CIPHERS[k];
     if (!opts.withNonce) continue;
-    CIPHERS[`${k}_managedNonce`] = { ...opts, fn: managedNonce(opts.fn), withNonce: false };
+    CIPHERS[`${k}_managedNonce`] = {
+      ...opts,
+      fn: managedNonce(opts.fn),
+      withNonce: false,
+      withOutput: false,
+    };
   }
   CIPHERS.managedCbcNoPadding = {
     fn: managedNonce(cbc),
+    keyLen: 32,
     args: [{ disablePadding: true }],
     blockSize: 16,
+    withOutput: false,
   };
 
   const checkBlockSize = (opts, len) => {
@@ -221,25 +233,32 @@ export function test(
         // });
 
         it(`${k} (re-use)`, () => {
-          const { fn, keyLen, withNonce } = opts;
-
+          const { fn, keyLen, withNonce, withOutput } = opts;
           const key = randomBytes(keyLen);
           const nonce = withNonce ? randomBytes(fn.nonceLength) : undefined;
           const AAD = randomBytes(64);
-
+          const supportedLength = Math.max(2 * fn.blockSize, opts.minLength || 0);
+          const sample = randomBytes(supportedLength);
           let cipher = createCipher(opts, key, nonce, AAD);
-          // Throws if output provided to function without output support
-          if (
-            !k.endsWith('managedNonce') &&
-            ['micro', 'gcm', 'gcmsiv', 'aeskw'].map((i) => k.includes(i)).includes(true)
-          ) {
-            const msg = randomBytes(2 * opts.fn.blockSize);
-            throws(() => cipher.encrypt(msg, new Uint8Array(msg.length)));
-            cipher = createCipher(opts, key, nonce, AAD);
-            const exp = cipher.encrypt(msg);
-            throws(() => cipher.decrypt(exp, new Uint8Array(exp.length)));
+
+          if (!withOutput) {
+            if (k.includes('managed')) {
+              // managedNonce deliberately has no destination-buffer API because it prepends a
+              // generated nonce. Still exercise the entry instead of silently skipping by arity.
+              const sampleCopy = sample.slice();
+              const encrypted = cipher.encrypt(sample);
+              eql(sample, sampleCopy);
+              eql(createCipher(opts, key, nonce, AAD).decrypt(encrypted), sample);
+            } else {
+              // Wrapped ciphers without output support reject an explicitly supplied buffer.
+              throws(() => cipher.encrypt(sample, new Uint8Array(sample.length)));
+              cipher = createCipher(opts, key, nonce, AAD);
+              const encrypted = cipher.encrypt(sample);
+              throws(() => cipher.decrypt(encrypted, new Uint8Array(encrypted.length)));
+            }
             return;
           }
+
           const pcksOutput = (len) => {
             const remaining = len % fn.blockSize;
             let left = fn.blockSize - remaining;
@@ -259,225 +278,238 @@ export function test(
           messageLengths.push((1.75 * fn.blockSize) | 0);
 
           const stats = { e_ok: 0, e_fail: 0, d_ok: 0, d_fail: 0 };
+          const isAesOutput = ['cbc', 'ctr', 'cfb', 'ecb'].some((name) => k.includes(name));
+          const rejectsOverlap = (input, output) => {
+            const overlaps = getIntersection(input, output).length !== 0;
+            if (k.includes('cfb')) return overlaps;
+            return (
+              ['cbc', 'ctr', 'ecb'].some((name) => k.includes(name)) &&
+              overlaps &&
+              input.byteOffset < output.byteOffset
+            );
+          };
+          const mustReject = (input, output) =>
+            (isAesOutput && output.byteOffset % 4 !== 0) || rejectsOverlap(input, output);
+
           for (const msgLen of messageLengths) {
             const msg = randomBytes(msgLen);
             const key = randomBytes(keyLen);
             const nonce = withNonce ? randomBytes(fn.nonceLength) : undefined;
             const AAD = randomBytes(64);
             let cipher = createCipher(opts, key, nonce, AAD);
-            const mayThrow = ['cbc', 'ctr', 'ecb'].map((i) => k.includes(i)).includes(true);
-            const pkcs5 = ['cbc', 'ecb'].map((i) => k.includes(i)).includes(true);
+            const pkcs5 = ['cbc', 'ecb'].some((name) => k.includes(name));
             for (let fillByte = 0; fillByte < 256; fillByte++) {
-              // Wrapper changes length :(
-              if (cipher.encrypt.length === 2) {
-                // Tmp buffer
-                let outLen = msg.length;
-                if (fn.tagLength) outLen += fn.tagLength;
-                if (k === 'xsalsa20poly1305') outLen += 16;
-                if (pkcs5) outLen += pcksOutput(msg.length);
-                // Expected result
-                cipher = createCipher(opts, key, nonce, AAD);
-                const exp = cipher.encrypt(msg);
-                const out = new Uint8Array(outLen);
-                // First pass
-                cipher = createCipher(opts, key, nonce, AAD);
-                const res = cipher.encrypt(msg, out);
-                eql(res, exp);
-                // check if res is output
-                eql(res, out.subarray(res.byteOffset, res.byteOffset + res.length));
-                eql(res.buffer, out.buffer); // make sure that underlying array buffer is same
-                // Second pass
-                out.fill(fillByte);
-                cipher = createCipher(opts, key, nonce, AAD);
-                const res2 = cipher.encrypt(msg, out);
-                eql(res2, exp);
-                eql(res2, out.subarray(res2.byteOffset, res2.byteOffset + res2.length));
-                eql(res2.buffer, out.buffer); // make sure that underlying array buffer is same
-                // Overlap
-                cipher = createCipher(opts, key, nonce, AAD);
-                out.fill(fillByte);
-                out.set(msg);
-                const msg2 = out.subarray(0, msg.length);
-                // CFB cannot support overlap
-                if (k.includes('cfb')) return throws(() => cipher.encrypt(msg2, out));
-                eql(cipher.encrypt(msg2, out), exp);
+              // Tmp buffer
+              let outLen = msg.length;
+              if (fn.tagLength) outLen += fn.tagLength;
+              if (k === 'xsalsa20poly1305') outLen += 16;
+              if (pkcs5) outLen += pcksOutput(msg.length);
+              // Expected result
+              cipher = createCipher(opts, key, nonce, AAD);
+              const exp = cipher.encrypt(msg);
+              const out = new Uint8Array(outLen);
+              // First pass
+              cipher = createCipher(opts, key, nonce, AAD);
+              const res = cipher.encrypt(msg, out);
+              eql(res, exp);
+              // check if res is output
+              eql(res, out.subarray(res.byteOffset, res.byteOffset + res.length));
+              eql(res.buffer, out.buffer); // make sure that underlying array buffer is same
+              // Second pass
+              out.fill(fillByte);
+              cipher = createCipher(opts, key, nonce, AAD);
+              const res2 = cipher.encrypt(msg, out);
+              eql(res2, exp);
+              eql(res2, out.subarray(res2.byteOffset, res2.byteOffset + res2.length));
+              eql(res2.buffer, out.buffer); // make sure that underlying array buffer is same
+              // Exact in-place overlap is supported except by CFB.
+              cipher = createCipher(opts, key, nonce, AAD);
+              out.fill(fillByte);
+              out.set(msg);
+              const msg2 = out.subarray(0, msg.length);
+              if (mustReject(msg2, out)) throws(() => cipher.encrypt(msg2, out));
+              else eql(cipher.encrypt(msg2, out), exp);
 
-                overlapTest(msg2, out, (msg2, out2, all) => {
-                  all.fill(fillByte);
-                  msg2.set(msg);
-                  cipher = createCipher(opts, key, nonce, AAD);
-                  let newOut;
-                  try {
-                    newOut = cipher.encrypt(msg2, out2);
-                    stats.e_ok++;
-                  } catch (e) {
-                    stats.e_fail++;
-                    if (mayThrow) return;
-                    throw e;
-                  }
-                  eql(newOut.buffer, all.buffer); // make sure that underlying array buffer is same
-                  eql(newOut.buffer, out2.buffer); // make sure that underlying array buffer is same
-                  eql(newOut, exp);
-                });
-              }
-              if (cipher.decrypt.length === 2) {
-                // Expected result
+              overlapTest(msg2, out, (msg2, out2, all) => {
+                all.fill(fillByte);
+                msg2.set(msg);
                 cipher = createCipher(opts, key, nonce, AAD);
-                const input = cipher.encrypt(msg);
-                // Tmp buffer
-                let outLen = msg.length;
-                if (k.endsWith('xsalsa20poly1305')) outLen += 32 + 16;
-                if (pkcs5) outLen += pcksOutput(msg.length);
-                const out = new Uint8Array(outLen);
-                // First pass
-                const res = cipher.decrypt(input, out);
-                eql(res, msg);
-                eql(res, out.subarray(res.byteOffset, res.byteOffset + res.length));
-                eql(res.buffer, out.buffer); // make sure that underlying array buffer is same
-                // Second pass
-                out.fill(fillByte);
-                const res2 = cipher.decrypt(input, out);
-                eql(res2, msg);
-                eql(res2, out.subarray(res2.byteOffset, res2.byteOffset + res2.length));
-                eql(res2.buffer, out.buffer); // make sure that underlying array buffer is same
-                // Overlap
-                const tmp = new Uint8Array(Math.max(out.length, input.length));
-                tmp.fill(fillByte);
-                tmp.set(input);
-                const out2 = tmp.subarray(0, out.length);
-                const input2 = tmp.subarray(0, input.length);
-                // CFB cannot support overlap
-                if (k.includes('cfb')) return throws(() => cipher.decrypt(input2, out2));
-                eql(cipher.decrypt(input2, out2), msg);
+                if (mustReject(msg2, out2)) {
+                  throws(() => cipher.encrypt(msg2, out2));
+                  stats.e_fail++;
+                  return;
+                }
+                const newOut = cipher.encrypt(msg2, out2);
+                stats.e_ok++;
+                eql(newOut.buffer, all.buffer); // make sure that underlying array buffer is same
+                eql(newOut.buffer, out2.buffer); // make sure that underlying array buffer is same
+                eql(newOut, exp);
+              });
 
-                overlapTest(input2, out2, (input2, out2, all) => {
-                  all.fill(fillByte);
-                  input2.set(input);
-                  let newOut;
-                  try {
-                    newOut = cipher.decrypt(input2, out2);
-                    stats.d_ok++;
-                  } catch (e) {
-                    stats.d_fail++;
-                    if (mayThrow) return;
-                    throw e;
-                  }
-                  eql(newOut.buffer, all.buffer); // make sure that underlying array buffer is same
-                  eql(newOut.buffer, out2.buffer); // make sure that underlying array buffer is same
-                  eql(newOut, msg);
-                });
-              }
+              // Expected result
+              cipher = createCipher(opts, key, nonce, AAD);
+              const input = cipher.encrypt(msg);
+              // Tmp buffer
+              outLen = msg.length;
+              if (k === 'xsalsa20poly1305') outLen += 32 + 16;
+              if (pkcs5) outLen += pcksOutput(msg.length);
+              const decOut = new Uint8Array(outLen);
+              // First pass
+              const dec = cipher.decrypt(input, decOut);
+              eql(dec, msg);
+              eql(dec, decOut.subarray(dec.byteOffset, dec.byteOffset + dec.length));
+              eql(dec.buffer, decOut.buffer); // make sure that underlying array buffer is same
+              // Second pass
+              decOut.fill(fillByte);
+              const dec2 = cipher.decrypt(input, decOut);
+              eql(dec2, msg);
+              eql(dec2, decOut.subarray(dec2.byteOffset, dec2.byteOffset + dec2.length));
+              eql(dec2.buffer, decOut.buffer); // make sure that underlying array buffer is same
+              // Exact in-place overlap is supported except by CFB.
+              const tmp = new Uint8Array(Math.max(decOut.length, input.length));
+              tmp.fill(fillByte);
+              tmp.set(input);
+              const out2 = tmp.subarray(0, decOut.length);
+              const input2 = tmp.subarray(0, input.length);
+              if (mustReject(input2, out2)) throws(() => cipher.decrypt(input2, out2));
+              else eql(cipher.decrypt(input2, out2), msg);
+
+              overlapTest(input2, out2, (input2, out2, all) => {
+                all.fill(fillByte);
+                input2.set(input);
+                if (mustReject(input2, out2)) {
+                  throws(() => cipher.decrypt(input2, out2));
+                  stats.d_fail++;
+                  return;
+                }
+                const newOut = cipher.decrypt(input2, out2);
+                stats.d_ok++;
+                eql(newOut.buffer, all.buffer); // make sure that underlying array buffer is same
+                eql(newOut.buffer, out2.buffer); // make sure that underlying array buffer is same
+                eql(newOut, msg);
+              });
             }
           }
-          // console.log('OVERLAP STATS', k, stats);
-        });
-
-        it('unaligned', () => {
-          if (!['xsalsa20poly1305', 'xchacha20poly1305', 'chacha20poly1305'].includes(k)) return;
-          if (k.includes('managedNonce')) return;
-
-          const isSalsa = k.includes('salsa');
-
-          const { fn, keyLen } = opts;
-          const msg = new TextEncoder().encode('hello');
-
-          const key = randomBytes(keyLen);
-          const nonce = randomBytes(fn.nonceLength);
-
-          const sample_enc = fn(key.slice(), nonce.slice()).encrypt(msg);
-
-          const L = msg.length;
-          const ciphertextLen = sample_enc.length;
-
-          const tmp = new Uint8Array(512).fill(5);
-          for (let start = 0; start < 32; start++) {
-            const i = {};
-            i.p_start = start;
-            i.p_end = start + L; // .encrypt() output needs L + 32
-            if (isSalsa) {
-              i.c_start = i.p_end;
-              i.c_end = i.c_start + L + 32;
-
-              i.dec_start = i.c_end;
-              i.dec_end = i.dec_start + L + 48;
-            } else {
-              i.c_start = i.p_end;
-              i.c_end = i.c_start + ciphertextLen;
-
-              i.dec_start = i.c_end;
-              i.dec_end = i.dec_start + L;
-            }
-            tmp.set(msg, i.p_start);
-            const cipher = fn(key, nonce);
-            const buf_p = tmp.subarray(i.p_start, i.p_end);
-            const buf_dec = tmp.subarray(i.dec_start, i.dec_end);
-
-            // Encrypt
-            let ciphertext = cipher.encrypt(buf_p, tmp.subarray(i.c_start, i.c_end));
-            eql(ciphertext, sample_enc, '.encrypt() differs');
-
-            // Decrypt
-            let plaintext = cipher.decrypt(ciphertext, buf_dec);
-            eql(msg, plaintext, '.decrypt() differs');
+          eql(stats.e_ok > 0, true, `${k}: expected accepted encrypt overlaps`);
+          eql(stats.d_ok > 0, true, `${k}: expected accepted decrypt overlaps`);
+          if (isAesOutput) {
+            eql(stats.e_fail > 0, true, `${k}: expected rejected encrypt overlaps`);
+            eql(stats.d_fail > 0, true, `${k}: expected rejected decrypt overlaps`);
+          } else {
+            eql(stats.e_fail, 0, `${k}: encrypt overlap failures`);
+            eql(stats.d_fail, 0, `${k}: decrypt overlap failures`);
           }
-          // deepStrictEqual(data.subarray(0, 8), data.subarray(32, 40))
         });
 
-        it('be able to reuse input and output arrays', () => {
-          // TODO: test AES
-          // TODO: test different values of FILL_BYTE
+        const isRawArxAead =
+          ['xsalsa20poly1305', 'xchacha20poly1305', 'chacha20poly1305'].includes(k) &&
+          !k.includes('managedNonce');
+        if (isRawArxAead)
+          it('unaligned', () => {
+            const isSalsa = k.includes('salsa');
 
-          if (!['xsalsa20poly1305', 'xchacha20poly1305', 'chacha20poly1305'].includes(k)) return;
-          if (k.includes('managedNonce')) return;
-          const isSalsa = k === 'xsalsa20poly1305';
-          const { fn, keyLen } = opts;
-          const TMP_FILL_BYTE = 0;
+            const { fn, keyLen } = opts;
+            const msg = new TextEncoder().encode('hello');
 
-          const msg = new TextEncoder().encode('hello');
-          const key = new Uint8Array(keyLen).fill(1);
-          const nonce = new Uint8Array(fn.nonceLength).fill(2);
-          let tmp;
-          const get = () => fn(key, nonce);
-          const initTmp = () => (tmp = new Uint8Array(64).fill(TMP_FILL_BYTE));
+            const key = randomBytes(keyLen);
+            const nonce = randomBytes(fn.nonceLength);
 
-          const encryptedMsg = get().encrypt(msg);
-          const decryptedMsg = fn(key, nonce).decrypt(encryptedMsg); // == msg
-          eql(decryptedMsg, msg, 'decryption works');
+            const sample_enc = fn(key.slice(), nonce.slice()).encrypt(msg);
 
-          const L = msg.length;
+            const L = msg.length;
+            const ciphertextLen = sample_enc.length;
 
-          // To encrypt 5-byte input, salsa needs 5 + 32 byte (half-block) output.
-          //   However, it would effectively ONLY use 5 + 16 bytes (nonce size).
-          //   And the output would be 5 + 16.
-          // To encrypt 5-byte input, chacha needs 5 + 16 byte (nonce size) output
+            const tmp = new Uint8Array(512).fill(5);
+            for (let start = 0; start < 32; start++) {
+              const i = {};
+              i.p_start = start;
+              i.p_end = start + L; // .encrypt() output needs L + 32
+              if (isSalsa) {
+                i.c_start = i.p_end;
+                i.c_end = i.c_start + L + 32;
 
-          // Part 1: Simply use existing `tmp`
-          initTmp();
-          eql(
-            get().encrypt(msg, tmp.subarray(0, isSalsa ? L + 32 : L + 16)),
-            encryptedMsg,
-            'example 1'
-          );
-          // To decrypt
-          eql(get().decrypt(encryptedMsg, tmp.subarray(0, isSalsa ? L + 48 : 5)), msg, 'example 2');
+                i.dec_start = i.c_end;
+                i.dec_end = i.dec_start + L + 48;
+              } else {
+                i.c_start = i.p_end;
+                i.c_end = i.c_start + ciphertextLen;
 
-          // Part 2: Share `tmp` between input and output
-          initTmp();
-          tmp.set(msg, 0);
-          const reusedEnc = get().encrypt(msg, tmp.subarray(0, isSalsa ? L + 32 : L + 16));
-          eql(reusedEnc, encryptedMsg, 'example 3');
+                i.dec_start = i.c_end;
+                i.dec_end = i.dec_start + L;
+              }
+              tmp.set(msg, i.p_start);
+              const cipher = fn(key, nonce);
+              const buf_p = tmp.subarray(i.p_start, i.p_end);
+              const buf_dec = tmp.subarray(i.dec_start, i.dec_end);
 
-          const reusedDec = get().decrypt(reusedEnc, tmp.subarray(0, isSalsa ? L + 48 : 5));
-          eql(reusedDec, msg, 'example 4');
-        });
+              // Encrypt
+              let ciphertext = cipher.encrypt(buf_p, tmp.subarray(i.c_start, i.c_end));
+              eql(ciphertext, sample_enc, '.encrypt() differs');
 
-        const msg_10 = new Uint8Array(10);
-        if (checkBlockSize(opts, msg_10.length) && !k.endsWith('_managedNonce')) {
+              // Decrypt
+              let plaintext = cipher.decrypt(ciphertext, buf_dec);
+              eql(msg, plaintext, '.decrypt() differs');
+            }
+            // deepStrictEqual(data.subarray(0, 8), data.subarray(32, 40))
+          });
+
+        if (isRawArxAead)
+          it('be able to reuse input and output arrays', () => {
+            const isSalsa = k === 'xsalsa20poly1305';
+            const { fn, keyLen } = opts;
+            const TMP_FILL_BYTE = 0;
+
+            const msg = new TextEncoder().encode('hello');
+            const key = new Uint8Array(keyLen).fill(1);
+            const nonce = new Uint8Array(fn.nonceLength).fill(2);
+            let tmp;
+            const get = () => fn(key, nonce);
+            const initTmp = () => (tmp = new Uint8Array(64).fill(TMP_FILL_BYTE));
+
+            const encryptedMsg = get().encrypt(msg);
+            const decryptedMsg = fn(key, nonce).decrypt(encryptedMsg); // == msg
+            eql(decryptedMsg, msg, 'decryption works');
+
+            const L = msg.length;
+
+            // To encrypt 5-byte input, salsa needs 5 + 32 byte (half-block) output.
+            //   However, it would effectively ONLY use 5 + 16 bytes (nonce size).
+            //   And the output would be 5 + 16.
+            // To encrypt 5-byte input, chacha needs 5 + 16 byte (nonce size) output
+
+            // Part 1: Simply use existing `tmp`
+            initTmp();
+            eql(
+              get().encrypt(msg, tmp.subarray(0, isSalsa ? L + 32 : L + 16)),
+              encryptedMsg,
+              'example 1'
+            );
+            // To decrypt
+            eql(
+              get().decrypt(encryptedMsg, tmp.subarray(0, isSalsa ? L + 48 : 5)),
+              msg,
+              'example 2'
+            );
+
+            // Part 2: Share `tmp` between input and output
+            initTmp();
+            tmp.set(msg, 0);
+            const reusedEnc = get().encrypt(msg, tmp.subarray(0, isSalsa ? L + 32 : L + 16));
+            eql(reusedEnc, encryptedMsg, 'example 3');
+
+            const reusedDec = get().decrypt(reusedEnc, tmp.subarray(0, isSalsa ? L + 48 : 5));
+            eql(reusedDec, msg, 'example 4');
+          });
+
+        if (!k.includes('managed')) {
           it(`${k}: prohibit encrypting twice`, () => {
             const { c } = initCipher(opts);
-            c.encrypt(msg_10);
+            let length = Math.max(10, opts.minLength || 0);
+            if (opts.blockSize) length = Math.ceil(length / opts.blockSize) * opts.blockSize;
+            const msg = new Uint8Array(length);
+            c.encrypt(msg);
             throws(() => {
-              c.encrypt(msg_10);
+              c.encrypt(msg);
             });
           });
         }
@@ -531,6 +563,24 @@ export function test(
       const aad = new Uint8Array(16);
       throws(() => (cbc as any)(key, nonce, { disablePadding: true }, aad));
       throws(() => (ecb as any)(key, { disablePadding: true }, aad));
+    });
+
+    it('CBC and ECB enforce block sizes when padding is disabled', () => {
+      const key = new Uint8Array(16);
+      const iv = new Uint8Array(16);
+      const create = [
+        () => cbc(key, iv, { disablePadding: true }),
+        () => ecb(key, { disablePadding: true }),
+      ];
+      for (const init of create) {
+        for (const length of [15, 17]) {
+          throws(() => init().encrypt(new Uint8Array(length)));
+          throws(() => init().decrypt(new Uint8Array(length)));
+        }
+        const block = new Uint8Array(16);
+        const cipher = init();
+        eql(cipher.decrypt(cipher.encrypt(block)), block);
+      }
     });
 
     for (const k in CIPHERS) {

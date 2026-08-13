@@ -85,13 +85,24 @@ const AVCP_VECTORS = json('./vectors/ctrDRBG-1.0/internalProjection.json'); // A
  */
 
 describe('PRNG', () => {
+  it('documents unsupported CTR_DRBG vector groups', () => {
+    let derivationFunction = 0;
+    let aes192 = 0;
+    for (const group of AVCP_VECTORS.testGroups) {
+      if (group.derFunc) derivationFunction += group.tests.length;
+      else if (group.mode === 'AES-192') aes192 += group.tests.length;
+    }
+    // The public API implements AES-128/256 CTR_DRBG without a derivation function.
+    // Keep unsupported vector coverage visible so new modes cannot be added silently.
+    eql({ derivationFunction, aes192 }, { derivationFunction: 120, aes192: 30 });
+  });
   it('AES', () => {
     for (const g of AVCP_VECTORS.testGroups) {
-      if (g.derFunc) continue; // No DF support (for now?)
+      if (g.derFunc) continue; // Unsupported: public factories implement no-DF mode only.
       if (!g.mode.startsWith('AES-')) continue;
       const bits = +g.mode.slice(4);
       for (const t of g.tests) {
-        if (bits === 192) continue;
+        if (bits === 192) continue; // Unsupported: there is no AES-192 DRBG factory.
         let fn = bits === 128 ? rngAesCtrDrbg128 : rngAesCtrDrbg256;
         const drbg = fn(hexToBytes(t.entropyInput), hexToBytes(t.persoString));
         let lastVal;
@@ -205,6 +216,41 @@ describe('PRNG', () => {
     expectRejectedAddEntropyStable(createAes256, (prg) =>
       throws(() => prg.addEntropy(new Uint8Array(48), new Uint8Array(49)), /info length is too big/)
     );
+  });
+  it('clean destroys ChaCha generators', () => {
+    const generators = [
+      rngChacha20(Uint8Array.from({ length: 40 }, (_, i) => i + 1)),
+      rngChacha8(Uint8Array.from({ length: 44 }, (_, i) => i + 1)),
+    ];
+    for (const prg of generators) {
+      // Leave a partially consumed block buffered before wiping it. Previously clean() reset the
+      // cursor to the start of that zeroed buffer, so randomBytes() returned literal zero bytes.
+      prg.randomBytes(17);
+      prg.clean();
+      prg.clean(); // Cleanup remains idempotent.
+      throws(() => prg.randomBytes(1), /destroyed/);
+      throws(() => prg.addEntropy(new Uint8Array([1])), /destroyed/);
+      throws(() => prg.clone(), /destroyed/);
+    }
+  });
+  it('clean destroys AES-CTR DRBG generators', () => {
+    const generators = [
+      {
+        drbg: rngAesCtrDrbg128(Uint8Array.from({ length: 32 }, (_, i) => i + 1)),
+        entropy: new Uint8Array(32),
+      },
+      {
+        drbg: rngAesCtrDrbg256(Uint8Array.from({ length: 48 }, (_, i) => i + 1)),
+        entropy: new Uint8Array(48),
+      },
+    ];
+    for (const { drbg, entropy } of generators) {
+      drbg.randomBytes(17);
+      drbg.clean();
+      drbg.clean(); // Cleanup remains idempotent.
+      throws(() => drbg.randomBytes(1), /destroyed/);
+      throws(() => drbg.addEntropy(entropy), /destroyed/);
+    }
   });
 });
 

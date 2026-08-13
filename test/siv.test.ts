@@ -9,7 +9,10 @@ const BT = { describe, it };
 export function test(variant = 'noble', platform = { aessiv: siv, unsafe }, { describe, it } = BT) {
   const { aessiv: siv, unsafe } = platform;
   describe(`S2V (${variant})`, () => {
-    if (!unsafe?.s2v) return;
+    if (!unsafe?.s2v) {
+      it.skip('unsafe.s2v platform hook is unavailable', () => {});
+      return;
+    }
     describe('RFC 5297 test vectors', () => {
       it('Example A.1', () => {
         const key = hexToBytes('fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0');

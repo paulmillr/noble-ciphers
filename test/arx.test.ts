@@ -454,7 +454,7 @@ export function test(
             const plaintext = c.decrypt(exp);
             eql(hex.encode(plaintext), v.msg, 'decrypt');
             const corrupt = exp.slice();
-            corrupt[corrupt.length - 1] = 0;
+            corrupt[corrupt.length - 1] ^= 1;
             throws(() => c.decrypt(corrupt));
           });
         }
@@ -529,13 +529,11 @@ export function test(
               const dec = c.decrypt(hex.decode(ct));
               eql(hex.encode(dec), t.msg);
             } else {
-              throws(() => {
-                const c = cipher(hex.decode(t.key), hex.decode(t.iv), aad);
-                const enc = c.encrypt(hex.decode(t.msg));
-                eql(hex.encode(enc), ct);
-                const dec = c.decrypt(hex.decode(ct));
-                eql(hex.encode(dec), t.msg);
-              });
+              // Assert rejection directly: comparing an encryption with an invalid vector first
+              // would throw before decrypt() gets a chance to authenticate the supplied tag.
+              throws(() =>
+                cipher(hex.decode(t.key), hex.decode(t.iv), aad).decrypt(hex.decode(ct))
+              );
             }
           }
         }
