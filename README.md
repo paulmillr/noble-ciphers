@@ -232,6 +232,8 @@ due to its inner workings.
 We provide userspace CSPRNG (cryptographically secure pseudorandom number generator).
 It's best to limit their usage to non-production, non-critical cases: for example, test-only usage.
 ChaCha-based CSPRNG does not have a specification, which makes it less secure.
+The AES factories implement the no-derivation-function CTR_DRBG construction for AES-128 and
+AES-256 only; derivation-function mode and an AES-192 factory are not provided.
 
 ```js
 import { randomBytes } from '@noble/ciphers/utils.js';
@@ -592,17 +594,6 @@ Changelog of v2, when upgrading from ciphers v1:
 - Remove modules `_assert` (use `utils`), `_micro` and `crypto` (use `webcrypto`)
 - Bump TS compilation target from es2020 to es2022
 - Massively improve error messages, make them more descriptive
-
-## Contributing & testing
-
-- `npm install && npm run build && npm test` will build the code and run tests.
-- `npm run check` / `npm run format` will run linter / fix linter issues.
-- `npm run benchmark` will run benchmarks
-- `npm run bundle` will build single file
-
-See [paulmillr.com/noble](https://paulmillr.com/noble/)
-for useful resources, articles, documentation and demos
-related to the library.
 
 ## License
 
