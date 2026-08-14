@@ -32,6 +32,7 @@ const nodeCiphers = new Set(getCiphers());
 const BT = { describe, it };
 
 const nodeTagCipher = (name) => {
+  if (!nodeCiphers.has(name)) return;
   return {
     encrypt: (buf, opts) => {
       const res = [];
@@ -57,6 +58,7 @@ const nodeTagCipher = (name) => {
 };
 
 const nodeCipher = (name, pkcs7 = true) => {
+  if (!nodeCiphers.has(name)) return;
   return {
     encrypt: (buf, opts) => {
       const res = [];

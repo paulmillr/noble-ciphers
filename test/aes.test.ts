@@ -409,10 +409,14 @@ export function test(
                   const ct = concatBytes(hex.decode(t.ct), hex.decode(t.tag || ''));
                   eql(a.decrypt(ct), msg, `${label}: decrypt`);
                   eql(a.encrypt(msg), ct, `${label}: encrypt`);
-                  // Node WebCrypto accepts GCM IVs from 12 through 128 bytes; CBC requires 16.
-                  // Use decoded byte lengths so the standard 96-bit GCM IV path is covered.
+                  // Node WebCrypto accepts GCM IVs from 12 through 128 bytes, while Deno only
+                  // accepts the common 12- and 16-byte sizes. CBC requires exactly 16 bytes.
                   const webIvSupported =
-                    c.cipher === 'cbc' ? iv.length === 16 : iv.length >= 12 && iv.length <= 128;
+                    c.cipher === 'cbc'
+                      ? iv.length === 16
+                      : isDeno
+                        ? iv.length === 12 || iv.length === 16
+                        : iv.length >= 12 && iv.length <= 128;
                   if (c.webcipher && webIvSupported) {
                     const wc = init(c.webcipher);
                     eql(await wc.decrypt(ct), msg, `${label}: web decrypt`);
@@ -422,8 +426,8 @@ export function test(
                   throws(() => init(cipher).decrypt(ct), `${label}: decrypt invalid`);
                 }
               } catch (error) {
-                if (error instanceof Error) error.message = `${label}: ${error.message}`;
-                throw error;
+                const message = error instanceof Error ? error.message : String(error);
+                throw new Error(`${label}: ${message}`, { cause: error });
               }
             }
           }
