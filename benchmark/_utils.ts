@@ -1,15 +1,16 @@
 import { deepStrictEqual } from 'node:assert';
 
 export const onlyNoble = process.argv[2] === 'noble';
-export function buf(n) {
-  return new Uint8Array(n).fill(n % 251);
-}
+import { buf } from '@paulmillr/jsbt/benchmark.js';
+import { parseSize } from '@paulmillr/jsbt/benchmark-compare.js';
+export { buf };
 
 // type Buffers = ({size: string, samples: number, data: Uint8Array})[];
-export async function crossValidate(title, buffers, ciphers) {
-  // Verify that things we bench actually work
-  const bufs = Object.values(buffers);
-  const bufMap = new Map(Object.entries(buffers).map(([k, v]) => [v, k]));
+export async function crossValidate(title, labels, ciphers) {
+  // Verify that things we bench actually work; benchmark buffers derive from labels
+  const entries = labels.map((label) => [label, buf(parseSize(label))]);
+  const bufs = entries.map(([, data]) => data);
+  const bufMap = new Map(entries.map(([label, data]) => [data, label]));
   // const bufs = Object.entries(buffers).map((entry) => entry[1][1])
   // const bufs = [...Object.entries(buffers).map((i) => i[1][1])];
   // Verify different buffer sizes

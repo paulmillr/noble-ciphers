@@ -543,14 +543,7 @@ export const CIPHERS = {
   },
 };
 
-const BUFFERS = {
-  '16B': buf(16),
-  '32B': buf(32),
-  '64B': buf(64),
-  '1KB': buf(1024),
-  '8KB': buf(1024 * 8),
-  '1MB': buf(1024 * 1024),
-};
+const SIZES = ['16B', '32B', '64B', '1KB', '8KB', '1MB'];
 
 export async function main() {
   const ctx = chainsafe_init_wasm();
@@ -558,8 +551,8 @@ export async function main() {
 
   // Usage:
   // Basic: node basic.js
-  // Complex: MBENCH_DIMS='buffer,type,padding,key size,algorithm,library,direction' node basic.js
-  // NOTE: we doing iterations here, because it depends on structure, also we need encrypted buffers!
+  // Complex: JSBT_ORDER='size,type,padding,key size,algorithm,library,direction' node basic.js
+  // NOTE: encrypted buffers must be precomputed here, since decrypt cases need valid ciphertexts.
   const encrypted = {};
   for (const [type, algorithms] of Object.entries(CIPHERS)) {
     for (const [algo, paddings] of Object.entries(algorithms)) {
@@ -568,7 +561,7 @@ export async function main() {
           const name = `${type}/${algo}/${padding}/${keySize}`;
           encrypted[name] = await crossValidate(
             `${type}/${algo}/${padding}/${keySize}`,
-            BUFFERS,
+            SIZES,
             libraries
           );
         }
@@ -577,10 +570,11 @@ export async function main() {
   }
   console.log('### Libraries cross-validated against each other correctly');
 
-  await compare('Ciphers', { buffer: BUFFERS }, CIPHERS, {
-    libraryDimensions: ['type', 'algorithm', 'padding', 'key size', 'library', 'direction'],
+  await compare('Ciphers', CIPHERS, {
+    levels: ['type', 'algorithm', 'padding', 'key size', 'library', 'direction'],
+    sizes: SIZES,
     defaults: {
-      buffer: '1MB',
+      size: '1MB',
       //library: '',
       direction: 'encrypt',
       'key size': '256',
@@ -589,13 +583,12 @@ export async function main() {
     patchArgs: (args, obj) => {
       // Replace buffer with "encrypted" version
       if (obj['direction'] === 'decrypt') {
-        const buf =
-          encrypted[`${obj.type}/${obj.algorithm}/${obj.padding}/${obj['key size']}`][obj.buffer];
-        return [buf, args[1]];
+        const data =
+          encrypted[`${obj.type}/${obj.algorithm}/${obj.padding}/${obj['key size']}`][obj.size];
+        return [data, args[1]];
       }
       return args;
     },
-    bytes: ({ args }) => args[0].length,
   });
 }
 
