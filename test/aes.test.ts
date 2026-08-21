@@ -6,16 +6,16 @@ import { __TESTS, aeskw, aeskwp, cbc, cfb, ctr, ecb, gcm, gcmsiv, unsafe } from 
 import { bytesToHex, concatBytes, hexToBytes } from '../src/utils.ts';
 import * as web from '../src/webcrypto.ts';
 import { cbc_small, ctr_small, gcm_small } from './misc/micro-aes.ts';
-import { json } from './utils.ts';
+import { json, jsonGZ } from './utils.ts';
 
 // https://datatracker.ietf.org/doc/html/rfc8452#appendix-C
 const NIST_VECTORS = json('./vectors/nist_800_38a.json');
 const VECTORS = json('./vectors/siv.json');
-const aes_gcm_test = json('./vectors/wycheproof/aes_gcm_test.json');
-const aes_gcm_siv_test = json('./vectors/wycheproof/aes_gcm_siv_test.json');
-const aes_cbc_test = json('./vectors/wycheproof/aes_cbc_pkcs5_test.json');
-const aes_kw_test = json('./vectors/wycheproof/aes_wrap_test.json');
-const aes_kwp_test = json('./vectors/wycheproof/aes_kwp_test.json');
+const aes_gcm_test = jsonGZ('./vectors/acvp-vectors/wycheproof/testvectors_v1/aes_gcm_test.json.gz');
+const aes_gcm_siv_test = jsonGZ('./vectors/acvp-vectors/wycheproof/testvectors_v1/aes_gcm_siv_test.json.gz');
+const aes_cbc_test = jsonGZ('./vectors/acvp-vectors/wycheproof/testvectors_v1/aes_cbc_pkcs5_test.json.gz');
+const aes_kw_test = jsonGZ('./vectors/acvp-vectors/wycheproof/testvectors_v1/aes_wrap_test.json.gz');
+const aes_kwp_test = jsonGZ('./vectors/acvp-vectors/wycheproof/testvectors_v1/aes_kwp_test.json.gz');
 const hex = { decode: hexToBytes, encode: bytesToHex };
 
 const isDeno = 'deno' in process.versions;

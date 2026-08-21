@@ -122,7 +122,8 @@ export function json(path) {
     // return require('./' + file + '.json'); // in this form so that bundler can glob this
   }
 }
-const jsonGZ = (path) => JSON.parse(gunzipSync(readFileSync(`${_dirname}/${path}`)));
+import { jsonGZ as readJsonGZ } from './vectors/acvp-vectors/utils.js';
+const jsonGZ = (path) => readJsonGZ(`${_dirname}/${path}`);
 
 const unalign = (arr, len) => {
   const n = new Uint8Array(arr.length + len);

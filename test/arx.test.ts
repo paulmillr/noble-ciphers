@@ -31,14 +31,14 @@ import {
   xchacha20poly1305_small,
   xsalsa20poly1305_small,
 } from './misc/micro-ciphers.ts';
-import { json } from './utils.ts';
+import { json, jsonGZ } from './utils.ts';
 
 const stable_chacha_poly = json('./vectors/stablelib_chacha20poly1305.json');
 const stable_xchacha_poly = json('./vectors/stablelib_xchacha20poly1305.json');
 const stable_poly1305 = json('./vectors/stablelib_poly1305.json');
 // Wycheproof
-const wycheproof_chacha20_poly1305 = json('./vectors/wycheproof/chacha20_poly1305_test.json');
-const wycheproof_xchacha20_poly1305 = json('./vectors/wycheproof/xchacha20_poly1305_test.json');
+const wycheproof_chacha20_poly1305 = jsonGZ('./vectors/acvp-vectors/wycheproof/testvectors_v1/chacha20_poly1305_test.json.gz');
+const wycheproof_xchacha20_poly1305 = jsonGZ('./vectors/acvp-vectors/wycheproof/testvectors_v1/xchacha20_poly1305_test.json.gz');
 // getKey for hsalsa/hchacha
 const sigma16 = new TextEncoder().encode('expand 16-byte k');
 const sigma32 = new TextEncoder().encode('expand 32-byte k');
