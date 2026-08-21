@@ -3,7 +3,7 @@ import { deepStrictEqual, throws } from 'node:assert';
 import { pathToFileURL } from 'node:url';
 import { aessiv as siv, unsafe } from '../src/aes.ts';
 import { bytesToHex, hexToBytes } from '../src/utils.ts';
-import { json } from './utils.ts';
+import { json, jsonGZ } from './utils.ts';
 const BT = { describe, it };
 
 export function test(variant = 'noble', platform = { aessiv: siv, unsafe }, { describe, it } = BT) {
@@ -137,7 +137,7 @@ export function test(variant = 'noble', platform = { aessiv: siv, unsafe }, { de
 
     describe('Wycheproof', () => {
       it('vectors', () => {
-        const aes_siv_test = json('./vectors/wycheproof/aes_siv_cmac_test.json');
+        const aes_siv_test = jsonGZ('./vectors/acvp-vectors/wycheproof/testvectors_v1/aes_siv_cmac_test.json.gz');
         for (const group of aes_siv_test.testGroups) {
           for (const t of group.tests) {
             const label = `Key size ${group.keySize}/TCID ${t.tcId} - ${t.comment}`;

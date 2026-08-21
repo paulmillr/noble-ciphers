@@ -3,9 +3,9 @@ import { deepStrictEqual as eql, throws } from 'node:assert';
 import { rngAesCtrDrbg128, rngAesCtrDrbg256 } from '../src/aes.ts';
 import { rngChacha20, rngChacha8 } from '../src/chacha.ts';
 import { hexToBytes } from '../src/utils.ts';
-import { json } from './utils.ts';
+import { json, jsonGZ } from './utils.ts';
 
-const AVCP_VECTORS = json('./vectors/ctrDRBG-1.0/internalProjection.json'); // AES-CTR-DRBG
+const AVCP_VECTORS = jsonGZ('./vectors/acvp-vectors/acvp/ctrDRBG-1.0/internalProjection.json.gz'); // AES-CTR-DRBG
 
 /**
  * Cryptographically Secure PRNG (CSPRNG) Notes
