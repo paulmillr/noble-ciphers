@@ -41,12 +41,55 @@ function NUMradix(radix: number, data: number[]): bigint {
   return res;
 }
 
-// ceil(ceil(v * log2(radix)) / 8), calculated without floating point as required by the
+type IntInterval = { min: bigint; max: bigint; shift: number };
+
+function bigintBits(n: bigint): number {
+  return n.toString(2).length;
+}
+
+// Keep an outward-rounded interval while discarding low bits. This bounds large powers without
+// asking runtimes to materialize them (Bun, for example, has a lower maximum BigInt size).
+function trimInterval({ min, max, shift }: IntInterval, precision: number): IntInterval {
+  const drop = Math.max(0, bigintBits(max) - precision);
+  if (!drop) return { min, max, shift };
+  const bits = BigInt(drop);
+  const mask = (BigInt(1) << bits) - BigInt(1);
+  return { min: min >> bits, max: (max + mask) >> bits, shift: shift + drop };
+}
+
+function mulInterval(a: IntInterval, b: IntInterval, precision: number): IntInterval {
+  return trimInterval(
+    { min: a.min * b.min, max: a.max * b.max, shift: a.shift + b.shift },
+    precision
+  );
+}
+
+function powInterval(radix: number, exp: number, precision: number): IntInterval {
+  let res = { min: BigInt(1), max: BigInt(1), shift: 0 };
+  let base = { min: BigInt(radix), max: BigInt(radix), shift: 0 };
+  while (exp) {
+    if (exp % 2) res = mulInterval(res, base, precision);
+    exp = Math.floor(exp / 2);
+    if (exp) base = mulInterval(base, base, precision);
+  }
+  return res;
+}
+
+// ceil(ceil(v * log2(radix)) / 8), calculated with exact integer bounds as required by the
 // current SP 800-38G revision. radix**v - 1 is the largest value encoded in `b` bytes.
 function getFF1RadixBytes(radix: number, v: number): number {
-  const max = BigInt(radix) ** BigInt(v) - BigInt(1);
-  if (max === BigInt(0)) return 0;
-  return Math.ceil(max.toString(2).length / 8);
+  if (!v) return 0;
+  // radix**v is a power of two only when radix is, and subtracting one then changes its bit size.
+  if ((radix & (radix - 1)) === 0) {
+    const bits = bigintBits(BigInt(radix)) - 1;
+    return Math.ceil((bits * v) / 8);
+  }
+  for (let precision = 64; ; precision *= 2) {
+    const { min, max, shift } = powInterval(radix, v, precision);
+    const minBytes = Math.ceil((bigintBits(min) + shift) / 8);
+    const maxBytes = Math.ceil((bigintBits(max) + shift) / 8);
+    if (minBytes === maxBytes) return minBytes;
+  }
 }
 
 // Test-only hook for sizing edge cases that would require million-digit FF1 inputs.
