@@ -37,8 +37,12 @@ const stable_chacha_poly = json('./vectors/stablelib_chacha20poly1305.json');
 const stable_xchacha_poly = json('./vectors/stablelib_xchacha20poly1305.json');
 const stable_poly1305 = json('./vectors/stablelib_poly1305.json');
 // Wycheproof
-const wycheproof_chacha20_poly1305 = jsonGZ('./vectors/acvp-vectors/wycheproof/testvectors_v1/chacha20_poly1305_test.json.gz');
-const wycheproof_xchacha20_poly1305 = jsonGZ('./vectors/acvp-vectors/wycheproof/testvectors_v1/xchacha20_poly1305_test.json.gz');
+const wycheproof_chacha20_poly1305 = jsonGZ(
+  './vectors/acvp-vectors/wycheproof/testvectors_v1/chacha20_poly1305_test.json.gz'
+);
+const wycheproof_xchacha20_poly1305 = jsonGZ(
+  './vectors/acvp-vectors/wycheproof/testvectors_v1/xchacha20_poly1305_test.json.gz'
+);
 // getKey for hsalsa/hchacha
 const sigma16 = new TextEncoder().encode('expand 16-byte k');
 const sigma32 = new TextEncoder().encode('expand 32-byte k');
@@ -302,6 +306,43 @@ export function test(
           () => fn(key, nonce, data, new Uint8Array(8)),
           /"output" expected Uint8Array of length 4/
         );
+      }
+    });
+    it('raw stream ciphers reject output that overlaps unread input', () => {
+      const message = Uint8Array.from({ length: 128 }, (_, i) => i);
+      const cases = [
+        { fn: chacha8, key: new Uint8Array(32), nonce: new Uint8Array(12) },
+        { fn: chacha12, key: new Uint8Array(32), nonce: new Uint8Array(12) },
+        { fn: chacha20, key: new Uint8Array(32), nonce: new Uint8Array(12) },
+        { fn: chacha20orig, key: new Uint8Array(32), nonce: new Uint8Array(8) },
+        { fn: xchacha20, key: new Uint8Array(32), nonce: new Uint8Array(24) },
+        { fn: salsa20, key: new Uint8Array(32), nonce: new Uint8Array(8) },
+        { fn: xsalsa20, key: new Uint8Array(32), nonce: new Uint8Array(24) },
+      ];
+      for (const { fn, key, nonce } of cases) {
+        const expected = fn(key, nonce, message);
+
+        // Exact in-place operation remains supported.
+        const inPlace = message.slice();
+        eql(fn(key, nonce, inPlace, inPlace), expected);
+
+        for (const shift of [1, 4, 63]) {
+          const forward = new Uint8Array(message.length + shift);
+          forward.set(message);
+          const input = forward.subarray(0, message.length);
+          const output = forward.subarray(shift);
+          const before = forward.slice();
+          throws(() => fn(key, nonce, input, output), /complex overlap/);
+          eql(forward, before);
+
+          // Output-before-input overlap cannot overwrite bytes that have not been read yet.
+          const backward = new Uint8Array(message.length + shift);
+          backward.set(message, shift);
+          eql(
+            fn(key, nonce, backward.subarray(shift), backward.subarray(0, message.length)),
+            expected
+          );
+        }
       }
     });
   });

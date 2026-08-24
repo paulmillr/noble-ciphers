@@ -48,6 +48,7 @@ import {
   anumber,
   checkOpts,
   clean,
+  complexOverlapBytes,
   copyBytes,
   getOutput,
   isAligned32,
@@ -257,7 +258,9 @@ export function createCipher(core: TArg<CipherCoreFn>, opts: TArg<CipherOpts>): 
     const len = data.length;
     // Raw XorStream APIs return ciphertext/plaintext bytes directly, so caller-provided outputs
     // must match the logical result length exactly instead of returning an oversized workspace.
+    const hasOutput = output !== undefined;
     output = getOutput(len, output, false);
+    if (hasOutput) complexOverlapBytes(data, output);
     anumber(counter);
     // See MAX_COUNTER policy note above: reject advanced explicit-counter requests before any wrap.
     if (counter < 0 || counter >= MAX_COUNTER) throw new Error('arx: counter overflow');
