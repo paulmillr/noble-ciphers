@@ -41,12 +41,27 @@ function NUMradix(radix: number, data: number[]): bigint {
   return res;
 }
 
+// ceil(ceil(v * log2(radix)) / 8), calculated without floating point as required by the
+// current SP 800-38G revision. radix**v - 1 is the largest value encoded in `b` bytes.
+function getFF1RadixBytes(radix: number, v: number): number {
+  const max = BigInt(radix) ** BigInt(v) - BigInt(1);
+  if (max === BigInt(0)) return 0;
+  return Math.ceil(max.toString(2).length / 8);
+}
+
+// Test-only hook for sizing edge cases that would require million-digit FF1 inputs.
+export const __TESTS: {
+  getFF1RadixBytes: typeof getFF1RadixBytes;
+} = /* @__PURE__ */ Object.freeze({ getFF1RadixBytes });
+
 function getRound(radix: number, key: TArg<Uint8Array>, tweak: TArg<Uint8Array>, x: number[]) {
   // This implementation writes [radix]3 as 0x00 || uint16_be(radix), so radix=2^16
   // needs a real 24-bit encoder before it can be supported.
-  if (radix > 2 ** 16 - 1) throw new Error('invalid radix ' + radix);
+  if (radix < 2 || radix > 2 ** 16 - 1) throw new Error('invalid radix ' + radix);
   // minLen must satisfy both radix**minlen ≥ 100 and minlen ≥ 2.
-  const minLen = Math.max(2, Math.ceil(Math.log(100) / Math.log(radix)));
+  let minLen = 0;
+  for (let domain = BigInt(1); domain < BigInt(100); domain *= BigInt(radix)) minLen++;
+  minLen = Math.max(2, minLen);
   const maxLen = 2 ** 32 - 1;
   // 2 ≤ minlen ≤ maxlen < 2**32
   if (2 > minLen || minLen > maxLen || maxLen >= 2 ** 32)
@@ -61,7 +76,7 @@ function getRound(radix: number, key: TArg<Uint8Array>, tweak: TArg<Uint8Array>,
   }
   const u = Math.floor(x.length / 2);
   const v = x.length - u;
-  const b = Math.ceil(Math.ceil(v * Math.log2(radix)) / 8);
+  const b = getFF1RadixBytes(radix, v);
   const d = 4 * Math.ceil(b / 4) + 4;
   const padding = mod(-tweak.length - b - 1, 16);
   // P = [1]1 || [2]1 || [1]1 || [radix]3 || [10]1 || [u mod 256]1 || [n]4 || [t]4.

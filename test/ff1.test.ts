@@ -1,6 +1,6 @@
 import { describe, it } from '@paulmillr/jsbt/test.js';
 import { deepStrictEqual as eql, throws } from 'node:assert';
-import { BinaryFF1, FF1 } from '../src/ff1.ts';
+import { __TESTS, BinaryFF1, FF1 } from '../src/ff1.ts';
 import { hexToBytes, json } from './utils.ts';
 
 const fromHex = (hex) => {
@@ -138,6 +138,16 @@ describe('FF1', () => {
       eql(ff1.encrypt(v.msg), v.ct);
       eql(ff1.decrypt(v.ct), v.msg);
     }
+  });
+
+  it('calculates b with exact integer arithmetic', () => {
+    eql(__TESTS.getFF1RadixBytes(2, 8), 1);
+    eql(__TESTS.getFF1RadixBytes(2, 9), 2);
+    eql(__TESTS.getFF1RadixBytes(256, 1), 1);
+    eql(__TESTS.getFF1RadixBytes(256, 2), 2);
+    // Floating point underallocates this valid SP 800-38G input by one byte.
+    eql(Math.ceil(Math.ceil(680993 * Math.log2(29370)) / 8), 1263417);
+    eql(__TESTS.getFF1RadixBytes(29370, 680993), 1263418);
   });
 
   it(`Binary FF1 encrypt`, () => {
