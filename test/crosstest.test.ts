@@ -383,7 +383,7 @@ export function test(
           // Cryptographic counter-wrap boundaries are covered directly in aes.test.ts/arx.test.ts.
           // Failure to allocate is intentional: the scheduled large-input gate must not pass by
           // silently omitting the cases it exists to run.
-          it('5 GB large input', () => {
+          it.serial('5 GB large input', () => {
             const input = new Uint8Array(5 * GB);
             const nodeEncrypted = v.node.encrypt(input, v.opts);
             const nobleEncrypted = v.noble.encrypt(input, v.opts);
