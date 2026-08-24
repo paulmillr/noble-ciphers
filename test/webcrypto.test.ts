@@ -93,6 +93,74 @@ export function test(variant = 'noble', platform = { cbc, ctr, gcm, web }, { des
       throws(() => (web.cbc as any)(key, nonce, aad));
       throws(() => (web.ctr as any)(key, nonce, aad));
     });
+    it('snapshots key and crypt params, but not payload, before awaiting key import', async () => {
+      const originalCrypto = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+      const calls: any[] = [];
+      let resumeImport!: () => void;
+      let importGate = new Promise<void>((resolve) => (resumeImport = resolve));
+      const record = (params, key, data) => {
+        const savedParams = { ...params };
+        for (const name of ['iv', 'counter', 'additionalData'])
+          if (savedParams[name] !== undefined)
+            savedParams[name] = Uint8Array.from(savedParams[name]);
+        calls.push({ params: savedParams, key, data: Uint8Array.from(data) });
+      };
+      const subtle = {
+        async importKey(_format, key, _params, _extractable, usages) {
+          const snapshot = Uint8Array.from(key);
+          await importGate;
+          return { key: snapshot, usage: usages[0] };
+        },
+        async encrypt(params, key, data) {
+          record(params, key, data);
+          return Uint8Array.from(data).buffer;
+        },
+        async decrypt(params, key, data) {
+          record(params, key, data);
+          return Uint8Array.from(data).buffer;
+        },
+      };
+      Object.defineProperty(globalThis, 'crypto', { configurable: true, value: { subtle } });
+      try {
+        const key = Uint8Array.of(1, 2, 3, 4);
+        const nonce = Uint8Array.of(5, 6, 7, 8);
+        const aad = Uint8Array.of(9, 10);
+        const plaintext = Uint8Array.of(11, 12, 13);
+        const expected = {
+          key: key.slice(),
+          nonce: nonce.slice(),
+          aad: aad.slice(),
+        };
+        const encrypted = web.gcm(key, nonce, aad).encrypt(plaintext);
+        key.fill(0);
+        nonce.fill(0);
+        aad.fill(0);
+        plaintext.fill(21);
+        const expectedPlaintext = plaintext.slice();
+        resumeImport();
+        eql(await encrypted, expectedPlaintext);
+        eql(calls[0].key, { key: expected.key, usage: 'encrypt' });
+        eql(calls[0].params.iv, expected.nonce);
+        eql(calls[0].params.additionalData, expected.aad);
+        eql(calls[0].data, expectedPlaintext);
+
+        importGate = new Promise<void>((resolve) => (resumeImport = resolve));
+        const ciphertext = Uint8Array.of(14, 15, 16);
+        const decryptNonce = Uint8Array.of(17, 18, 19, 20);
+        const expectedNonce = decryptNonce.slice();
+        const decrypted = web.ctr(expected.key, decryptNonce).decrypt(ciphertext);
+        decryptNonce.fill(0);
+        ciphertext.fill(22);
+        const expectedCiphertext = ciphertext.slice();
+        resumeImport();
+        eql(await decrypted, expectedCiphertext);
+        eql(calls[1].params.counter, expectedNonce);
+        eql(calls[1].data, expectedCiphertext);
+      } finally {
+        if (originalCrypto) Object.defineProperty(globalThis, 'crypto', originalCrypto);
+        else delete (globalThis as any).crypto;
+      }
+    });
   });
 }
 
