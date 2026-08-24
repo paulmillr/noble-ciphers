@@ -273,7 +273,7 @@ export class Poly1305 implements IHash2 {
     const { buffer, blockLen } = this;
     const len = data.length;
 
-    for (let pos = 0; pos < len; ) {
+    for (let pos = 0; pos < len;) {
       const take = Math.min(blockLen - this.pos, len - pos);
       // Fast path: we have at least one block in input
       if (take === blockLen) {

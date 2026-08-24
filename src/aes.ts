@@ -645,7 +645,7 @@ export const ecb: TRet<
         const b = u32(input);
         swap32IfBE(b);
         let i = 0;
-        for (; i + 4 <= b.length; ) {
+        for (; i + 4 <= b.length;) {
           const { s0, s1, s2, s3 } = encrypt(xk, b[i + 0], b[i + 1], b[i + 2], b[i + 3]);
           ((o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3));
         }
@@ -675,7 +675,7 @@ export const ecb: TRet<
         const b = u32(ciphertext);
         const o = u32(dst);
         swap32IfBE(b);
-        for (let i = 0; i + 4 <= b.length; ) {
+        for (let i = 0; i + 4 <= b.length;) {
           const { s0, s1, s2, s3 } = decrypt(xk, b[i + 0], b[i + 1], b[i + 2], b[i + 3]);
           ((o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3));
         }
@@ -740,7 +740,7 @@ export const cbc: TRet<
         // prettier-ignore
         let s0 = n32[0], s1 = n32[1], s2 = n32[2], s3 = n32[3];
         let i = 0;
-        for (; i + 4 <= b.length; ) {
+        for (; i + 4 <= b.length;) {
           ((s0 ^= b[i + 0]), (s1 ^= b[i + 1]), (s2 ^= b[i + 2]), (s3 ^= b[i + 3]));
           ({ s0, s1, s2, s3 } = encrypt(xk, s0, s1, s2, s3));
           ((o[i++] = s0), (o[i++] = s1), (o[i++] = s2), (o[i++] = s3));
@@ -780,7 +780,7 @@ export const cbc: TRet<
         swap32IfBE(b);
         // prettier-ignore
         let s0 = n32[0], s1 = n32[1], s2 = n32[2], s3 = n32[3];
-        for (let i = 0; i + 4 <= b.length; ) {
+        for (let i = 0; i + 4 <= b.length;) {
           // prettier-ignore
           const ps0 = s0, ps1 = s1, ps2 = s2, ps3 = s3;
           ((s0 = b[i + 0]), (s1 = b[i + 1]), (s2 = b[i + 2]), (s3 = b[i + 3]));
@@ -851,7 +851,7 @@ export const cfb: TRet<
       swap32IfBE(n32);
       // prettier-ignore
       let s0 = n32[0], s1 = n32[1], s2 = n32[2], s3 = n32[3];
-      for (let i = 0; i + 4 <= src32.length; ) {
+      for (let i = 0; i + 4 <= src32.length;) {
         const { s0: e0, s1: e1, s2: e2, s3: e3 } = encrypt(xk, s0, s1, s2, s3);
         dst32[i + 0] = src32[i + 0] ^ e0;
         dst32[i + 1] = src32[i + 1] ^ e1;

@@ -703,8 +703,7 @@ export function overlapBytes(a: TArg<Uint8Array>, b: TArg<Uint8Array>): boolean 
 
 /**
  * If input and output overlap and input starts before output, we will overwrite end of input before
- * we start processing it, so this is not supported for most ciphers
- * (except chacha/salsa, which were designed for this)
+ * we start processing it, so this is not supported by forward-processing ciphers.
  * @param input - Input bytes.
  * @param output - Output bytes.
  * @throws If the output view would overwrite unread input bytes. {@link Error}

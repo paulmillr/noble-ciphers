@@ -137,7 +137,9 @@ export function test(variant = 'noble', platform = { aessiv: siv, unsafe }, { de
 
     describe('Wycheproof', () => {
       it('vectors', () => {
-        const aes_siv_test = jsonGZ('./vectors/acvp-vectors/wycheproof/testvectors_v1/aes_siv_cmac_test.json.gz');
+        const aes_siv_test = jsonGZ(
+          './vectors/acvp-vectors/wycheproof/testvectors_v1/aes_siv_cmac_test.json.gz'
+        );
         for (const group of aes_siv_test.testGroups) {
           for (const t of group.tests) {
             const label = `Key size ${group.keySize}/TCID ${t.tcId} - ${t.comment}`;
