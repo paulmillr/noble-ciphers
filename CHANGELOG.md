@@ -2,8 +2,6 @@
 
 ## 2.4.0 (2026-08-27)
 
-### Hardening
-
 - ChaCha / Salsa: reject output buffers that partially overlap unread input
 - PRG: using after clean now throws
 - Webcrypto: snapshot keys and params
