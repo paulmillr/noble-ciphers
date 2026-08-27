@@ -36,16 +36,9 @@ async function main() {
     await bench('aes-gcm-256', () => gcm(key, nonce).encrypt(buf));
     await bench('aes-gcm-siv-256', () => gcmsiv(key, nonce).encrypt(buf));
     await bench('aes-siv-256', () => aessiv(key, nonce, nonce16, nonce24).encrypt(buf));
-    await bench('aes-siv-512', () => aessiv(key64, nonce, nonce16, nonce24).encrypt(buf));
 
     subsection('Unauthenticated encryption');
-    await bench('salsa20', () => salsa20(key, nonce8, buf));
-    await bench('xsalsa20', () => xsalsa20(key, nonce24, buf));
     await bench('chacha20', () => chacha20(key, nonce, buf));
-    await bench('xchacha20', () => xchacha20(key, nonce24, buf));
-    await bench('chacha8', () => chacha8(key, nonce, buf));
-    await bench('chacha12', () => chacha12(key, nonce, buf));
-    await bench('aes-ecb-256', () => ecb(key).encrypt(buf));
     await bench('aes-cbc-256', () => cbc(key, nonce16).encrypt(buf));
     await bench('aes-ctr-256', () => ctr(key, nonce16).encrypt(buf));
 

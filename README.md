@@ -40,81 +40,156 @@ For React Native, you may need a
 A standalone file
 [noble-ciphers.js](https://github.com/paulmillr/noble-ciphers/releases) is also available.
 
-```ts
-// import * from '@noble/ciphers'; // Error: use sub-imports, to ensure small app size
-import { gcm, gcmsiv } from '@noble/ciphers/aes.js';
-import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha.js';
-import { xsalsa20poly1305 } from '@noble/ciphers/salsa.js';
-
-// Unauthenticated encryption: make sure to use HMAC or similar
-import { ctr, cfb, cbc, ecb } from '@noble/ciphers/aes.js';
-import { salsa20, xsalsa20 } from '@noble/ciphers/salsa.js';
-import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha.js';
-import { aeskw, aeskwp } from '@noble/ciphers/aes.js'; // KW
-import { FF1, BinaryFF1 } from '@noble/ciphers/ff1.js'; // format-preserving encryption
-import { rngAesCtrDrbg128, rngAesCtrDrbg256 } from '@noble/ciphers/aes.js'; // CSPRNG
-import { rngChacha8, rngChacha20 } from '@noble/ciphers/chacha.js'; // CSPRNG
-import { bytesToHex, hexToBytes, managedNonce, randomBytes } from '@noble/ciphers/utils.js';
-```
-
-- [Examples](#examples)
-  - [XChaCha20-Poly1305 encryption](#xchacha20-poly1305-encryption)
-  - [AES-256-GCM encryption](#aes-256-gcm-encryption)
-  - [managedNonce: automatic nonce handling](#managednonce-automatic-nonce-handling)
-  - [AES: gcm, siv, ctr, cfb, cbc, ecb, aeskw](#aes-gcm-siv-ctr-cfb-cbc-ecb-aeskw)
-  - [AES: friendly WebCrypto wrapper](#aes-friendly-webcrypto-wrapper)
-  - [Reuse array for input and output](#reuse-array-for-input-and-output)
-  - [Randomness generation](#randomness-generation)
-  - [Use password for encryption](#use-password-for-encryption)
-- [Internals](#internals)
-  - [Picking a cipher](#picking-a-cipher)
-  - [How to encrypt properly](#how-to-encrypt-properly)
-  - [Nonces](#nonces)
-  - [Encryption limits](#encryption-limits)
-  - [AES block modes](#aes-block-modes)
-  - [Implemented primitives](#implemented-primitives)
-- [Security](#security)
-- [Speed](#speed)
-- [Upgrading](#upgrading)
-- [Contributing & testing](#contributing--testing)
-- [License](#license)
-
-## Examples
-
-> [!NOTE]
-> Use different nonce every time `encrypt()` is done.
-
-#### XChaCha20-Poly1305 encryption
-
 ```js
+// import * from '@noble/ciphers'; // Error: use sub-imports, to ensure small app size
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js';
 import { randomBytes } from '@noble/ciphers/utils.js';
-const key = randomBytes(32); // random key
-// const key = new Uint8Array([ // existing key
-//   169, 88, 160, 139, 168, 29, 147, 196, 14, 88, 237, 76, 243, 177, 109, 140,
-//   195, 140, 80, 10, 216, 134, 215, 71, 191, 48, 20, 104, 189, 37, 38, 55,
-// ]);
-// import { hexToBytes } from '@noble/ciphers/utils.js'; // hex key
-// const key = hexToBytes('4b7f89bac90a1086fef73f5da2cbe93b2fae9dfbf7678ae1f3e75fd118ddf999');
+const key = randomBytes(32);
 const nonce = randomBytes(24);
+const data = new TextEncoder().encode('hello noble');
+const ciphertext = xchacha20poly1305(key, nonce).encrypt(data);
+```
+
+- [chacha: chacha20poly1305, xchacha20poly1305](#chacha-chacha20poly1305-xchacha20poly1305)
+- [salsa: xsalsa20poly1305, secretbox](#salsa-xsalsa20poly1305-secretbox)
+- [aes: gcm, gcmsiv, aessiv, ctr, cbc, cfb, ecb, aeskw](#aes-gcm-gcmsiv-aessiv-ctr-cbc-cfb-ecb-aeskw)
+- [ff1: format-preserving encryption](#ff1-format-preserving-encryption)
+- [webcrypto: friendly wrapper](#webcrypto-friendly-wrapper)
+- [utils](#utils)
+- [managedNonce: automatic nonce handling](#managednonce-automatic-nonce-handling)
+- [Reuse array for input and output](#reuse-array-for-input-and-output)
+- [Randomness generation](#randomness-generation)
+- [Use password for encryption](#use-password-for-encryption)
+- [Internals](#internals):
+  [Picking a cipher](#picking-a-cipher) |
+  [How to encrypt properly](#how-to-encrypt-properly) |
+  [Encryption limits](#encryption-limits)
+- [Security](#security) | [Speed](#speed) | [Upgrading](#upgrading) | [Contributing & testing](#contributing--testing) | [License](#license)
+
+### Implementations
+
+- `cipher(key, nonce).encrypt(data)` and `.decrypt(ciphertext)`: receive & return `Uint8Array`
+- AEADs (gcm, gcmsiv, aessiv, chacha20poly1305, xchacha20poly1305, xsalsa20poly1305)
+  authenticate data: ciphertext includes a 16-byte tag, `decrypt` throws on tampering
+- Unauthenticated ciphers (ctr, cbc, cfb, ecb, salsa20, chacha20 & others)
+  must be combined with HMAC or similar
+- Use a new [nonce](#how-to-encrypt-properly) every time `encrypt()` is done
+
+#### chacha: chacha20poly1305, xchacha20poly1305
+
+```js
+import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha.js';
+import { randomBytes } from '@noble/ciphers/utils.js';
+const key = randomBytes(32);
+const nonce = randomBytes(24); // 12 bytes for chacha20poly1305
 const chacha = xchacha20poly1305(key, nonce);
 const data = new TextEncoder().encode('hello noble');
 const ciphertext = chacha.encrypt(data);
 const data_ = chacha.decrypt(ciphertext); // new TextDecoder().decode(data_) === data
+
+// Unauthenticated stream ciphers
+import { chacha20, xchacha20, chacha8, chacha12 } from '@noble/ciphers/chacha.js';
+const stream = chacha20(key, randomBytes(12), data);
 ```
 
-#### AES-256-GCM encryption
+#### salsa: xsalsa20poly1305, secretbox
 
 ```js
-import { gcm } from '@noble/ciphers/aes.js';
+import { xsalsa20poly1305, secretbox } from '@noble/ciphers/salsa.js';
 import { randomBytes } from '@noble/ciphers/utils.js';
 const key = randomBytes(32);
+const nonce = randomBytes(24);
+const data = new TextEncoder().encode('hello noble');
+const ciphertext = xsalsa20poly1305(key, nonce).encrypt(data);
+
+// NaCl / libsodium compatibility
+const box = secretbox(key, nonce);
+const sealed = box.seal(data);
+const data_ = box.open(sealed);
+
+// Unauthenticated stream ciphers
+import { salsa20, xsalsa20 } from '@noble/ciphers/salsa.js';
+const stream = salsa20(key, randomBytes(8), data);
+```
+
+xsalsa20poly1305 is also known as NaCl / libsodium "secretbox".
+"crypto_box" and "sealedbox" are available in package
+[noble-sodium](https://github.com/serenity-kit/noble-sodium).
+
+#### aes: gcm, gcmsiv, aessiv, ctr, cbc, cfb, ecb, aeskw
+
+```js
+import { gcm, gcmsiv, aessiv, ctr, cfb, cbc, ecb } from '@noble/ciphers/aes.js';
+import { randomBytes } from '@noble/ciphers/utils.js';
+const key = randomBytes(32); // 24 for AES-192, 16 for AES-128
 const nonce = randomBytes(12);
 const data = new TextEncoder().encode('hello noble');
 const aes = gcm(key, nonce);
 const ciphertext = aes.encrypt(data);
-const data_ = aes.decrypt(ciphertext); // new TextDecoder().decode(data_) === data
+const data_ = aes.decrypt(ciphertext);
+
+// Other modes share the same API
+const plaintext = new Uint8Array(32).fill(16);
+// gcm, gcmsiv, aessiv use 12-byte nonces; ctr, cbc, cfb use 16-byte
+const modes = [[gcm, 12], [gcmsiv, 12], [aessiv, 12], [ctr, 16], [cbc, 16], [cfb, 16]];
+for (const [cipher, nonceLength] of modes) {
+  const nonce_ = randomBytes(nonceLength);
+  const ciphertext_ = cipher(key, nonce_).encrypt(plaintext);
+  const plaintext_ = cipher(key, nonce_).decrypt(ciphertext_);
+}
+const ecbCiphertext = ecb(key).encrypt(plaintext); // ecb has no nonce
+
+// AESKW, AESKWP
+import { aeskw, aeskwp } from '@noble/ciphers/aes.js';
+import { hexToBytes } from '@noble/ciphers/utils.js';
+const kek = hexToBytes('000102030405060708090A0B0C0D0E0F');
+const keyData = hexToBytes('00112233445566778899AABBCCDDEEFF');
+const wrapped = aeskw(kek).encrypt(keyData);
 ```
+
+AES-128, AES-192 and AES-256 are selected dynamically, based on key length (16, 24, 32).
+
+#### ff1: format-preserving encryption
+
+```js
+import { FF1, BinaryFF1 } from '@noble/ciphers/ff1.js';
+import { randomBytes } from '@noble/ciphers/utils.js';
+const key = randomBytes(32);
+const radix = 10; // every digit is in 0..9
+const ff1 = FF1(radix, key);
+const encrypted = ff1.encrypt([9, 4, 1, 0]);
+const digits = ff1.decrypt(encrypted);
+const bff1 = BinaryFF1(key);
+const encrypted2 = bff1.encrypt(Uint8Array.from([5, 6, 7]));
+```
+
+#### webcrypto: friendly wrapper
+
+```js
+import { gcm, ctr, cbc } from '@noble/ciphers/webcrypto.js';
+import { randomBytes } from '@noble/ciphers/utils.js';
+const plaintext = new Uint8Array(32).fill(16);
+const key = randomBytes(32);
+for (const [cipher, nonceLength] of [[gcm, 12], [ctr, 16], [cbc, 16]]) {
+  const nonce = randomBytes(nonceLength);
+  const ciphertext_ = await cipher(key, nonce).encrypt(plaintext);
+  const plaintext_ = await cipher(key, nonce).decrypt(ciphertext_);
+}
+```
+
+A thin wrapper over built-in `crypto.subtle`, mirroring the noble-ciphers API.
+Webcrypto methods are always async.
+
+#### utils
+
+```js
+import { bytesToHex as toHex, hexToBytes, randomBytes } from '@noble/ciphers/utils.js';
+console.log(toHex(randomBytes(32)));
+```
+
+- `bytesToHex`, `hexToBytes` convert between `Uint8Array` and hex string
+- `randomBytes(len)` produces cryptographically secure random bytes
+- `managedNonce` is described below
 
 #### managedNonce: automatic nonce handling
 
@@ -136,63 +211,6 @@ const chacha = managedNonce(xchacha20poly1305)(key); // manages nonces for you
 const data = new TextEncoder().encode('hello noble');
 const ciphertext = chacha.encrypt(data);
 const data_ = chacha.decrypt(ciphertext);
-```
-
-#### AES: gcm, siv, ctr, cfb, cbc, ecb, aeskw
-
-```js
-import { gcm, gcmsiv, aessiv, ctr, cfb, cbc, ecb } from '@noble/ciphers/aes.js';
-import { randomBytes } from '@noble/ciphers/utils.js';
-const plaintext = new Uint8Array(32).fill(16);
-for (let cipher of [gcm, gcmsiv, aessiv]) {
-  const key = randomBytes(32); // 24 for AES-192, 16 for AES-128
-  const nonce = randomBytes(12);
-  const ciphertext_ = cipher(key, nonce).encrypt(plaintext);
-  const plaintext_ = cipher(key, nonce).decrypt(ciphertext_);
-}
-for (const cipher of [ctr, cbc, cfb]) {
-  const key = randomBytes(32); // 24 for AES-192, 16 for AES-128
-  const nonce = randomBytes(16);
-  const ciphertext_ = cipher(key, nonce).encrypt(plaintext);
-  const plaintext_ = cipher(key, nonce).decrypt(ciphertext_);
-}
-for (const cipher of [ecb]) {
-  const key = randomBytes(32); // 24 for AES-192, 16 for AES-128
-  const ciphertext_ = cipher(key).encrypt(plaintext);
-  const plaintext_ = cipher(key).decrypt(ciphertext_);
-}
-
-// AESKW, AESKWP
-import { aeskw, aeskwp } from '@noble/ciphers/aes.js';
-import { hexToBytes } from '@noble/ciphers/utils.js';
-
-const kek = hexToBytes('000102030405060708090A0B0C0D0E0F');
-const keyData = hexToBytes('00112233445566778899AABBCCDDEEFF');
-const ciphertext = aeskw(kek).encrypt(keyData);
-```
-
-#### AES: friendly WebCrypto wrapper
-
-Noble implements AES. Sometimes people want to use built-in `crypto.subtle` instead. However, it has terrible API. We simplify access to built-ins.
-
-> [!NOTE]
-> Webcrypto methods are always async.
-
-```js
-import { gcm, ctr, cbc } from '@noble/ciphers/webcrypto.js';
-import { randomBytes } from '@noble/ciphers/utils.js';
-const plaintext = new Uint8Array(32).fill(16);
-const key = randomBytes(32);
-for (const cipher of [gcm]) {
-  const nonce = randomBytes(12);
-  const ciphertext_ = await cipher(key, nonce).encrypt(plaintext);
-  const plaintext_ = await cipher(key, nonce).decrypt(ciphertext_);
-}
-for (const cipher of [ctr, cbc]) {
-  const nonce = randomBytes(16);
-  const ciphertext_ = await cipher(key, nonce).encrypt(plaintext);
-  const plaintext_ = await cipher(key, nonce).decrypt(ciphertext_);
-}
 ```
 
 #### Reuse array for input and output
@@ -285,6 +303,21 @@ const ciphertext = chacha.encrypt(data);
 const data_ = chacha.decrypt(ciphertext);
 ```
 
+### Specs
+
+- Salsa20 & XSalsa20: [website](https://cr.yp.to/snuffle.html), [XSalsa PDF](https://cr.yp.to/snuffle/xsalsa-20110204.pdf)
+- ChaCha20 & XChaCha20: [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439), [website](https://cr.yp.to/chacha.html), [XChaCha draft](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha)
+- AES: [FIPS 197](https://csrc.nist.gov/files/pubs/fips/197/final/docs/fips-197.pdf)
+- AES-GCM: [NIST SP 800-38D](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf)
+- AES-GCM-SIV: [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452)
+- AES-SIV: [RFC 5297](https://www.rfc-editor.org/rfc/rfc5297)
+- AESKW: [RFC 3394](https://www.rfc-editor.org/rfc/rfc3394)
+- AESKWP: [RFC 5649](https://www.rfc-editor.org/rfc/rfc5649)
+- FF1: [NIST SP 800-38G](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf)
+- Poly1305: [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439), [website](https://cr.yp.to/mac.html)
+- GHash: [NIST SP 800-38D](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf)
+- Polyval: [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452)
+
 ## Internals
 
 ### Picking a cipher
@@ -299,9 +332,20 @@ We suggest to use **XChaCha20-Poly1305** because it's very fast and allows rando
   - Random key must be using cryptographically secure random number generator (CSPRNG), not `Math.random` etc.
   - Non-random key generated from KDF is fine
   - Re-using key is fine, but be aware of rules for cryptographic key wear-out and [encryption limits](#encryption-limits)
-- Use new nonce every time and [don't repeat it](#nonces)
+- Use new nonce every time and don't repeat it
+  - Nonce (aka initialization vector / IV) must never repeat for the same key:
+    an attacker can XOR two ciphertexts encrypted under a repeating (key, nonce) pair
+    and break encryption
   - chacha and salsa20 are fine for sequential counters that _never_ repeat: `01, 02...`
-  - xchacha and xsalsa20 can use random nonces instead
+    But it's not always possible to store the current counter value:
+    e.g. in decentralized, unsyncable systems
+  - Random nonces are risky for 96-bit / 12-byte nonces of ChaCha20 and AES-GCM:
+    chance of collision is too high. It's even higher for 64-bit nonces,
+    which GCM allows - don't use them
+  - To safely use random nonces, utilize XSalsa20, XChaCha or AES-SIV:
+    192-bit nonces minimize the chance of collision.
+    When eXtended-nonce algorithms are not available, rotate keys often:
+    hkdf would work great for this case
   - AES-GCM should use 12-byte nonces: smaller nonces are security risk
 - Prefer authenticated encryption (AEAD)
   - Good: chacha20poly1305, GCM, GCM-SIV, ChaCha+HMAC, CTR+HMAC, CBC+HMAC
@@ -318,37 +362,6 @@ We suggest to use **XChaCha20-Poly1305** because it's very fast and allows rando
 - Don't re-use keys between different protocols
   - For example, using ECDH key in AES can be bad
   - Use hkdf or, at least, a hash function to create sub-key instead
-
-### Nonces
-
-Most ciphers need a key and a nonce (aka initialization vector / IV) to encrypt data.
-Repeating (key, nonce) pair with different plaintexts would allow an attacker to decrypt it.
-
-    ciphertext_a = encrypt(plaintext_a, key, nonce)
-    ciphertext_b = encrypt(plaintext_b, key, nonce)
-    stream_diff = xor(ciphertext_a, ciphertext_b)    # Break encryption
-
-One way of not repeating nonces is using counters:
-
-    for i in 0..:
-        ciphertext[i] = encrypt(plaintexts[i], key, i)
-
-Another is generating random nonce every time:
-
-    for i in 0..:
-        rand_nonces[i] = random()
-        ciphertext[i] = encrypt(plaintexts[i], key, rand_nonces[i])
-
-- Counters are OK, but it's not always possible to store current counter value:
-  e.g. in decentralized, unsyncable systems.
-- Randomness is OK, but there's a catch:
-  ChaCha20 and AES-GCM use 96-bit / 12-byte nonces, which implies higher chance of collision.
-  In the example above, `random()` can collide and produce repeating nonce.
-  Chance is even higher for 64-bit nonces, which GCM allows - don't use them.
-- To safely use random nonces, utilize XSalsa20 or XChaCha:
-  they increased nonce length to 192-bit, minimizing a chance of collision.
-  AES-SIV is also fine. In situations where you can't use eXtended-nonce
-  algorithms, key rotation is advised. hkdf would work great for this case.
 
 ### Encryption limits
 
@@ -373,86 +386,17 @@ of a random function.
 
 Check out [draft-irtf-cfrg-aead-limits](https://datatracker.ietf.org/doc/draft-irtf-cfrg-aead-limits/) for details.
 
-### Implemented primitives
-
-- Salsa20 stream cipher, released in 2005.
-  Salsa's goal was to implement AES replacement that does not rely on S-Boxes,
-  which are hard to implement in a constant-time manner.
-  Salsa20 is usually faster than AES, a big deal on slow, budget mobile phones.
-  - [XSalsa20](https://cr.yp.to/snuffle/xsalsa-20110204.pdf), extended-nonce
-    variant was released in 2008. It switched nonces from 64-bit to 192-bit,
-    and became safe to be picked at random.
-  - Nacl / Libsodium popularized term "secretbox", - which is just xsalsa20poly1305.
-    We provide the alias and corresponding seal / open methods.
-    "crypto_box" and "sealedbox" are available in package [noble-sodium](https://github.com/serenity-kit/noble-sodium).
-  - Check out [PDF](https://cr.yp.to/snuffle/salsafamily-20071225.pdf)
-    and [website](https://cr.yp.to/snuffle.html).
-- ChaCha20 stream cipher, released in 2008. Developed after Salsa20,
-  ChaCha aims to increase diffusion per round.
-  - [XChaCha20](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha)
-    extended-nonce variant is also provided. Similar to XSalsa, it's safe to use with
-    randomly-generated nonces.
-  - Check out
-    [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439),
-    [PDF](http://cr.yp.to/chacha/chacha-20080128.pdf) and
-    [website](https://cr.yp.to/chacha.html).
-- AES is a variant of Rijndael block cipher, standardized by NIST in 2001.
-  We provide the fastest available pure JS implementation.
-  - We support AES-128, AES-192 and AES-256: the mode is selected dynamically,
-    based on key length (16, 24, 32).
-  - AES-GCM-SIV nonce-misuse-resistant mode is also provided. Our implementation of SIV
-    has the same speed as GCM: there is no performance hit.
-    The mode is described in [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452).
-  - There is a separate AES-SIV mode, described in [RFC 5297](https://www.rfc-editor.org/rfc/rfc5297)
-  - We also have AESKW and AESKWP from
-    [RFC 3394](https://www.rfc-editor.org/rfc/rfc3394) & [RFC 5649](https://www.rfc-editor.org/rfc/rfc5649)
-  - Format-preserving encryption algorithm (FPE-FF1) specified in
-    [NIST SP 800-38G](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38G.pdf).
-  - Check out [AES block modes](#aes-block-modes),
-    [FIPS 197](https://csrc.nist.gov/files/pubs/fips/197/final/docs/fips-197.pdf) and
-    [original proposal](https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf).
-- Polynomial-evaluation MACs are available: Poly1305, AES-GCM's GHash and AES-SIV's Polyval.
-  - Poly1305 ([PDF](https://cr.yp.to/mac/poly1305-20050329.pdf),
-    [website](https://cr.yp.to/mac.html))
-    is a fast and parallel secret-key message-authentication code suitable for
-    a wide variety of applications. It was standardized in
-    [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439) and is now used in TLS 1.3.
-  - Ghash is used in AES-GCM: see [NIST SP 800-38D](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf)
-  - Polyval is used in AES-GCM-SIV: see [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452)
-
-##### AES block modes
-
-For non-deterministic (not ECB) schemes, initialization vector (IV) is mixed to block/key;
-and each new round either depends on previous block's key, or on some counter.
-
-- **ECB** (Electronic Codebook): Deterministic encryption; identical plaintext blocks yield identical ciphertexts. Not secure due to pattern leakage.
-  See [AES Penguin](https://words.filippo.io/the-ecb-penguin/)
-- **CBC** (Cipher Block Chaining): Each plaintext block is XORed with the previous block of ciphertext
-  before encryption. Hard to use: requires proper padding and an IV. Unauthenticated: needs MAC.
-- **CTR** (Counter Mode): Turns a block cipher into a stream cipher using a counter and IV (nonce).
-  Efficient and parallelizable. Requires a unique nonce per encryption. Unauthenticated: needs MAC.
-- **GCM** (Galois/Counter Mode): Combines CTR mode with polynomial MAC. Efficient and widely used. Not perfect:
-  a) conservative key wear-out is `2**32` (4B) msgs.
-  b) key wear-out under random nonces is even smaller: `2**23` (8M) messages for `2**-50` chance.
-  c) MAC can be forged: see Poly1305 documentation.
-- **SIV** (Synthetic IV): GCM with nonce-misuse resistance; repeating nonces reveal only the fact plaintexts
-  are identical. Also suffers from GCM issues: key wear-out limits & MAC forging.
-- **XTS**: Designed for disk encryption.
-  Similar to ECB (deterministic), but has `[i][j]` tweak arguments corresponding to
-  sector i and 16-byte block (part of sector) j. Lacks MAC.
-
 ## Security
 
 The library has been audited:
 
-- at version 2.2.0, in Apr 2026, by ourselves (self-audited)
-  - Scope: everything
-  - [Changes since audit](https://github.com/paulmillr/noble-ciphers/compare/2.2.0..main)
 - at version 1.0.0, in Sep 2024, independently, by [cure53](https://cure53.de)
   - PDFs: [website](https://cure53.de/audit-report_noble-crypto-libs.pdf), [in-repo](./audit/2024-09-cure53-audit-nbl4.pdf)
   - [Changes since audit](https://github.com/paulmillr/noble-ciphers/compare/1.0.0..main)
   - Scope: everything
   - The audit has been funded by [OpenSats](https://opensats.org)
+
+We've started regular AI-assisted self-audits in Apr 2026.
 
 It is tested against property-based, cross-library and Wycheproof vectors,
 and is being fuzzed in [the separate repo](https://github.com/paulmillr/fuzzing).
@@ -517,61 +461,58 @@ Benchmarks measured on Apple M4.
 If you need truly exemplar performance, switch to [awasm-noble](https://github.com/paulmillr/awasm-noble).
 
 ```
-64B
-xsalsa20poly1305 x 735,835 ops/sec @ 1μs/op
-chacha20poly1305 x 581,395 ops/sec @ 1μs/op
-xchacha20poly1305 x 468,384 ops/sec @ 2μs/op
-aes-256-gcm x 201,126 ops/sec @ 4μs/op
-aes-256-gcm-siv x 162,284 ops/sec @ 6μs/op
-# Unauthenticated encryption
-salsa20 x 1,655,629 ops/sec @ 604ns/op
-xsalsa20 x 1,400,560 ops/sec @ 714ns/op
-chacha20 x 1,996,007 ops/sec @ 501ns/op
-xchacha20 x 1,404,494 ops/sec @ 712ns/op
-chacha8 x 2,145,922 ops/sec @ 466ns/op
-chacha12 x 2,036,659 ops/sec @ 491ns/op
-aes-ecb-256 x 1,019,367 ops/sec @ 981ns/op
-aes-cbc-256 x 931,966 ops/sec @ 1μs/op
-aes-ctr-256 x 954,198 ops/sec @ 1μs/op
+# 64B
+xsalsa20poly1305 1470 ns
+chacha20poly1305 1742 ns
+xchacha20poly1305 2306 ns
+aes-gcm-256 4605 ns
+aes-gcm-siv-256 5846 ns
+aes-siv-256 6772 ns
+## Unauthenticated encryption
+chacha20 468 ns
+aes-cbc-256 1019 ns
+aes-ctr-256 953 ns
+## Random number generator
+rngChacha8 479 ns
 
-1MB
-xsalsa20poly1305 x 334 ops/sec @ 2ms/op
-chacha20poly1305 x 333 ops/sec @ 2ms/op
-xchacha20poly1305 x 334 ops/sec @ 2ms/op
-aes-256-gcm x 94 ops/sec @ 10ms/op
-aes-256-gcm-siv x 90 ops/sec @ 11ms/op
-# Unauthenticated encryption
-salsa20 x 831 ops/sec @ 1ms/op
-xsalsa20 x 830 ops/sec @ 1ms/op
-chacha20 x 804 ops/sec @ 1ms/op
-xchacha20 x 797 ops/sec @ 1ms/op
-chacha8 x 1,495 ops/sec @ 668μs/op
-chacha12 x 1,148 ops/sec @ 871μs/op
-aes-ecb-256 x 289 ops/sec @ 3ms/op
-aes-cbc-256 x 114 ops/sec @ 8ms/op
-aes-ctr-256 x 127 ops/sec @ 7ms/op
-# Wrapper over built-in webcrypto
-webcrypto ctr-256 x 6,508 ops/sec @ 153μs/op
-webcrypto cbc-256 x 1,820 ops/sec @ 549μs/op
-webcrypto gcm-256 x 5,106 ops/sec @ 195μs/op
+# 1MB
+xsalsa20poly1305 x 341 mib/sec
+chacha20poly1305 x 336 mib/sec
+xchacha20poly1305 x 340 mib/sec
+aes-gcm-256 x 94.8 mib/sec
+aes-gcm-siv-256 x 91.4 mib/sec
+aes-siv-256 x 78.7 mib/sec
+## Unauthenticated encryption
+chacha20 x 808 mib/sec
+aes-cbc-256 x 117 mib/sec
+aes-ctr-256 x 130 mib/sec
+## Random number generator
+rngChacha8 x 1.49 gib/sec
+## Wrapper over built-in webcrypto
+webcrypto ctr-256 x 6.91 gib/sec
+webcrypto cbc-256 x 1.87 gib/sec
+webcrypto gcm-256 x 5.67 gib/sec
 ```
 
 Compare to other implementations:
 
 ```
-xsalsa20poly1305 (encrypt, 1MB)
-├─tweetnacl x 196 mb/sec
-├─awasm-noble_threads x 2,318 mb/sec
-├─awasm-noble_no_threads x 1,196 mb/sec
-└─noble x 305 mb/sec
+# type=Basic, algorithm=aes-ctr
+node             7,181 mib/sec
+noble-webcrypto  6,834 mib/sec · ≈
+noble            131 mib/sec · -55x
+stablelib        128 mib/sec · -56x
+aesjs            55.3 mib/sec · -130x
 
-aes-ctr-256 (encrypt, 1MB)
-├─stablelib x 123 mb/sec
-├─aesjs x 42 mb/sec
-├─awasm-noble_thread x 2,105 mb/sec
-├─awasm-noble_no_threads x 272 mb/sec
-├─noble_webcrypto x 5,965 mb/sec
-└─noble x 124 mb/sec
+# type=AEAD, algorithm=AES-GCM
+noble-webcrypto  5,979 mib/sec
+node             5,056 mib/sec · -1.2x
+noble            93.5 mib/sec · -64x
+stablelib        47.1 mib/sec · -127x
+
+# type=AEAD, algorithm=xsalsa20poly1305
+noble            338 mib/sec
+tweetnacl        211 mib/sec · -1.6x
 ```
 
 ## Upgrading
@@ -594,6 +535,14 @@ Changelog of v2, when upgrading from ciphers v1:
 - Remove modules `_assert` (use `utils`), `_micro` and `crypto` (use `webcrypto`)
 - Bump TS compilation target from es2020 to es2022
 - Massively improve error messages, make them more descriptive
+
+## Contributing & testing
+
+`npm install && npm run build && npm test` will build the code and run tests.
+Slow, multi-hour large-input tests are available separately: `npm run test:slow`.
+
+See [paulmillr.com/noble](https://paulmillr.com/noble/) for useful resources, articles,
+documentation and demos related to the library.
 
 ## License
 
