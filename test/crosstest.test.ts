@@ -384,11 +384,22 @@ export function test(
           // Failure to allocate is intentional: the scheduled large-input gate must not pass by
           // silently omitting the cases it exists to run.
           it.serial('5 GB large input', () => {
-            const input = new Uint8Array(5 * GB);
-            const nodeEncrypted = v.node.encrypt(input, v.opts);
-            const nobleEncrypted = v.noble.encrypt(input, v.opts);
+            // Peak RSS is the constraint: holding plaintext, both ciphertexts and the
+            // decrypted copy at once (~20 GB) OOM-kills a 16 GB CI runner. Drop each
+            // buffer as soon as it is checked, and verify decryption against the known
+            // all-zero plaintext instead of keeping a second 5 GB reference alive.
+            let input = new Uint8Array(5 * GB);
+            let nodeEncrypted = v.node.encrypt(input, v.opts);
+            let nobleEncrypted = v.noble.encrypt(input, v.opts);
+            input = null;
             eql(nobleEncrypted, nodeEncrypted);
-            eql(v.noble.decrypt(nodeEncrypted, v.opts), input);
+            nodeEncrypted = null;
+            const decrypted = v.noble.decrypt(nobleEncrypted, v.opts);
+            nobleEncrypted = null;
+            eql(decrypted.length, 5 * GB);
+            for (let i = 0; i < decrypted.length; i++) {
+              if (decrypted[i] !== 0) throw new Error(`decrypt mismatch at offset ${i}`);
+            }
           });
         }
       });

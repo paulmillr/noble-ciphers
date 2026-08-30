@@ -1,5 +1,5 @@
 import { describe, it } from '@paulmillr/jsbt/test.js';
-import fc from 'fast-check';
+import * as fc from '@paulmillr/jsbt/random.js';
 import { deepStrictEqual as eql, throws } from 'node:assert';
 import { pathToFileURL } from 'node:url';
 import * as u from '../src/utils.ts';
