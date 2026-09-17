@@ -108,6 +108,27 @@ function chachaCore(
   out[oi++] = (y12 + x12) | 0; out[oi++] = (y13 + x13) | 0;
   out[oi++] = (y14 + x14) | 0; out[oi++] = (y15 + x15) | 0;
 }
+
+// Local word-array equivalent of abytes(): hchacha is the only public API here
+// that accepts Uint32Array state directly.
+function abytes32(value: TArg<Uint32Array>, length: number, title: string): TRet<Uint32Array> {
+  if (value instanceof Uint32Array && value.length === length) return value as TRet<Uint32Array>;
+  const input: unknown = value;
+  const is32 =
+    input instanceof Uint32Array ||
+    (ArrayBuffer.isView(input) &&
+      input.constructor.name === 'Uint32Array' &&
+      'BYTES_PER_ELEMENT' in input &&
+      input.BYTES_PER_ELEMENT === 4);
+  if (!is32) throw new TypeError(`"${title}" expected Uint32Array, got type=${typeof input}`);
+  const words = input as Uint32Array;
+  if (words.length !== length)
+    throw new RangeError(
+      `"${title}" expected Uint32Array of length ${length}, got length=${words.length}`
+    );
+  return words as TRet<Uint32Array>;
+}
+
 /**
  * hchacha hashes key and nonce into key' and nonce' for xchacha20.
  * Algorithmically identical to `hchacha_small` from `test/misc/micro-ciphers.ts`,
@@ -118,6 +139,8 @@ function chachaCore(
  * @param k - Key words.
  * @param i - Nonce-prefix words.
  * @param out - Output buffer for the derived subkey.
+ * @throws On wrong argument types. {@link TypeError}
+ * @throws On wrong argument lengths. {@link RangeError}
  * @example
  * Derives the XChaCha subkey from sigma, key, and nonce-prefix words.
  *
@@ -133,6 +156,10 @@ function chachaCore(
 export function hchacha(
   s: TArg<Uint32Array>, k: TArg<Uint32Array>, i: TArg<Uint32Array>, out: TArg<Uint32Array>
 ): void {
+  s = abytes32(s, 4, 'sigma');
+  k = abytes32(k, 8, 'key');
+  i = abytes32(i, 4, 'nonce');
+  out = abytes32(out, 8, 'output');
   // Runs the shared chachaCore permutation, then subtracts the RFC 8439 feed-forward
   // it applies, recovering the raw permutation words hchacha needs.
   // LE hosts read the caller arrays in place (no copies); BE hosts get

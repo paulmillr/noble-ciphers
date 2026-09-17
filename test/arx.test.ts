@@ -233,6 +233,19 @@ export function test(
         hchacha(sigma, u32(key), u32(nonce.subarray(0, 16)), u32(subkey));
         eql(hex.encode(subkey), good);
       });
+      it('hchacha validates word arrays before writing output', () => {
+        const sigma = new Uint32Array(4);
+        const key = new Uint32Array(8);
+        const nonce = new Uint32Array(4);
+        const output = new Uint32Array(8).fill(0xdeadbeef);
+        const unchanged = output.slice();
+        throws(() => hchacha(sigma, new Uint32Array(), nonce, output), RangeError);
+        eql(output, unchanged);
+        throws(() => hchacha(new Uint32Array(3), key, nonce, output), RangeError);
+        throws(() => hchacha(sigma, key, new Uint32Array(3), output), RangeError);
+        throws(() => hchacha(sigma, key, nonce, new Uint32Array(7)), RangeError);
+        throws(() => hchacha(new Uint8Array(16) as any, key, nonce, output), TypeError);
+      });
     }
 
     // test taken from XChaCha20 TV1 in libsodium (line 93 in libsodium/test/default/xchacha20.c)
